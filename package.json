@@ -1,0 +1,26 @@
+{
+  "name": "do-not-call-manager",
+  "version": "1.0.0",
+  "description": "Do Not Call List Management Application",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "preview": "pnpm --filter frontend preview",
+    "lint": "pnpm --filter frontend lint",
+    "type-check": "pnpm --filter frontend type-check",
+    "install:all": "pnpm install && cd backend && poetry install"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
+
