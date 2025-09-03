@@ -7,7 +7,7 @@ import uvicorn
 from loguru import logger
 
 from .config import settings
-from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor
+from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api
 from .core.database import init_db, close_db
 
 
@@ -37,6 +37,7 @@ app = FastAPI(
     * **Phone Number Management**: Add, update, and track phone numbers for removal
     * **CRM Integration**: Support for Logics, Genesys, Ring Central, Convoso, and Ytel CRM systems
     * **DNC Processing**: Bulk CSV processing for Do Not Call list checking
+    * **FreeDNCList.com API**: Replicates the exact workflow of FreeDNCList.com for DNC checking
     * **Consent Management**: Track and manage messaging consent
     * **Real-time Status**: Monitor removal progress across all systems
     * **Reporting**: Analytics and audit trails
@@ -115,6 +116,13 @@ app.include_router(
     dnc_processor.router,
     prefix="/api/v1/dnc",
     tags=["DNC Processing"],
+    responses={404: {"description": "Not found"}},
+)
+
+app.include_router(
+    free_dnc_api.router,
+    prefix="/api/dnc",
+    tags=["FreeDNCList.com API"],
     responses={404: {"description": "Not found"}},
 )
 

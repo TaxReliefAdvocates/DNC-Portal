@@ -1,0 +1,10 @@
+Name,Email,Phone,Company,DNC_Status
+John Doe,john@example.com,555-123-4567,Acme Corp,SAFE
+Jane Smith,jane@example.com,555-987-6543,Tech Solutions,SAFE
+Bob Johnson,bob@example.com,555-111-1234,Global Industries,DNC_MATCH
+Alice Brown,alice@example.com,555-222-2222,Startup Inc,DNC_MATCH
+Charlie Wilson,charlie@example.com,555-333-4444,Enterprise LLC,DNC_MATCH
+Test User 1,test1@example.com,555-000-1234,Test Corp,DNC_MATCH
+Test User 2,test2@example.com,555-999-5678,Test Inc,DNC_MATCH
+Test User 3,test3@example.com,555-123-0000,Test LLC,DNC_MATCH
+Test User 4,test4@example.com,555-456-9999,Test Company,DNC_MATCH

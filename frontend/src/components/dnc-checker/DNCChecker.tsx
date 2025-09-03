@@ -86,7 +86,7 @@ export const DNCChecker: React.FC = () => {
       formData.append('file', file)
       formData.append('column_index', columnIndex.toString())
 
-      const response = await fetch('/api/v1/dnc/process-dnc', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/dnc/process-dnc`, {
         method: 'POST',
         body: formData,
       })

@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     ALLOWED_FILE_TYPES: List[str] = [".csv"]  # Only CSV for DNC processing
     
+    # Federal DNC API
+    FCC_API_KEY: Optional[str] = None
+    FCC_API_URL: str = "https://www.donotcall.gov/api/check"
+    
     # Processing
     BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3
