@@ -7,14 +7,19 @@ import {
   Clock, 
   Loader2, 
   RefreshCw,
-  TrendingUp,
-  BarChart3
+  BarChart3,
+  Building2,
+  MessageSquare,
+  Headphones,
+  Zap
 } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAppSelector } from '@/lib/hooks'
-import { CRMSystem } from '@/types'
+
+// Updated CRM system types to match the new systems
+type CRMSystem = 'logics' | 'genesys' | 'ringcentral' | 'convoso' | 'ytel'
 
 interface StatusCardProps {
   title: string
@@ -138,34 +143,36 @@ export const CRMStatusDashboard: React.FC = () => {
 
   const totalPhoneNumbers = phoneNumbers.length
 
+  // Updated CRM system display names
   const getCRMDisplayName = (crm: CRMSystem) => {
     switch (crm) {
-      case 'trackdrive':
-        return 'TrackDrive'
-      case 'irslogics':
-        return 'IRSLogics'
-      case 'listflex':
-        return 'ListFlex'
-      case 'retriever':
-        return 'Retriever'
-      case 'everflow':
-        return 'Everflow'
+      case 'logics':
+        return 'Logics'
+      case 'genesys':
+        return 'Genesys'
+      case 'ringcentral':
+        return 'Ring Central'
+      case 'convoso':
+        return 'Convoso'
+      case 'ytel':
+        return 'Ytel'
       default:
         return crm
     }
   }
 
+  // Updated CRM system icons
   const getCRMIcon = (crm: CRMSystem) => {
     switch (crm) {
-      case 'trackdrive':
-        return <TrendingUp className="w-5 h-5" />
-      case 'irslogics':
-        return <Phone className="w-5 h-5" />
-      case 'listflex':
-        return <Phone className="w-5 h-5" />
-      case 'retriever':
-        return <Phone className="w-5 h-5" />
-      case 'everflow':
+      case 'logics':
+        return <Building2 className="w-5 h-5" />
+      case 'genesys':
+        return <Headphones className="w-5 h-5" />
+      case 'ringcentral':
+        return <MessageSquare className="w-5 h-5" />
+      case 'convoso':
+        return <Zap className="w-5 h-5" />
+      case 'ytel':
         return <Phone className="w-5 h-5" />
       default:
         return <Phone className="w-5 h-5" />
@@ -177,7 +184,19 @@ export const CRMStatusDashboard: React.FC = () => {
     console.log(`Retrying failed removals for ${crmSystem}`)
   }
 
-  const getPrimaryStatus = (crmStats: typeof stats.trackdrive) => {
+  // Default stats for new CRM systems if they don't exist yet
+  const defaultStats = {
+    logics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    genesys: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ringcentral: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    convoso: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ytel: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 }
+  }
+
+  // Merge existing stats with default stats
+  const mergedStats = { ...defaultStats, ...stats }
+
+  const getPrimaryStatus = (crmStats: typeof defaultStats.logics) => {
     if (crmStats.failed > 0) return 'failed'
     if (crmStats.processing > 0) return 'processing'
     if (crmStats.pending > 0) return 'pending'
@@ -194,8 +213,8 @@ export const CRMStatusDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {Object.entries(stats).map(([crmSystem, crmStats]) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {Object.entries(mergedStats).map(([crmSystem, crmStats]) => (
           <StatusCard
             key={crmSystem}
             title={getCRMDisplayName(crmSystem as CRMSystem)}
@@ -217,7 +236,7 @@ export const CRMStatusDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Processed</p>
                 <p className="text-2xl font-bold">
-                  {Object.values(stats).reduce((sum, stat) => sum + stat.total, 0)}
+                  {Object.values(mergedStats).reduce((sum, stat) => sum + stat.total, 0)}
                 </p>
               </div>
               <BarChart3 className="w-8 h-8 text-blue-500" />
@@ -232,8 +251,8 @@ export const CRMStatusDashboard: React.FC = () => {
                 <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
                 <p className="text-2xl font-bold text-green-600">
                   {(() => {
-                    const total = Object.values(stats).reduce((sum, stat) => sum + stat.total, 0)
-                    const completed = Object.values(stats).reduce((sum, stat) => sum + stat.completed, 0)
+                    const total = Object.values(mergedStats).reduce((sum, stat) => sum + stat.total, 0)
+                    const completed = Object.values(mergedStats).reduce((sum, stat) => sum + stat.completed, 0)
                     return total > 0 ? Math.round((completed / total) * 100) : 0
                   })()}%
                 </p>
@@ -249,11 +268,11 @@ export const CRMStatusDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">In Progress</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {Object.values(stats).reduce((sum, stat) => sum + stat.processing, 0)}
+                  {Object.values(mergedStats).reduce((sum, stat) => sum + stat.processing, 0)}
                 </p>
               </div>
               {(() => {
-                const processingCount = Object.values(stats).reduce((sum, stat) => sum + stat.processing, 0)
+                const processingCount = Object.values(mergedStats).reduce((sum, stat) => sum + stat.processing, 0)
                 return processingCount > 0 ? (
                   <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                 ) : (
@@ -270,7 +289,7 @@ export const CRMStatusDashboard: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Failed</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {Object.values(stats).reduce((sum, stat) => sum + stat.failed, 0)}
+                  {Object.values(mergedStats).reduce((sum, stat) => sum + stat.failed, 0)}
                 </p>
               </div>
               <AlertCircle className="w-8 h-8 text-red-500" />

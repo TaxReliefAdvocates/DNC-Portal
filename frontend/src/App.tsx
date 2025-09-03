@@ -8,6 +8,7 @@ import { store, persistor } from './lib/store'
 import { PhoneInput } from './components/phone-input/PhoneInput'
 import { CRMStatusDashboard } from './components/crm-status/CRMStatusDashboard'
 import { AdminDashboard } from './components/admin/AdminDashboard'
+import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
 import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib/features/phoneNumbers/phoneNumbersSlice'
@@ -17,7 +18,7 @@ import { addNotification } from './lib/features/ui/uiSlice'
 const AppContent: React.FC = () => {
   const dispatch = useAppDispatch()
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
-  const [activeTab, setActiveTab] = useState<'main' | 'admin'>('main')
+  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker'>('main')
 
   useEffect(() => {
     // Reset loading state on mount and after a short delay to ensure it's cleared
@@ -70,12 +71,10 @@ const AppContent: React.FC = () => {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      <div className="container mx-auto px-4 py-8">
-        {activeTab === 'main' ? (
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'main':
+        return (
           <>
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -84,7 +83,7 @@ const AppContent: React.FC = () => {
               className="text-center mb-8"
             >
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Do Not Call List Manager
+                TRA Do Not Call List Manager
               </h1>
               <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                 Manage phone number removals from Do Not Call lists across multiple CRM systems
@@ -158,9 +157,25 @@ const AppContent: React.FC = () => {
               </motion.div>
             )}
           </>
-        ) : (
-          <AdminDashboard />
-        )}
+        )
+      
+      case 'dnc-checker':
+        return <DNCChecker />
+      
+      case 'admin':
+        return <AdminDashboard />
+      
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      <div className="container mx-auto px-4 py-8">
+        {renderTabContent()}
 
         {/* Footer */}
         <motion.footer
@@ -170,7 +185,7 @@ const AppContent: React.FC = () => {
           className="mt-16 text-center text-gray-500 text-sm"
         >
           <p>
-            Do Not Call List Management System • Built with React, TypeScript, and FastAPI
+            TRA Do Not Call List Management System • Built with React, TypeScript, and FastAPI
           </p>
         </motion.footer>
       </div>

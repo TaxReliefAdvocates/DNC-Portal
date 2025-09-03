@@ -7,7 +7,6 @@ import phoneNumbersReducer from '../features/phoneNumbers/phoneNumbersSlice'
 import crmStatusReducer from '../features/crmStatus/crmStatusSlice'
 import consentReducer from '../features/consent/consentSlice'
 import uiReducer from '../features/ui/uiSlice'
-import reportsReducer from '../features/reports/reportsSlice'
 
 const persistConfig = {
   key: 'do-not-call-root',
@@ -20,7 +19,6 @@ const rootReducer = combineReducers({
   crmStatus: crmStatusReducer,
   consent: consentReducer,
   ui: uiReducer,
-  reports: reportsReducer,
 })
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

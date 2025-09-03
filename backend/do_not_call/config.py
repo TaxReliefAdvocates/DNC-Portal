@@ -32,12 +32,21 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
-    # CRM API Keys
-    TRACKDRIVE_API_KEY: Optional[str] = None
-    TRACKDRIVE_BASE_URL: str = "https://api.trackdrive.com"
+    # CRM API Keys - Updated for new systems
+    LOGICS_API_KEY: Optional[str] = None
+    LOGICS_BASE_URL: str = "https://api.logics.com"
     
-    EVERYSOURCE_API_KEY: Optional[str] = None
-    EVERYSOURCE_BASE_URL: str = "https://api.everysource.com"
+    GENESYS_API_KEY: Optional[str] = None
+    GENESYS_BASE_URL: str = "https://api.genesys.com"
+    
+    RINGCENTRAL_API_KEY: Optional[str] = None
+    RINGCENTRAL_BASE_URL: str = "https://api.ringcentral.com"
+    
+    CONVOSO_API_KEY: Optional[str] = None
+    CONVOSO_BASE_URL: str = "https://api.convoso.com"
+    
+    YTEL_API_KEY: Optional[str] = None
+    YTEL_BASE_URL: str = "https://api.ytel.com"
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
@@ -52,7 +61,7 @@ class Settings(BaseSettings):
     
     # File Upload
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_FILE_TYPES: List[str] = [".txt", ".csv", ".xlsx"]
+    ALLOWED_FILE_TYPES: List[str] = [".csv"]  # Only CSV for DNC processing
     
     # Processing
     BATCH_SIZE: int = 100

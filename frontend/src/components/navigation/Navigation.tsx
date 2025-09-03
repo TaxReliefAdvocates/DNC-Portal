@@ -1,10 +1,10 @@
 import React from 'react'
 import { Button } from '../ui/button'
-import { Home, BarChart3, Settings, Phone } from 'lucide-react'
+import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
 
 interface NavigationProps {
-  activeTab: 'main' | 'admin'
-  onTabChange: (tab: 'main' | 'admin') => void
+  activeTab: 'main' | 'admin' | 'dnc-checker'
+  onTabChange: (tab: 'main' | 'admin' | 'dnc-checker') => void
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
@@ -15,7 +15,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-2">
               <Phone className="h-6 w-6 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">DNC Manager</span>
+              <span className="text-xl font-bold text-gray-900">TRA DNC Portal</span>
             </div>
             
             <div className="flex space-x-1">
@@ -26,6 +26,15 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               >
                 <Home className="h-4 w-4" />
                 <span>Main View</span>
+              </Button>
+              
+              <Button
+                variant={activeTab === 'dnc-checker' ? 'default' : 'ghost'}
+                onClick={() => onTabChange('dnc-checker')}
+                className="flex items-center space-x-2"
+              >
+                <FileText className="h-4 w-4" />
+                <span>DNC Checker</span>
               </Button>
               
               <Button
@@ -50,6 +59,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     </nav>
   )
 }
+
 
 
 

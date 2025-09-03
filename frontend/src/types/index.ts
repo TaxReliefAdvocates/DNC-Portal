@@ -22,8 +22,29 @@ export interface CRMStatus {
   retry_count: number
 }
 
-export type CRMSystem = 'trackdrive' | 'irslogics' | 'listflex' | 'retriever' | 'everflow'
+// Updated CRM systems to match the new backend
+export type CRMSystem = 'logics' | 'genesys' | 'ringcentral' | 'convoso' | 'ytel'
 export type CRMStatusType = 'pending' | 'processing' | 'completed' | 'failed' | 'retry'
+
+// DNC Processing Types
+export interface DNCResult {
+  original_data: string[]
+  phone_number: string
+  is_dnc: boolean
+  dnc_source: string | null
+  status: string
+  notes: string | null
+}
+
+export interface DNCResponse {
+  success: boolean
+  total_records: number
+  dnc_matches: number
+  safe_to_call: number
+  data: DNCResult[]
+  processed_at: string
+  filename: string
+}
 
 // Consent Types
 export interface Consent {

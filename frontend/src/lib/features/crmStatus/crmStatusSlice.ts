@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
-import { CRMStatus, CRMSystem, CRMStatusType } from '../../../types'
+import { CRMStatus, CRMSystem } from '../../../types'
 import { API_ENDPOINTS, apiCall } from '../../api'
 
 interface CRMStatusState {
@@ -7,11 +7,11 @@ interface CRMStatusState {
   isLoading: boolean
   error: string | null
   stats: {
-    trackdrive: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    irslogics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    listflex: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    retriever: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    everflow: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    logics: { total: number, pending: number, processing: number, completed: number, failed: number },
+    genesys: { total: number, pending: number, processing: number, completed: number, failed: number },
+    ringcentral: { total: number, pending: number, processing: number, completed: number, failed: number },
+    convoso: { total: number, pending: number, processing: number, completed: number, failed: number },
+    ytel: { total: number, pending: number, processing: number, completed: number, failed: number },
   }
 }
 
@@ -20,11 +20,11 @@ const initialState: CRMStatusState = {
   isLoading: false,
   error: null,
   stats: {
-    trackdrive: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    irslogics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    listflex: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    retriever: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    everflow: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    logics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    genesys: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ringcentral: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    convoso: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ytel: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
   },
 }
 
@@ -76,11 +76,11 @@ const crmStatusSlice = createSlice({
     clearCRMStatuses: (state) => {
       state.crmStatuses = []
       state.stats = {
-        trackdrive: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-        irslogics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-        listflex: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-        retriever: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-        everflow: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+        logics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+        genesys: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+        ringcentral: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+        convoso: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+        ytel: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
       }
     },
   },
@@ -133,11 +133,11 @@ const crmStatusSlice = createSlice({
 // Helper function to calculate stats
 function calculateStats(crmStatuses: CRMStatus[]) {
   const stats = {
-    trackdrive: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    irslogics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    listflex: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    retriever: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
-    everflow: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    logics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    genesys: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ringcentral: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    convoso: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
+    ytel: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
   }
   
   crmStatuses.forEach(status => {

@@ -10,22 +10,31 @@ from ...core.models import (
     PhoneNumber
 )
 from ...core.crm_clients.base import BaseCRMClient
-from ...core.crm_clients.trackdrive import TrackDriveClient
-from ...core.crm_clients.everysource import EverySourceClient
+from ...core.crm_clients.logics import LogicsClient
+from ...core.crm_clients.genesys import GenesysClient
+from ...core.crm_clients.ringcentral import RingCentralClient
+from ...core.crm_clients.convoso import ConvosoClient
+from ...core.crm_clients.ytel import YtelClient
 
 router = APIRouter()
 
 
 def get_crm_client(crm_system: str) -> BaseCRMClient:
     """Get CRM client based on system name"""
-    if crm_system == "trackdrive":
-        return TrackDriveClient()
-    elif crm_system == "everysource":
-        return EverySourceClient()
+    if crm_system == "logics":
+        return LogicsClient()
+    elif crm_system == "genesys":
+        return GenesysClient()
+    elif crm_system == "ringcentral":
+        return RingCentralClient()
+    elif crm_system == "convoso":
+        return ConvosoClient()
+    elif crm_system == "ytel":
+        return YtelClient()
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported CRM system: {crm_system}"
+            detail=f"Unsupported CRM system: {crm_system}. Supported systems: logics, genesys, ringcentral, convoso, ytel"
         )
 
 
@@ -40,7 +49,7 @@ async def remove_number_from_crm(
     Remove a phone number from a specific CRM system
     
     - **phone_number_id**: ID of the phone number to remove
-    - **crm_system**: CRM system name (trackdrive, everysource, etc.)
+    - **crm_system**: CRM system name (logics, genesys, ringcentral, convoso, ytel)
     """
     # Get phone number
     phone_number = db.query(PhoneNumber).filter(PhoneNumber.id == phone_number_id).first()
@@ -253,7 +262,7 @@ async def get_crm_stats(db: Session = Depends(get_db)):
     # Get stats by CRM system
     stats = {}
     
-    for crm_system in ["trackdrive", "everysource", "other"]:
+    for crm_system in ["logics", "genesys", "ringcentral", "convoso", "ytel"]:
         total = db.query(CRMStatus).filter(CRMStatus.crm_system == crm_system).count()
         pending = db.query(CRMStatus).filter(
             CRMStatus.crm_system == crm_system,
@@ -282,6 +291,43 @@ async def get_crm_stats(db: Session = Depends(get_db)):
         }
     
     return stats
+
+
+@router.get("/systems")
+async def get_supported_crm_systems():
+    """
+    Get list of supported CRM systems
+    """
+    return {
+        "supported_systems": [
+            {
+                "name": "logics",
+                "display_name": "Logics",
+                "description": "Logics CRM system integration"
+            },
+            {
+                "name": "genesys",
+                "display_name": "Genesys",
+                "description": "Genesys contact center platform"
+            },
+            {
+                "name": "ringcentral",
+                "display_name": "Ring Central",
+                "description": "Ring Central communication platform"
+            },
+            {
+                "name": "convoso",
+                "display_name": "Convoso",
+                "description": "Convoso dialer platform"
+            },
+            {
+                "name": "ytel",
+                "display_name": "Ytel",
+                "description": "Ytel communication platform"
+            }
+        ]
+    }
+
 
 
 

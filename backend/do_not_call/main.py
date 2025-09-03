@@ -7,7 +7,7 @@ import uvicorn
 from loguru import logger
 
 from .config import settings
-from .api.v1 import phone_numbers, crm_integrations, consent, reports
+from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor
 from .core.database import init_db, close_db
 
 
@@ -35,7 +35,8 @@ app = FastAPI(
     ## Features
     
     * **Phone Number Management**: Add, update, and track phone numbers for removal
-    * **CRM Integration**: Support for TrackDrive, EverySource, and other CRM systems
+    * **CRM Integration**: Support for Logics, Genesys, Ring Central, Convoso, and Ytel CRM systems
+    * **DNC Processing**: Bulk CSV processing for Do Not Call list checking
     * **Consent Management**: Track and manage messaging consent
     * **Real-time Status**: Monitor removal progress across all systems
     * **Reporting**: Analytics and audit trails
@@ -110,6 +111,13 @@ app.include_router(
     responses={404: {"description": "Not found"}},
 )
 
+app.include_router(
+    dnc_processor.router,
+    prefix="/api/v1/dnc",
+    tags=["DNC Processing"],
+    responses={404: {"description": "Not found"}},
+)
+
 
 @app.get("/", tags=["Health"])
 async def root():
@@ -179,10 +187,19 @@ def custom_openapi():
         - Status tracking across all CRM systems
         
         ### CRM Integration
-        - TrackDrive API integration
-        - EverySource API integration
+        - Logics CRM system integration
+        - Genesys contact center platform
+        - Ring Central communication platform
+        - Convoso dialer platform
+        - Ytel communication platform
         - Extensible architecture for additional CRM systems
         - Rate limiting and error handling
+        
+        ### DNC Processing
+        - CSV file upload and processing
+        - Bulk phone number validation
+        - Federal DNC list checking
+        - Batch processing for large files
         
         ### Consent Management
         - Consent status tracking
@@ -232,6 +249,14 @@ def custom_openapi():
              }'
         ```
         
+        ### Processing DNC CSV
+        ```bash
+        curl -X POST "http://localhost:8000/api/v1/dnc/process-dnc" \\
+             -H "X-API-Key: your-api-key" \\
+             -F "file=@phone_numbers.csv" \\
+             -F "column_index=1"
+        ```
+        
         ### Checking CRM Status
         ```bash
         curl -X GET "http://localhost:8000/api/v1/crm/status/5551234567" \\
@@ -258,6 +283,10 @@ def custom_openapi():
             "description": "Operations for CRM system integrations and status tracking",
         },
         {
+            "name": "DNC Processing",
+            "description": "Operations for processing CSV files and checking DNC status",
+        },
+        {
             "name": "Consent Management",
             "description": "Operations for managing messaging consent and compliance",
         },
@@ -272,7 +301,7 @@ def custom_openapi():
     ]
     
     app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    return openapi_schema
 
 
 app.openapi = custom_openapi
@@ -286,6 +315,7 @@ if __name__ == "__main__":
         reload=True,
         log_level="info",
     )
+
 
 
 

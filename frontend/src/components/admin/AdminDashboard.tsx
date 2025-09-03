@@ -4,7 +4,7 @@ import { fetchPhoneNumbers } from '../../lib/features/phoneNumbers/phoneNumbersS
 import { fetchCRMStatuses } from '../../lib/features/crmStatus/crmStatusSlice'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
-import { Phone, Users, CheckCircle, XCircle, Clock, Database } from 'lucide-react'
+import { Phone, CheckCircle, XCircle, Clock, Database } from 'lucide-react'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -124,18 +124,18 @@ export const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>TrackDrive Statistics</CardTitle>
-            <CardDescription>Removal status for TrackDrive CRM</CardDescription>
+            <CardTitle>Logics Statistics</CardTitle>
+            <CardDescription>Removal status for Logics CRM</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(stats.trackdrive).map(([status, count]) => (
+              {Object.entries(stats.logics).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(status)}
                     <span className="capitalize">{status}</span>
                   </div>
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-semibold">{count as number}</span>
                 </div>
               ))}
             </div>
@@ -144,18 +144,18 @@ export const AdminDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>IRSLogics Statistics</CardTitle>
-            <CardDescription>Removal status for IRSLogics CRM</CardDescription>
+            <CardTitle>Genesys Statistics</CardTitle>
+            <CardDescription>Removal status for Genesys CRM</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(stats.irslogics || {}).map(([status, count]) => (
+              {Object.entries(stats.genesys).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(status)}
                     <span className="capitalize">{status}</span>
                   </div>
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-semibold">{count as number}</span>
                 </div>
               ))}
             </div>
@@ -164,18 +164,18 @@ export const AdminDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>ListFlex Statistics</CardTitle>
-            <CardDescription>Removal status for ListFlex CRM</CardDescription>
+            <CardTitle>Ring Central Statistics</CardTitle>
+            <CardDescription>Removal status for Ring Central CRM</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(stats.listflex || {}).map(([status, count]) => (
+              {Object.entries(stats.ringcentral).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(status)}
                     <span className="capitalize">{status}</span>
                   </div>
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-semibold">{count as number}</span>
                 </div>
               ))}
             </div>
@@ -184,18 +184,18 @@ export const AdminDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Retriever Statistics</CardTitle>
-            <CardDescription>Removal status for Retriever CRM</CardDescription>
+            <CardTitle>Convoso Statistics</CardTitle>
+            <CardDescription>Removal status for Convoso CRM</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(stats.retriever || {}).map(([status, count]) => (
+              {Object.entries(stats.convoso).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(status)}
                     <span className="capitalize">{status}</span>
                   </div>
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-semibold">{count as number}</span>
                 </div>
               ))}
             </div>
@@ -204,18 +204,18 @@ export const AdminDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Everflow Statistics</CardTitle>
-            <CardDescription>Removal status for Everflow CRM</CardDescription>
+            <CardTitle>Ytel Statistics</CardTitle>
+            <CardDescription>Removal status for Ytel CRM</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(stats.everflow || {}).map(([status, count]) => (
+              {Object.entries(stats.ytel).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(status)}
                     <span className="capitalize">{status}</span>
                   </div>
-                  <span className="font-semibold">{count}</span>
+                  <span className="font-semibold">{count as number}</span>
                 </div>
               ))}
             </div>
@@ -272,9 +272,9 @@ export const AdminDashboard: React.FC = () => {
               {crmStatuses.slice(0, 10).map((status) => (
                 <div key={status.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <div className="font-medium">{status.phone_number}</div>
+                    <div className="font-medium">Phone ID: {status.phone_number_id}</div>
                     <div className="text-sm text-gray-500">
-                      {status.crm_system} • {new Date(status.updated_at).toLocaleDateString()}
+                      {status.crm_system} • {new Date().toLocaleDateString()}
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
