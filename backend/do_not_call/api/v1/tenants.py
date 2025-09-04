@@ -9,6 +9,7 @@ from ...core.models import (
     DNCEntry, DNCEntryCreate, DNCEntryResponse,
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
+    CRMDNCSample,
 )
 
 router = APIRouter()
@@ -108,4 +109,45 @@ def create_job_item(payload: RemovalJobItemCreate, db: Session = Depends(get_db)
 def list_jobs(organization_id: int, db: Session = Depends(get_db)):
     return db.query(RemovalJob).filter_by(organization_id=organization_id).order_by(RemovalJob.id.desc()).all()
 
+
+@router.post("/dnc-samples/ingest/{organization_id}")
+def ingest_samples(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
+    """Bulk ingest up to 10k rows per call. Rows: {phone_e164, in_national_dnc, in_org_dnc, crm_source?, notes?}."""
+    to_add: list[CRMDNCSample] = []
+    from datetime import datetime
+    sample_date = datetime.utcnow()
+    for r in rows[:10000]:
+        phone = str(r.get("phone_e164", ""))
+        if not phone:
+            continue
+        to_add.append(CRMDNCSample(
+            organization_id=organization_id,
+            sample_date=sample_date,
+            phone_e164=phone,
+            in_national_dnc=bool(r.get("in_national_dnc", False)),
+            in_org_dnc=bool(r.get("in_org_dnc", False)),
+            crm_source=r.get("crm_source"),
+            notes=r.get("notes"),
+        ))
+    if to_add:
+        db.bulk_save_objects(to_add)
+        db.commit()
+    return {"ingested": len(to_add), "sample_date": sample_date.isoformat()}
+
+
+@router.get("/dnc-samples/{organization_id}")
+def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 1000, db: Session = Depends(get_db)):
+    q = db.query(CRMDNCSample).filter(CRMDNCSample.organization_id == organization_id)
+    if only_gaps:
+        q = q.filter(CRMDNCSample.in_national_dnc.is_(True), CRMDNCSample.in_org_dnc.is_(False))
+    rows = q.order_by(CRMDNCSample.sample_date.desc()).limit(min(10000, limit)).all()
+    return [{
+        "id": r.id,
+        "phone_e164": r.phone_e164,
+        "in_national_dnc": r.in_national_dnc,
+        "in_org_dnc": r.in_org_dnc,
+        "sample_date": r.sample_date.isoformat(),
+        "crm_source": r.crm_source,
+        "notes": r.notes,
+    } for r in rows]
 

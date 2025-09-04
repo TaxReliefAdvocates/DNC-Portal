@@ -276,6 +276,27 @@ class PropagationAttempt(Base):
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
 
+class CRMDNCSample(Base):
+    """Daily sample of CRM phone numbers vs National DNC and our org DNC."""
+
+    __tablename__ = "crm_dnc_samples"
+    __table_args__ = (
+        Index("ix_crm_sample_org_date", "organization_id", "sample_date"),
+        Index("ix_crm_sample_phone", "phone_e164"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    sample_date = Column(DateTime(timezone=True), nullable=False)
+    phone_e164 = Column(String(20), nullable=False)
+    in_national_dnc = Column(Boolean, default=False, nullable=False)
+    in_org_dnc = Column(Boolean, default=False, nullable=False)
+    crm_source = Column(String(50), nullable=True)  # which CRM pulled from
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # No explicit relationships to keep ingestion fast
+
 # Pydantic models for API requests/responses
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
