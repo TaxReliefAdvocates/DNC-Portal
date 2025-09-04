@@ -5,6 +5,8 @@ from jose.exceptions import JWTError
 import httpx
 from functools import lru_cache
 from ..config import settings
+from .database import get_db
+from .models import User, OrgUser, Organization
 
 
 class Principal:
@@ -50,15 +52,21 @@ async def get_principal(
                 claims = jwt.get_unverified_claims(token)
             # Common Entra claim ids: oid (object id), tid (tenant id), roles / groups
             oid = claims.get("oid") or claims.get("sub")
-            if oid:
-                # In a full implementation, map oid→users table; here we hash-ish to int stub
-                # Stable short int from last 6 hex of oid
-                import re
-                hexs = re.sub("[^0-9a-fA-F]", "", str(oid))[-6:]
-                try:
-                    user_id = int(hexs, 16)
-                except Exception:
-                    user_id = None
+            email = claims.get("preferred_username") or claims.get("upn") or claims.get("email")
+            # Map oid/email → user record (create if missing)
+            if oid or email:
+                db = next(get_db())
+                user = None
+                if oid:
+                    user = db.query(User).filter_by(oid=str(oid)).first()
+                if not user and email:
+                    user = db.query(User).filter_by(email=str(email)).first()
+                if not user:
+                    user = User(oid=str(oid) if oid else None, email=str(email) if email else f"user-{oid}@local", name=email)
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                user_id = user.id
             roles = claims.get("roles") or claims.get("groups") or []
             if isinstance(roles, list) and roles:
                 # Prefer owner/admin if present

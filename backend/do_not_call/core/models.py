@@ -140,6 +140,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    oid = Column(String(64), unique=True, index=True, nullable=True)  # Entra object id
     email = Column(String(320), unique=True, index=True, nullable=False)
     name = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
