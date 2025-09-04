@@ -209,6 +209,7 @@ class DNCEntry(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     phone_e164 = Column(String(20), nullable=False)
     reason = Column(String(200), nullable=True)
+    channel = Column(String(20), nullable=True)  # sms, voice, email
     source = Column(String(50), nullable=True)  # manual, import, api, tps, freednclist, etc.
     source_service_key = Column(String(50), nullable=True)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -275,6 +276,42 @@ class PropagationAttempt(Base):
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
+
+class SMSOptOut(Base):
+    """Tracks STOP/opt-out SMS events and optional linking to a DNCEntry."""
+
+    __tablename__ = "sms_opt_outs"
+    __table_args__ = (Index("ix_sms_org_phone", "organization_id", "phone_e164"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    phone_e164 = Column(String(20), nullable=False)
+    message_id = Column(String(100), nullable=True)
+    carrier = Column(String(50), nullable=True)
+    keyword = Column(String(20), nullable=True)  # STOP, STOPALL, etc.
+    received_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    dnc_entry_id = Column(Integer, ForeignKey("dnc_entries.id"), nullable=True)
+    processed = Column(Boolean, default=False, nullable=False)
+    notes = Column(Text, nullable=True)
+
+
+class DNCRequest(Base):
+    """User-submitted DNC requests requiring admin approval."""
+
+    __tablename__ = "dnc_requests"
+    __table_args__ = (Index("ix_dncr_org_phone", "organization_id", "phone_e164"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    phone_e164 = Column(String(20), nullable=False)
+    reason = Column(String(200), nullable=True)
+    channel = Column(String(20), nullable=True)
+    status = Column(String(20), default="pending", nullable=False)  # pending, approved, denied
+    requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reviewed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decision_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
 
 class CRMDNCSample(Base):
     """Daily sample of CRM phone numbers vs National DNC and our org DNC."""

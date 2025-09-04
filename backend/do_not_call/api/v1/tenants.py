@@ -9,7 +9,7 @@ from ...core.models import (
     DNCEntry, DNCEntryCreate, DNCEntryResponse,
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
-    CRMDNCSample,
+    CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry,
 )
 
 router = APIRouter()
@@ -150,4 +150,88 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
         "crm_source": r.crm_source,
         "notes": r.notes,
     } for r in rows]
+
+
+# SMS STOP ingest
+@router.post("/sms-stop/ingest/{organization_id}")
+def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
+    items: list[SMSOptOut] = []
+    from datetime import datetime
+    for r in rows:
+        phone = str(r.get("phone_e164", ""))
+        if not phone:
+            continue
+        items.append(SMSOptOut(
+            organization_id=organization_id,
+            phone_e164=phone,
+            message_id=r.get("message_id"),
+            carrier=r.get("carrier"),
+            keyword=r.get("keyword", "STOP"),
+            received_at=datetime.utcnow(),
+            notes=r.get("notes"),
+        ))
+    if items:
+        db.bulk_save_objects(items)
+        db.commit()
+    return {"ingested": len(items)}
+
+
+# DNC Request workflow
+@router.post("/dnc-requests/{organization_id}")
+def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db)):
+    req = DNCRequest(
+        organization_id=organization_id,
+        phone_e164=str(payload.get("phone_e164", "")),
+        reason=payload.get("reason"),
+        channel=payload.get("channel"),
+        requested_by_user_id=int(payload.get("requested_by_user_id")),
+        status="pending",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return {"id": req.id, "status": req.status}
+
+
+@router.post("/dnc-requests/{request_id}/approve")
+def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db)):
+    req = db.query(DNCRequest).get(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "pending":
+        raise HTTPException(status_code=400, detail="Request already decided")
+    req.status = "approved"
+    req.reviewed_by_user_id = int(payload.get("reviewed_by_user_id"))
+    req.decision_notes = payload.get("notes")
+    from datetime import datetime
+    req.decided_at = datetime.utcnow()
+    # Create DNC entry now
+    entry = DNCEntry(
+        organization_id=req.organization_id,
+        phone_e164=req.phone_e164,
+        reason=req.reason,
+        channel=req.channel,
+        source="user_request",
+        created_by_user_id=req.requested_by_user_id,
+        notes=req.decision_notes,
+    )
+    db.add(entry)
+    db.commit()
+    return {"request_id": req.id, "status": req.status}
+
+
+@router.post("/dnc-requests/{request_id}/deny")
+def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db)):
+    req = db.query(DNCRequest).get(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "pending":
+        raise HTTPException(status_code=400, detail="Request already decided")
+    req.status = "denied"
+    req.reviewed_by_user_id = int(payload.get("reviewed_by_user_id"))
+    req.decision_notes = payload.get("notes")
+    from datetime import datetime
+    req.decided_at = datetime.utcnow()
+    db.commit()
+    return {"request_id": req.id, "status": req.status}
 
