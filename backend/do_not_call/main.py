@@ -7,7 +7,7 @@ import uvicorn
 from loguru import logger
 
 from .config import settings
-from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api
+from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants
 from .core.database import init_db, close_db
 
 
@@ -123,6 +123,13 @@ app.include_router(
     free_dnc_api.router,
     prefix="/api/dnc",
     tags=["FreeDNCList.com API"],
+    responses={404: {"description": "Not found"}},
+)
+
+app.include_router(
+    tenants.router,
+    prefix="/api/v1/tenants",
+    tags=["Tenants & DNC"],
     responses={404: {"description": "Not found"}},
 )
 
