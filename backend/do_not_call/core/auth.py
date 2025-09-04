@@ -1,5 +1,7 @@
 from typing import Optional
 from fastapi import Header, HTTPException, status
+from jose import jwt
+from jose.utils import base64url_decode
 
 
 class Principal:
@@ -10,19 +12,63 @@ class Principal:
 
 
 async def get_principal(
+    authorization: Optional[str] = Header(default=None, alias="Authorization"),
     x_org_id: Optional[str] = Header(default=None, alias="X-Org-Id"),
     x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
     x_role: Optional[str] = Header(default=None, alias="X-Role"),
 ) -> Principal:
-    """Stub mapping for Entra ID claims → principal.
-    Frontend/gateway should map Entra claims into headers X-Org-Id, X-User-Id, X-Role.
+    """Map Entra JWT or fallback headers to a Principal.
+
+    For production, provide a valid Entra JWT in Authorization: Bearer {token}.
+    This implementation parses claims without signature validation as a stopgap
+    unless a future configuration supplies issuer/audience/keys.
     """
-    try:
-        org_id = int(x_org_id) if x_org_id else None
-        user_id = int(x_user_id) if x_user_id else None
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid principal headers")
-    role = (x_role or "member").lower()
+    user_id: Optional[int] = None
+    org_id: Optional[int] = None
+    role: str = (x_role or "member").lower()
+
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1]
+        try:
+            # Avoid signature validation for now; just read claims
+            claims = jwt.get_unverified_claims(token)
+            # Common Entra claim ids: oid (object id), tid (tenant id), roles / groups
+            oid = claims.get("oid") or claims.get("sub")
+            if oid:
+                # In a full implementation, map oid→users table; here we hash-ish to int stub
+                # Stable short int from last 6 hex of oid
+                import re
+                hexs = re.sub("[^0-9a-fA-F]", "", str(oid))[-6:]
+                try:
+                    user_id = int(hexs, 16)
+                except Exception:
+                    user_id = None
+            roles = claims.get("roles") or claims.get("groups") or []
+            if isinstance(roles, list) and roles:
+                # Prefer owner/admin if present
+                lowered = {str(r).lower() for r in roles}
+                if "owner" in lowered:
+                    role = "owner"
+                elif "admin" in lowered:
+                    role = "admin"
+                else:
+                    role = "member"
+        except Exception:
+            # Fall back to headers if jwt parsing fails
+            pass
+
+    # Fallback / override from headers
+    if x_user_id:
+        try:
+            user_id = int(x_user_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid X-User-Id")
+    if x_org_id:
+        try:
+            org_id = int(x_org_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid X-Org-Id")
+
     return Principal(user_id=user_id, organization_id=org_id, role=role)
 
 

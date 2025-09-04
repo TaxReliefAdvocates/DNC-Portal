@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ...core.database import get_db
 from ...core.auth import get_principal, Principal, require_role, require_org_access
+from ...core.utils import normalize_phone_to_e164_digits
 from ...core.models import (
     Organization, OrganizationCreate, OrganizationResponse,
     User, UserCreate, UserResponse,
@@ -116,6 +117,54 @@ def list_jobs(organization_id: int, db: Session = Depends(get_db)):
     return db.query(RemovalJob).filter_by(organization_id=organization_id).order_by(RemovalJob.id.desc()).all()
 
 
+# Bulk approve/deny
+@router.post("/dnc-requests/bulk/approve")
+def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin")(principal)
+    ids = payload.get("ids", [])
+    reviewer = int(payload.get("reviewed_by_user_id", 0))
+    updated = 0
+    from datetime import datetime
+    for rid in ids:
+        req = db.query(DNCRequest).get(int(rid))
+        if not req or req.status != "pending":
+            continue
+        req.status = "approved"
+        req.reviewed_by_user_id = reviewer
+        req.decided_at = datetime.utcnow()
+        entry = DNCEntry(
+            organization_id=req.organization_id,
+            phone_e164=req.phone_e164,
+            reason=req.reason,
+            channel=req.channel,
+            source="user_request",
+            created_by_user_id=req.requested_by_user_id,
+        )
+        db.add(entry)
+        updated += 1
+    db.commit()
+    return {"approved": updated}
+
+
+@router.post("/dnc-requests/bulk/deny")
+def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin")(principal)
+    ids = payload.get("ids", [])
+    reviewer = int(payload.get("reviewed_by_user_id", 0))
+    updated = 0
+    from datetime import datetime
+    for rid in ids:
+        req = db.query(DNCRequest).get(int(rid))
+        if not req or req.status != "pending":
+            continue
+        req.status = "denied"
+        req.reviewed_by_user_id = reviewer
+        req.decided_at = datetime.utcnow()
+        updated += 1
+    db.commit()
+    return {"denied": updated}
+
+
 @router.post("/dnc-samples/ingest/{organization_id}")
 def ingest_samples(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
     """Bulk ingest up to 10k rows per call. Rows: {phone_e164, in_national_dnc, in_org_dnc, crm_source?, notes?}."""
@@ -123,7 +172,7 @@ def ingest_samples(organization_id: int, rows: list[dict], db: Session = Depends
     from datetime import datetime
     sample_date = datetime.utcnow()
     for r in rows[:10000]:
-        phone = str(r.get("phone_e164", ""))
+        phone = normalize_phone_to_e164_digits(r.get("phone_e164", ""))
         if not phone:
             continue
         to_add.append(CRMDNCSample(
@@ -168,7 +217,7 @@ def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depend
     # Preload org DNC for quick lookups
     dnc_map = {e.phone_e164: e.id for e in db.query(DNCEntry.id, DNCEntry.phone_e164).filter(DNCEntry.organization_id == organization_id, DNCEntry.active.is_(True)).all()}
     for r in rows:
-        phone = str(r.get("phone_e164", ""))
+        phone = normalize_phone_to_e164_digits(r.get("phone_e164", ""))
         if not phone:
             continue
         # If not yet in org DNC, create SMS DNC entry and link
@@ -212,7 +261,7 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
     # members can create
     req = DNCRequest(
         organization_id=organization_id,
-        phone_e164=str(payload.get("phone_e164", "")),
+        phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
         reason=payload.get("reason"),
         channel=payload.get("channel"),
         requested_by_user_id=int(payload.get("requested_by_user_id")),
