@@ -41,6 +41,12 @@ class BaseCRMClient(ABC):
             Dict containing the status information
         """
         pass
+
+    async def fetch_daily_unique_numbers(self, limit: int = 10000) -> list[str]:
+        """Optional hook: fetch up to `limit` unique numbers for daily sampling.
+        Default implementation returns empty list and can be overridden by specific clients.
+        """
+        return []
     
     async def _make_request(
         self,
