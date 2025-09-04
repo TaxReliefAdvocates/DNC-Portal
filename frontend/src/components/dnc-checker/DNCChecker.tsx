@@ -43,6 +43,9 @@ export const DNCChecker: React.FC = () => {
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
   const [tpsConnectionStatus, setTpsConnectionStatus] = useState<string>('')
 
+  // Local sub-tabs for methods
+  const [activeTab, setActiveTab] = useState<'quick' | 'tps' | 'csv'>('quick')
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
     if (selectedFile && selectedFile.type === 'text/csv') {
@@ -377,7 +380,14 @@ export const DNCChecker: React.FC = () => {
         </p>
       </motion.div>
 
-      {/* Single/Batch Phone Number Checking Section */}
+      {/* Sub-tabs */}
+      <div className="flex justify-center gap-2">
+        <Button variant={activeTab === 'quick' ? 'default' : 'outline'} onClick={() => setActiveTab('quick')}>Quick Check</Button>
+        <Button variant={activeTab === 'tps' ? 'default' : 'outline'} onClick={() => setActiveTab('tps')}>TPS Cases</Button>
+        <Button variant={activeTab === 'csv' ? 'default' : 'outline'} onClick={() => setActiveTab('csv')}>CSV Upload</Button>
+      </div>
+
+      {/* Single/Batch Phone Number Checking Section OR TPS (switch by tab) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -386,10 +396,18 @@ export const DNCChecker: React.FC = () => {
       >
         <Card>
           <CardHeader>
-            <h3 className="text-xl font-semibold text-gray-900">Quick Phone Number Check</h3>
-            <p className="text-gray-600">Check individual phone numbers or batches without CSV upload</p>
+            <h3 className="text-xl font-semibold text-gray-900">
+              {activeTab === 'quick' ? 'Quick Phone Number Check' : 'TPS2 Database Check'}
+            </h3>
+            <p className="text-gray-600">
+              {activeTab === 'quick'
+                ? 'Check individual phone numbers or batches without CSV upload'
+                : 'Find possible DNC matches from TPS and view case details'}
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {activeTab === 'quick' && (
+            <>
             {/* Single Phone Number Check */}
             <div className="space-y-3">
               <Label htmlFor="single-phone">Single Phone Number</Label>
@@ -482,21 +500,15 @@ export const DNCChecker: React.FC = () => {
                 </div>
               )}
             </div>
-            
-            {/* TPS2 Database Check */}
-            <div className="space-y-3 border-t pt-4">
+            </>
+            )}
+
+            {activeTab === 'tps' && (
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="tps-limit">TPS2 Database Check</Label>
-                <Button 
-                  onClick={testTpsConnection} 
-                  size="sm"
-                  variant="outline"
-                  className="text-xs"
-                >
-                  Test Connection
-                </Button>
+                <Button onClick={testTpsConnection} size="sm" variant="outline" className="text-xs">Test Connection</Button>
               </div>
-              
               {tpsConnectionStatus && (
                 <div className={`text-sm p-2 rounded ${
                   tpsConnectionStatus.includes('✅') 
@@ -504,106 +516,55 @@ export const DNCChecker: React.FC = () => {
                     : tpsConnectionStatus.includes('❌')
                     ? 'bg-red-50 text-red-700 border border-red-200'
                     : 'bg-blue-50 text-blue-700 border border-blue-200'
-                }`}>
-                  {tpsConnectionStatus}
-                </div>
+                }`}>{tpsConnectionStatus}</div>
               )}
-              
               <div className="flex gap-2 items-center">
                 <Label htmlFor="tps-limit" className="text-sm">Limit:</Label>
-                <Input
-                  id="tps-limit"
-                  type="number"
-                  min="1"
-                  max="10000"
-                  value={tpsLimit}
-                  onChange={(e) => setTpsLimit(parseInt(e.target.value) || 1000)}
-                  className="w-24"
-                />
+                <Input id="tps-limit" type="number" min="1" max="10000" value={tpsLimit} onChange={(e) => setTpsLimit(parseInt(e.target.value) || 1000)} className="w-24" />
                 <span className="text-sm text-gray-500">(max 10,000)</span>
               </div>
-              
-              <Button 
-                onClick={checkTpsDatabase} 
-                disabled={isCheckingTps}
-                className="bg-purple-600 hover:bg-purple-700 w-full"
-              >
+              <Button onClick={checkTpsDatabase} disabled={isCheckingTps} className="bg-purple-600 hover:bg-purple-700 w-full">
                 {isCheckingTps ? 'Checking TPS2 Database...' : `Run DNC Check on ${tpsLimit} Numbers`}
               </Button>
-              
-              {/* TPS2 Results */}
               {tpsResults && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-gray-900">{tpsResults.total_checked}</div>
-                      <div className="text-sm text-gray-600">Total Checked</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-red-600">{tpsResults.dnc_matches}</div>
-                      <div className="text-sm text-gray-600">DNC Matches</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{tpsResults.safe_to_call}</div>
-                      <div className="text-sm text-gray-600">Safe to Call</div>
-                    </div>
+                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{tpsResults.total_checked}</div><div className="text-sm text-gray-600">Total Checked</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-red-600">{tpsResults.dnc_matches}</div><div className="text-sm text-gray-600">DNC Matches</div></div>
+                    <div className="text-center"><div className="text-2xl font-bold text-green-600">{tpsResults.safe_to_call}</div><div className="text-sm text-gray-600">Safe to Call</div></div>
                   </div>
-                  
-                  <div className="text-sm text-gray-600 text-center">
-                    {tpsResults.message}
-                  </div>
-                  
+                  <div className="text-sm text-gray-600 text-center">{tpsResults.message}</div>
                   <div className="max-h-60 overflow-y-auto space-y-2">
                     {tpsResults.results.slice(0, 20).map((result: any, index: number) => (
-                      <div key={index} className={`p-2 rounded border text-sm ${
-                        result.is_dnc 
-                          ? 'bg-red-50 border-red-200' 
-                          : 'bg-green-50 border-green-200'
-                      }`}>
+                      <div key={index} className={`p-2 rounded border text-sm ${result.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
                         <div className="flex justify-between items-start">
                           <div>
-                            <button 
-                              className="font-medium underline hover:text-blue-700"
-                              onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}
-                            >
-                              {result.PhoneNumber}
-                            </button>
-                            <span className={result.is_dnc ? 'text-red-700' : 'text-green-700'}>
-                              {result.is_dnc ? ' DNC' : ' Safe'}
-                            </span>
+                            <button className="font-medium underline hover:text-blue-700" onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}>{result.PhoneNumber}</button>
+                            <span className={result.is_dnc ? 'text-red-700' : 'text-green-700'}>{result.is_dnc ? ' DNC' : ' Safe'}</span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <span>{result.PhoneType}</span>
-                            <button 
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded border hover:bg-gray-50"
-                              title="View details"
-                              onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}
-                            >
+                            <button className="inline-flex items-center gap-1 px-2 py-1 rounded border hover:bg-gray-50" title="View details" onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}>
                               <Eye className="h-3 w-3" />
                               <span>View</span>
                             </button>
                           </div>
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">
-                          Case: {result.CaseID} | {result.dnc_notes}
-                        </div>
+                        <div className="text-xs text-gray-600 mt-1">Case: {result.CaseID} | {result.dnc_notes}</div>
                       </div>
                     ))}
-                    {tpsResults.results.length > 20 && (
-                      <div className="text-center text-sm text-gray-500 py-2">
-                        Showing first 20 results. Total: {tpsResults.results.length}
-                      </div>
-                    )}
+                    {tpsResults.results.length > 20 && (<div className="text-center text-sm text-gray-500 py-2">Showing first 20 results. Total: {tpsResults.results.length}</div>)}
                   </div>
                 </div>
               )}
             </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
       {/* Number Detail Drawer/Section */}
-      {selectedNumber && (
+      {activeTab === 'tps' && selectedNumber && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -652,6 +613,7 @@ export const DNCChecker: React.FC = () => {
       )}
 
       {/* File Upload Section */}
+      {activeTab === 'csv' && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -693,8 +655,10 @@ export const DNCChecker: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
+      )}
 
       {/* Column Index Selection */}
+      {activeTab === 'csv' && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -725,8 +689,10 @@ export const DNCChecker: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
+      )}
 
       {/* Process Button */}
+      {activeTab === 'csv' && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -751,9 +717,10 @@ export const DNCChecker: React.FC = () => {
           )}
         </Button>
       </motion.div>
+      )}
 
       {/* Processing Status */}
-      {processingStatus && (
+      {activeTab === 'csv' && processingStatus && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -787,7 +754,7 @@ export const DNCChecker: React.FC = () => {
       )}
 
       {/* Results Display */}
-      {freeDncResults && (
+      {activeTab === 'csv' && freeDncResults && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
