@@ -102,8 +102,11 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
         setError('Enter at least one phone number to request DNC')
         return
       }
+      // Basic UX polish: choose channel/reason
+      const channel = (document.getElementById('dnc_channel') as HTMLSelectElement)?.value || 'voice'
+      const reason = (document.getElementById('dnc_reason') as HTMLInputElement)?.value || 'user request'
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' }, body: JSON.stringify({ phone_e164: phone, reason: 'user request', channel: 'voice', requested_by_user_id: userId }) })
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: userId }) })
       if (!resp.ok) throw new Error('Failed to submit DNC request')
       setSuccess('DNC request submitted for review')
     } catch (e) {
@@ -219,6 +222,20 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
               <ShieldCheck className="h-4 w-4 mr-2" />
               Cross-check DNC
             </Button>
+            <div className="hidden md:flex items-end gap-2">
+              <div>
+                <Label htmlFor="dnc_channel" className="text-xs">Channel</Label>
+                <select id="dnc_channel" className="border rounded px-2 py-1 text-sm">
+                  <option value="voice">Voice</option>
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="dnc_reason" className="text-xs">Reason</Label>
+                <input id="dnc_reason" className="border rounded px-2 py-1 text-sm" placeholder="Customer opt-out" />
+              </div>
+            </div>
             <Button
               type="button"
               variant="outline"

@@ -11,7 +11,7 @@ from ...core.models import (
     DNCEntry, DNCEntryCreate, DNCEntryResponse,
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
-    CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry,
+    CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord,
 )
 
 router = APIRouter()
@@ -364,5 +364,48 @@ def list_requests_by_user(user_id: int, status: str | None = None, cursor: int |
         "channel": r.channel,
         "created_at": r.created_at.isoformat(),
         "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+    } for r in rows]
+
+
+# Litigation endpoints
+@router.post("/litigations/{organization_id}")
+def add_litigation(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin")(principal)
+    record = LitigationRecord(
+        organization_id=organization_id,
+        phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
+        company=payload.get("company"),
+        case_number=payload.get("case_number"),
+        received_at=payload.get("received_at"),
+        received_by_user_id=principal.user_id,
+        status=payload.get("status", "open"),
+        actions=payload.get("actions"),
+        notes=payload.get("notes"),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return {"id": record.id}
+
+
+@router.get("/litigations/{organization_id}")
+def list_litigations(organization_id: int, q: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    qy = db.query(LitigationRecord).filter(LitigationRecord.organization_id == organization_id)
+    if q:
+        qlike = f"%{q}%"
+        qy = qy.filter((LitigationRecord.phone_e164.like(qlike)) | (LitigationRecord.company.like(qlike)) | (LitigationRecord.case_number.like(qlike)))
+    if cursor:
+        qy = qy.filter(LitigationRecord.id < cursor)
+    rows = qy.order_by(LitigationRecord.id.desc()).limit(min(200, max(1, limit))).all()
+    return [{
+        "id": r.id,
+        "phone_e164": r.phone_e164,
+        "company": r.company,
+        "case_number": r.case_number,
+        "received_at": r.received_at.isoformat() if r.received_at else None,
+        "status": r.status,
+        "notes": r.notes,
     } for r in rows]
 

@@ -342,6 +342,29 @@ class CRMDNCSample(Base):
 
     # No explicit relationships to keep ingestion fast
 
+
+class LitigationRecord(Base):
+    """Known TCPA litigation records by company for compliance cross-checks."""
+
+    __tablename__ = "litigation_records"
+    __table_args__ = (
+        Index("ix_litigation_org_phone", "organization_id", "phone_e164"),
+        Index("ix_litigation_company", "company"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    phone_e164 = Column(String(20), nullable=False)
+    company = Column(String(200), nullable=False)
+    case_number = Column(String(100), nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=True)
+    received_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(20), default="open", nullable=False)  # open, reviewed, closed
+    actions = Column(JSON, nullable=True)  # JSON trail of actions taken
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
 # Pydantic models for API requests/responses
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
