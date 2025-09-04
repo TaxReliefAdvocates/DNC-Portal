@@ -26,3 +26,18 @@ async def get_principal(
     return Principal(user_id=user_id, organization_id=org_id, role=role)
 
 
+def require_role(*allowed: str):
+    allowed_set = {r.lower() for r in allowed}
+    def wrapper(principal: Principal = None):
+        if principal is None or principal.role not in allowed_set:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        return principal
+    return wrapper
+
+
+def require_org_access(principal: Principal, organization_id: int):
+    if principal.organization_id is None or principal.organization_id != organization_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org access denied")
+    return True
+
+

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 
 from ...core.database import get_db
+from ...core.auth import get_principal, Principal, require_role, require_org_access
 from ...core.models import (
     Organization, OrganizationCreate, OrganizationResponse,
     User, UserCreate, UserResponse,
@@ -51,7 +52,9 @@ def list_users(db: Session = Depends(get_db)):
 
 # Org Services
 @router.post("/org-services", response_model=OrgServiceResponse)
-def create_org_service(payload: OrgServiceCreate, db: Session = Depends(get_db)):
+def create_org_service(payload: OrgServiceCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, payload.organization_id)
+    require_role("owner", "admin")(principal)
     svc = OrgService(
         organization_id=payload.organization_id,
         service_key=payload.service_key,
@@ -73,7 +76,8 @@ def list_org_services(organization_id: int, db: Session = Depends(get_db)):
 
 # DNC Entries
 @router.post("/dnc-entries", response_model=DNCEntryResponse)
-def create_dnc_entry(payload: DNCEntryCreate, db: Session = Depends(get_db)):
+def create_dnc_entry(payload: DNCEntryCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, payload.organization_id)
     entry = DNCEntry(**payload.model_dump())
     db.add(entry)
     db.commit()
@@ -88,7 +92,8 @@ def list_dnc_entries(organization_id: int, db: Session = Depends(get_db)):
 
 # Jobs + Items
 @router.post("/jobs", response_model=RemovalJobResponse)
-def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db)):
+def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, payload.organization_id)
     job = RemovalJob(**payload.model_dump())
     db.add(job)
     db.commit()
@@ -97,7 +102,8 @@ def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/job-items", response_model=RemovalJobItemResponse)
-def create_job_item(payload: RemovalJobItemCreate, db: Session = Depends(get_db)):
+def create_job_item(payload: RemovalJobItemCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    # org inferred from job via FK would be ideal; keeping open here
     item = RemovalJobItem(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -154,7 +160,9 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
 
 # SMS STOP ingest
 @router.post("/sms-stop/ingest/{organization_id}")
-def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
+def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin")(principal)
     items: list[SMSOptOut] = []
     from datetime import datetime
     # Preload org DNC for quick lookups
@@ -199,7 +207,9 @@ def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depend
 
 # DNC Request workflow
 @router.post("/dnc-requests/{organization_id}")
-def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db)):
+def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    # members can create
     req = DNCRequest(
         organization_id=organization_id,
         phone_e164=str(payload.get("phone_e164", "")),
@@ -215,7 +225,8 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 
 @router.post("/dnc-requests/{request_id}/approve")
-def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db)):
+def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin")(principal)
     req = db.query(DNCRequest).get(request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -242,7 +253,8 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
 
 
 @router.post("/dnc-requests/{request_id}/deny")
-def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db)):
+def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin")(principal)
     req = db.query(DNCRequest).get(request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -259,7 +271,9 @@ def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_d
 
 # Listing endpoints for admin/user portals
 @router.get("/dnc-requests/org/{organization_id}")
-def list_requests_by_org(organization_id: int, status: str | None = None, db: Session = Depends(get_db)):
+def list_requests_by_org(organization_id: int, status: str | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin")(principal)
     q = db.query(DNCRequest).filter(DNCRequest.organization_id == organization_id)
     if status:
         q = q.filter(DNCRequest.status == status)
@@ -279,7 +293,10 @@ def list_requests_by_org(organization_id: int, status: str | None = None, db: Se
 
 
 @router.get("/dnc-requests/user/{user_id}")
-def list_requests_by_user(user_id: int, status: str | None = None, db: Session = Depends(get_db)):
+def list_requests_by_user(user_id: int, status: str | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    # user can see their requests; admins can see anyone's
+    if principal.role not in {"owner", "admin"} and principal.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     q = db.query(DNCRequest).filter(DNCRequest.requested_by_user_id == user_id)
     if status:
         q = q.filter(DNCRequest.status == status)

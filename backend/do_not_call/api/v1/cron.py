@@ -4,6 +4,7 @@ from datetime import datetime
 from loguru import logger
 
 from ...core.database import get_db
+from ...core.auth import get_principal, Principal, require_role, require_org_access
 from ...core.models import CRMDNCSample, DNCEntry
 from ...core.dnc_service import dnc_service
 
@@ -11,7 +12,9 @@ router = APIRouter()
 
 
 @router.post("/daily-sample/{organization_id}")
-async def run_daily_sample(organization_id: int, numbers: list[str], db: Session = Depends(get_db)):
+async def run_daily_sample(organization_id: int, numbers: list[str], db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin")(principal)
     """Accept pre-fetched unique numbers for the day, enrich with national/org DNC flags, and store."""
     if not numbers:
         raise HTTPException(status_code=400, detail="numbers list is required")
