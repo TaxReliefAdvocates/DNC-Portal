@@ -36,7 +36,7 @@ def seed_database():
         # Organizations and Users
         org = Organization(name="Test Org", slug="test-org")
         db.add(org)
-        user = User(email="admin@example.com", name="Admin User")
+        user = User(email="admin@example.com", name="Admin User", role="owner")
         db.add(user)
         db.flush()
         db.add(OrgUser(organization_id=org.id, user_id=user.id, role="owner"))

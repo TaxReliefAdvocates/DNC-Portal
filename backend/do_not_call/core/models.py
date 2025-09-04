@@ -143,6 +143,7 @@ class User(Base):
     email = Column(String(320), unique=True, index=True, nullable=False)
     name = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    role = Column(String(50), default="member", nullable=False)  # owner, admin, member
 
     org_links = relationship("OrgUser", back_populates="user", cascade="all, delete-orphan")
 

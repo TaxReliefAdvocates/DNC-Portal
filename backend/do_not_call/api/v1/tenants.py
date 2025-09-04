@@ -157,10 +157,29 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
 def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
     items: list[SMSOptOut] = []
     from datetime import datetime
+    # Preload org DNC for quick lookups
+    dnc_map = {e.phone_e164: e.id for e in db.query(DNCEntry.id, DNCEntry.phone_e164).filter(DNCEntry.organization_id == organization_id, DNCEntry.active.is_(True)).all()}
     for r in rows:
         phone = str(r.get("phone_e164", ""))
         if not phone:
             continue
+        # If not yet in org DNC, create SMS DNC entry and link
+        entry_id = dnc_map.get(phone)
+        if entry_id is None:
+            entry = DNCEntry(
+                organization_id=organization_id,
+                phone_e164=phone,
+                reason=r.get("reason", "sms stop"),
+                channel="sms",
+                source="sms_stop",
+                created_by_user_id=r.get("created_by_user_id"),
+                notes=r.get("notes"),
+            )
+            db.add(entry)
+            db.flush()
+            entry_id = entry.id
+            dnc_map[phone] = entry_id
+
         items.append(SMSOptOut(
             organization_id=organization_id,
             phone_e164=phone,
@@ -168,6 +187,8 @@ def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depend
             carrier=r.get("carrier"),
             keyword=r.get("keyword", "STOP"),
             received_at=datetime.utcnow(),
+            dnc_entry_id=entry_id,
+            processed=True,
             notes=r.get("notes"),
         ))
     if items:
@@ -234,4 +255,44 @@ def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_d
     req.decided_at = datetime.utcnow()
     db.commit()
     return {"request_id": req.id, "status": req.status}
+
+
+# Listing endpoints for admin/user portals
+@router.get("/dnc-requests/org/{organization_id}")
+def list_requests_by_org(organization_id: int, status: str | None = None, db: Session = Depends(get_db)):
+    q = db.query(DNCRequest).filter(DNCRequest.organization_id == organization_id)
+    if status:
+        q = q.filter(DNCRequest.status == status)
+    q = q.order_by(DNCRequest.id.desc()).limit(1000)
+    rows = q.all()
+    return [{
+        "id": r.id,
+        "phone_e164": r.phone_e164,
+        "status": r.status,
+        "reason": r.reason,
+        "channel": r.channel,
+        "requested_by_user_id": r.requested_by_user_id,
+        "reviewed_by_user_id": r.reviewed_by_user_id,
+        "created_at": r.created_at.isoformat(),
+        "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+    } for r in rows]
+
+
+@router.get("/dnc-requests/user/{user_id}")
+def list_requests_by_user(user_id: int, status: str | None = None, db: Session = Depends(get_db)):
+    q = db.query(DNCRequest).filter(DNCRequest.requested_by_user_id == user_id)
+    if status:
+        q = q.filter(DNCRequest.status == status)
+    q = q.order_by(DNCRequest.id.desc()).limit(1000)
+    rows = q.all()
+    return [{
+        "id": r.id,
+        "organization_id": r.organization_id,
+        "phone_e164": r.phone_e164,
+        "status": r.status,
+        "reason": r.reason,
+        "channel": r.channel,
+        "created_at": r.created_at.isoformat(),
+        "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+    } for r in rows]
 
