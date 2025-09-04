@@ -8,6 +8,7 @@ from loguru import logger
 
 from .config import settings
 from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron
+from .core.database import SessionLocal
 from .core.database import init_db, close_db
 
 
@@ -73,6 +74,17 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+# Correlation-ID middleware and JSON logging hint
+@app.middleware("http")
+async def add_correlation_id(request, call_next):
+    cid = request.headers.get("X-Correlation-Id")
+    if not cid:
+        import uuid
+        cid = str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Correlation-Id"] = cid
+    return response
+
 
 # CORS middleware
 app.add_middleware(
@@ -156,11 +168,14 @@ async def root():
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": "2024-01-01T00:00:00Z",
-        "version": "1.0.0",
-    }
+    try:
+        # minimal DB roundtrip
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        return {"status": "healthy"}
+    except Exception:
+        return {"status": "degraded"}
 
 
 @app.exception_handler(HTTPException)

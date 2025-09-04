@@ -43,8 +43,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 className="flex items-center space-x-2"
               >
                 <BarChart3 className="h-4 w-4" />
-                <span>Admin Dashboard</span>
+                <span>Admin: Requests</span>
               </Button>
+              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: DNC List</Button>
+              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: SMS STOPs</Button>
+              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Samples</Button>
+              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Services</Button>
+              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Access</Button>
             </div>
           </div>
           

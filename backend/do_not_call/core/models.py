@@ -220,6 +220,7 @@ class DNCEntry(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     removed_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", back_populates="dnc_entries")
 
@@ -283,11 +284,15 @@ class SMSOptOut(Base):
     """Tracks STOP/opt-out SMS events and optional linking to a DNCEntry."""
 
     __tablename__ = "sms_opt_outs"
-    __table_args__ = (Index("ix_sms_org_phone", "organization_id", "phone_e164"),)
+    __table_args__ = (
+        Index("ix_sms_org_phone", "organization_id", "phone_e164"),
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_sms_idem"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     phone_e164 = Column(String(20), nullable=False)
+    idempotency_key = Column(String(100), nullable=True)
     message_id = Column(String(100), nullable=True)
     carrier = Column(String(50), nullable=True)
     keyword = Column(String(20), nullable=True)  # STOP, STOPALL, etc.
@@ -320,6 +325,7 @@ class CRMDNCSample(Base):
 
     __tablename__ = "crm_dnc_samples"
     __table_args__ = (
+        UniqueConstraint("organization_id", "phone_e164", "sample_date", name="uq_crm_sample_org_phone_date"),
         Index("ix_crm_sample_org_date", "organization_id", "sample_date"),
         Index("ix_crm_sample_phone", "phone_e164"),
     )
