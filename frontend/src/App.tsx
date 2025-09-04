@@ -21,6 +21,8 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker'>('main')
   const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck'>('none')
   const [precheckResults, setPrecheckResults] = useState<any | null>(null)
+  const [precheckSelected, setPrecheckSelected] = useState<{ phone: string, cases: any[] } | null>(null)
+  const [precheckLoading, setPrecheckLoading] = useState<boolean>(false)
 
   useEffect(() => {
     // Reset loading state on mount and after a short delay to ensure it's cleared
@@ -97,6 +99,7 @@ const AppContent: React.FC = () => {
   const handlePrecheck = async (numbers: string[]) => {
     try {
       setPrecheckResults(null)
+      setPrecheckSelected(null)
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,6 +118,34 @@ const AppContent: React.FC = () => {
         duration: 4000,
       }))
     }
+  }
+
+  const openPrecheckDetails = async (phone: string) => {
+    try {
+      setPrecheckLoading(true)
+      setPrecheckSelected({ phone, cases: [] })
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phone })
+      })
+    
+      if (!resp.ok) {
+        throw new Error('Failed to fetch details')
+      }
+      const json = await resp.json()
+      setPrecheckSelected({ phone, cases: json.cases || [] })
+    } catch (e) {
+      dispatch(addNotification({ type: 'error', message: e instanceof Error ? e.message : 'Failed to fetch details', duration: 4000 }))
+    } finally {
+      setPrecheckLoading(false)
+    }
+  }
+
+  const fmt = (v?: string) => {
+    if (!v) return '—'
+    const d = new Date(v)
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString()
   }
 
   const renderTabContent = () => {
@@ -188,14 +219,48 @@ const AppContent: React.FC = () => {
                       </div>
                       <div className="max-h-60 overflow-y-auto space-y-2">
                         {precheckResults.results.slice(0, 20).map((r: any, i: number) => (
-                          <div key={i} className={`p-2 rounded border text-sm ${r.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                          <div key={i} className={`p-2 rounded border text-sm ${r.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} flex items-center justify-between`}>
                             <span className="font-medium">{r.phone_number}</span>
                             <span className={r.is_dnc ? 'text-red-700' : 'text-green-700'}>
                               {r.is_dnc ? ' DNC' : ' Safe'}
                             </span>
+                            <button
+                              className="ml-2 px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                              onClick={() => openPrecheckDetails(r.phone_number)}
+                            >
+                              View details
+                            </button>
                           </div>
                         ))}
                       </div>
+                      {precheckSelected && (
+                        <div className="p-3 rounded border bg-white">
+                          <div className="flex items-center justify-between">
+                            <div className="font-medium">{precheckSelected.phone}</div>
+                            <button className="text-xs text-gray-500 underline" onClick={() => setPrecheckSelected(null)}>Close</button>
+                          </div>
+                          {precheckLoading ? (
+                            <div className="text-sm text-gray-600 mt-2">Loading details...</div>
+                          ) : precheckSelected.cases.length ? (
+                            <div className="mt-2 space-y-1 text-sm">
+                              <div className="text-gray-700">Cases found: {precheckSelected.cases.length}</div>
+                              <div className="max-h-40 overflow-y-auto divide-y">
+                                {precheckSelected.cases.map((c: any, idx: number) => (
+                                  <div key={idx} className="py-1 flex items-center justify-between">
+                                    <div>
+                                      <div className="text-gray-800">Case {c.CaseID}</div>
+                                      <div className="text-xs text-gray-600">Created: {fmt(c.CreatedDate)} • Last Modified: {fmt(c.LastModifiedDate)}</div>
+                                    </div>
+                                    <div className="text-xs text-gray-700">{c.StatusName || `Status ${c.StatusID}`}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-600 mt-2">No cases found for this number.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
