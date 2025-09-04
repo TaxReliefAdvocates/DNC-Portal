@@ -1,7 +1,10 @@
 from typing import Optional
 from fastapi import Header, HTTPException, status
 from jose import jwt
-from jose.utils import base64url_decode
+from jose.exceptions import JWTError
+import httpx
+from functools import lru_cache
+from ..config import settings
 
 
 class Principal:
@@ -30,8 +33,21 @@ async def get_principal(
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1]
         try:
-            # Avoid signature validation for now; just read claims
-            claims = jwt.get_unverified_claims(token)
+            claims = None
+            if settings.ENTRA_REQUIRE_SIGNATURE:
+                # Validate signature using JWKS
+                jwks_url = settings.ENTRA_JWKS_URL or f"https://login.microsoftonline.com/{settings.ENTRA_TENANT_ID}/discovery/v2.0/keys"
+                jwks = await _fetch_jwks(jwks_url)
+                claims = jwt.decode(
+                    token,
+                    jwks,
+                    algorithms=["RS256"],
+                    audience=settings.ENTRA_AUDIENCE,
+                    issuer=settings.ENTRA_ISSUER or f"https://login.microsoftonline.com/{settings.ENTRA_TENANT_ID}/v2.0"
+                )
+            else:
+                # Parse only
+                claims = jwt.get_unverified_claims(token)
             # Common Entra claim ids: oid (object id), tid (tenant id), roles / groups
             oid = claims.get("oid") or claims.get("sub")
             if oid:
@@ -53,7 +69,7 @@ async def get_principal(
                     role = "admin"
                 else:
                     role = "member"
-        except Exception:
+        except JWTError:
             # Fall back to headers if jwt parsing fails
             pass
 
@@ -70,6 +86,20 @@ async def get_principal(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid X-Org-Id")
 
     return Principal(user_id=user_id, organization_id=org_id, role=role)
+
+
+@lru_cache(maxsize=1)
+def _jwks_cache_key(url: str) -> str:
+    return url
+
+
+async def _fetch_jwks(url: str):
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(url)
+        r.raise_for_status()
+        data = r.json()
+        # python-jose accepts a dict of {keys: [...]}
+        return data
 
 
 def require_role(*allowed: str):

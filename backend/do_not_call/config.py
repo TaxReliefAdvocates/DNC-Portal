@@ -78,6 +78,15 @@ class Settings(BaseSettings):
     # TPS Public API
     TPS_API_KEY: Optional[str] = None
     TPS_API_VERIFY_SSL: bool = True
+    # Some deployments require Basic auth header for V3 endpoints
+    TPS_API_BASIC_AUTH: Optional[str] = None  # e.g. "Basic base64(user:pass)"
+
+    # Entra ID / Microsoft Identity Platform
+    ENTRA_TENANT_ID: Optional[str] = None
+    ENTRA_AUDIENCE: Optional[str] = None  # Application (client) ID or API audience
+    ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
+    ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
+    ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
     
     # Processing
     BATCH_SIZE: int = 100

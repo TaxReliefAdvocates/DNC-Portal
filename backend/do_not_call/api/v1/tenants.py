@@ -320,13 +320,15 @@ def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_d
 
 # Listing endpoints for admin/user portals
 @router.get("/dnc-requests/org/{organization_id}")
-def list_requests_by_org(organization_id: int, status: str | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def list_requests_by_org(organization_id: int, status: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
     require_role("owner", "admin")(principal)
     q = db.query(DNCRequest).filter(DNCRequest.organization_id == organization_id)
     if status:
         q = q.filter(DNCRequest.status == status)
-    q = q.order_by(DNCRequest.id.desc()).limit(1000)
+    if cursor:
+        q = q.filter(DNCRequest.id < cursor)
+    q = q.order_by(DNCRequest.id.desc()).limit(min(200, max(1, limit)))
     rows = q.all()
     return [{
         "id": r.id,
@@ -342,14 +344,16 @@ def list_requests_by_org(organization_id: int, status: str | None = None, db: Se
 
 
 @router.get("/dnc-requests/user/{user_id}")
-def list_requests_by_user(user_id: int, status: str | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def list_requests_by_user(user_id: int, status: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     # user can see their requests; admins can see anyone's
     if principal.role not in {"owner", "admin"} and principal.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     q = db.query(DNCRequest).filter(DNCRequest.requested_by_user_id == user_id)
     if status:
         q = q.filter(DNCRequest.status == status)
-    q = q.order_by(DNCRequest.id.desc()).limit(1000)
+    if cursor:
+        q = q.filter(DNCRequest.id < cursor)
+    q = q.order_by(DNCRequest.id.desc()).limit(min(200, max(1, limit)))
     rows = q.all()
     return [{
         "id": r.id,
