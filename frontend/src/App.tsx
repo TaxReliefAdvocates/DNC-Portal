@@ -167,7 +167,9 @@ const AppContent: React.FC = () => {
               </p>
             </motion.div>
 
-            {rightPane === 'none' ? (
+            {/* Keep a single PhoneInput instance mounted to preserve textarea contents */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Phone Input Section */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -179,22 +181,9 @@ const AppContent: React.FC = () => {
                   isLoading={isLoading}
                 />
               </motion.div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Phone Input Section */}
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                >
-                  <PhoneInput
-                    onNumbersSubmit={handlePhoneNumbersSubmit}
-                    onPrecheckDnc={handlePrecheck}
-                    isLoading={isLoading}
-                  />
-                </motion.div>
 
-                {/* Right Pane */}
+              {/* Right Pane (conditionally rendered) */}
+              {rightPane !== 'none' && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -264,8 +253,8 @@ const AppContent: React.FC = () => {
                     </div>
                   )}
                 </motion.div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Error Display */}
             <AnimatePresence>
