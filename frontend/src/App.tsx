@@ -8,6 +8,7 @@ import { store, persistor } from './lib/store'
 import { PhoneInput } from './components/phone-input/PhoneInput'
 import { CRMStatusDashboard } from './components/crm-status/CRMStatusDashboard'
 import { AdminDashboard } from './components/admin/AdminDashboard'
+import { UserRequestHistory } from './components/admin/UserRequestHistory'
 import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
@@ -180,6 +181,10 @@ const AppContent: React.FC = () => {
                   onPrecheckDnc={handlePrecheck}
                   isLoading={isLoading}
                 />
+                {/* User request history below the form */}
+                <div className="mt-4">
+                  <UserRequestHistory userId={1} />
+                </div>
               </motion.div>
 
               {/* Right Pane (conditionally rendered) */}
