@@ -91,6 +91,26 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
     setSuccess(null)
   }
 
+  // User-facing DNC Request form (inline minimal)
+  const submitDncRequest = async () => {
+    try {
+      const orgId = 1
+      const userId = 1
+      const phoneRaw = (document.getElementById('phone_numbers') as HTMLTextAreaElement)?.value.split('\n').find(l => l.trim()) || ''
+      const phone = normalizePhoneNumber(phoneRaw.trim())
+      if (!phone) {
+        setError('Enter at least one phone number to request DNC')
+        return
+      }
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' }, body: JSON.stringify({ phone_e164: phone, reason: 'user request', channel: 'voice', requested_by_user_id: userId }) })
+      if (!resp.ok) throw new Error('Failed to submit DNC request')
+      setSuccess('DNC request submitted for review')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to submit DNC request')
+    }
+  }
+
   return (
     <Card className="border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors">
       <CardHeader>
@@ -198,6 +218,15 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
             >
               <ShieldCheck className="h-4 w-4 mr-2" />
               Cross-check DNC
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={submitDncRequest}
+              disabled={isSubmitting || isLoading}
+              className="flex-shrink-0"
+            >
+              Request DNC
             </Button>
             
             <Button
