@@ -21,23 +21,50 @@ class TPSApiClient:
 
     @classmethod
     def _phone_variants(cls, phone: str) -> list[str]:
-        digits = cls._digits_only(phone)
-        if len(digits) == 11 and digits.startswith("1"):
-            digits = digits[1:]
-        variants = []
-        if len(digits) == 10:
-            area, pre, line = digits[:3], digits[3:6], digits[6:]
-            variants.append(f"({area}){pre}-{line}")
-            variants.append(f"({area}) {pre}-{line}")
-            variants.append(f"{area}-{pre}-{line}")
-            variants.append(digits)
+        """Generate common formatting variants for US phone numbers.
+
+        Many TPS queries are strict about formatting. We try a broad set:
+        - raw digits (10 and 11 with leading 1)
+        - (AAA)PPP-NNN and (AAA) PPP-NNN
+        - AAA-PPP-NNN, AAA.PPP.NNN, AAA PPP NNN
+        - E.164 (+1AAAAAAAAAA) and 1-AAA-PPP-NNN
+        - original input as last resort
+        """
+        original = phone or ""
+        digits_all = cls._digits_only(original)
+
+        candidates: list[str] = []
+
+        # If 11 digits with country code, include both forms
+        if len(digits_all) == 11 and digits_all.startswith("1"):
+            digits10 = digits_all[1:]
+            candidates.append(digits_all)              # 1AAAAAAAAAA
+            candidates.append("+" + digits_all)        # +1AAAAAAAAAA
         else:
-            variants.append(phone)
+            digits10 = digits_all
+
+        if len(digits10) == 10:
+            a, p, n = digits10[:3], digits10[3:6], digits10[6:]
+            # Core formats
+            candidates.extend([
+                digits10,                     # AAAAAAAAAA
+                f"({a}){p}-{n}",              # (AAA)PPP-NNN
+                f"({a}) {p}-{n}",             # (AAA) PPP-NNN
+                f"{a}-{p}-{n}",               # AAA-PPP-NNN
+                f"{a}.{p}.{n}",               # AAA.PPP.NNN
+                f"{a} {p} {n}",               # AAA PPP NNN
+                f"+1{digits10}",              # +1AAAAAAAAAA
+                f"1-{a}-{p}-{n}",            # 1-AAA-PPP-NNN
+                f"1{digits10}",               # 1AAAAAAAAAA
+            ])
+        # Fallback to original input
+        candidates.append(original)
+
         # Ensure uniqueness preserving order
-        seen = set()
-        ordered = []
-        for v in variants:
-            if v not in seen:
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for v in candidates:
+            if v and v not in seen:
                 seen.add(v)
                 ordered.append(v)
         return ordered
