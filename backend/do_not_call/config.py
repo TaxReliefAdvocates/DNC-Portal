@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     FCC_API_KEY: Optional[str] = None
     FCC_API_URL: str = "https://www.donotcall.gov/api/check"
     
+    # SQL Server Database (TPS2)
+    TPS_DB_SERVER: str = "69.65.24.35"
+    TPS_DB_NAME: str = "tps2"
+    TPS_DB_USER: str = "tpsuser"
+    TPS_DB_PASSWORD: str = "TPSZen2025@!"
+    TPS_DB_DRIVER: str = "ODBC Driver 17 for SQL Server"
+    TPS_DB_TRUST_CERT: bool = True
+    
     # Processing
     BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3

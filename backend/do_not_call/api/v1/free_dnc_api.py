@@ -16,6 +16,8 @@ from loguru import logger
 
 from do_not_call.core.database import get_db
 from do_not_call.core.dnc_service import dnc_service
+from do_not_call.core.cookie_fetcher import fetch_freednclist_phpsessid
+from do_not_call.core.tps_database import tps_database
 from do_not_call.config import settings
 
 router = APIRouter()
@@ -82,15 +84,15 @@ async def process_csv_with_dnc(
                 # Check DNC status using our service
                 dnc_status = await dnc_service.check_federal_dnc(phone_raw)
                 
-                # Determine DNC status for CSV
+                # Determine DNC status for CSV - using the exact format expected
                 if dnc_status["is_dnc"]:
-                    dnc_csv_status = "DNC_MATCH"
+                    dnc_csv_status = "Yes - On DNC List"
                 elif dnc_status["status"] == "invalid":
                     dnc_csv_status = "INVALID_FORMAT"
                 elif dnc_status["status"] == "error":
                     dnc_csv_status = "CHECK_ERROR"
                 else:
-                    dnc_csv_status = "SAFE"
+                    dnc_csv_status = "No - Not on DNC"
                 
                 # Add DNC status to row
                 processed_rows.append(row + [dnc_csv_status])
@@ -167,7 +169,7 @@ async def process_dnc_csv(
         # Return response exactly like FreeDNCList.com
         result = {
             "success": True,
-            "file": f"./uploads/{unique_filename}",
+            "file": f"/uploads/{unique_filename}",
             "processing_id": processing_id
         }
         
@@ -234,6 +236,280 @@ async def download_processed_file(filename: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error downloading file: {str(e)}"
         )
+
+@router.get("/check")
+async def check_status():
+    """
+    Check endpoint - replicates FreeDNCList.com check.php
+    Returns basic status information
+    """
+    return {
+        "status": "ready",
+        "message": "DNC processing service is available",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@router.post("/cookies/refresh")
+async def refresh_freednclist_cookies():
+    """Refresh FreeDNCList PHPSESSID using Playwright."""
+    try:
+        session_id = await fetch_freednclist_phpsessid()
+        if session_id:
+            # update the global service cache
+            dnc_service.freednclist_session = session_id
+            return {
+                "success": True,
+                "cookie": "PHPSESSID",
+                "value_preview": session_id[:6] + "...",
+                "updated_at": datetime.now().isoformat()
+            }
+        return {
+            "success": False,
+            "message": "Could not fetch PHPSESSID"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Cookie refresh error: {str(e)}"
+        )
+
+@router.post("/check_number")
+async def check_single_number(
+    phone_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Check single phone number against DNC - replicates FreeDNCList.com check_number.php
+    
+    Args:
+        phone_data: JSON with phone_number field
+        db: Database session
+        
+    Returns:
+        DNC status for the phone number
+    """
+    try:
+        phone_number = phone_data.get("phone_number")
+        if not phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="phone_number field is required"
+            )
+        
+        # Check DNC status using our service
+        dnc_status = await dnc_service.check_federal_dnc(phone_number)
+        
+        # Return response in the format expected by frontend
+        return {
+            "success": True,
+            "phone_number": phone_number,
+            "is_dnc": dnc_status["is_dnc"],
+            "dnc_source": dnc_status["dnc_source"],
+            "status": dnc_status["status"],
+            "notes": dnc_status["notes"],
+            "checked_at": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking phone number {phone_data}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking phone number: {str(e)}"
+        )
+
+@router.post("/check_batch")
+async def check_batch_numbers(
+    phone_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Check multiple phone numbers against DNC - batch processing
+    
+    Args:
+        phone_data: JSON with phone_numbers array field
+        db: Database session
+        
+    Returns:
+        DNC status for all phone numbers
+    """
+    try:
+        phone_numbers = phone_data.get("phone_numbers")
+        if not phone_numbers or not isinstance(phone_numbers, list):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="phone_numbers field must be an array"
+            )
+        
+        if len(phone_numbers) > 1000:  # Limit batch size
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum 1000 phone numbers per batch"
+            )
+        
+        # Process all phone numbers asynchronously
+        results = []
+        for phone_number in phone_numbers:
+            try:
+                dnc_status = await dnc_service.check_federal_dnc(phone_number)
+                results.append({
+                    "phone_number": phone_number,
+                    "is_dnc": dnc_status["is_dnc"],
+                    "dnc_source": dnc_status["dnc_source"],
+                    "status": dnc_status["status"],
+                    "notes": dnc_status["notes"]
+                })
+            except Exception as e:
+                logger.error(f"Error checking phone number {phone_number}: {e}")
+                results.append({
+                    "phone_number": phone_number,
+                    "is_dnc": False,
+                    "dnc_source": "error",
+                    "status": "error",
+                    "notes": f"Error: {str(e)}"
+                })
+        
+        # Return batch results
+        return {
+            "success": True,
+            "total_checked": len(results),
+            "dnc_matches": len([r for r in results if r["is_dnc"]]),
+            "safe_to_call": len([r for r in results if not r["is_dnc"]]),
+            "results": results,
+            "checked_at": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in batch DNC check: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in batch DNC check: {str(e)}"
+        )
+
+@router.post("/check_tps_database")
+async def check_tps_database_dnc(
+    request_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Check phone numbers from TPS2 database against DNC lists
+    
+    Args:
+        request_data: JSON with limit field (optional, default: 1000)
+        db: Database session
+        
+    Returns:
+        DNC status for all phone numbers from TPS2 database
+    """
+    try:
+        limit = request_data.get("limit", 1000)
+        
+        # Validate limit
+        if not isinstance(limit, int) or limit < 1 or limit > 10000:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Limit must be an integer between 1 and 10000"
+            )
+        
+        logger.info(f"Starting TPS2 database DNC check for up to {limit} phone numbers")
+        
+        # Get phone numbers from TPS2 database
+        phone_records = await tps_database.get_phone_numbers(limit)
+        
+        if not phone_records:
+            return {
+                "success": True,
+                "message": "No phone numbers found in TPS2 database",
+                "total_checked": 0,
+                "dnc_matches": 0,
+                "safe_to_call": 0,
+                "results": [],
+                "checked_at": datetime.now().isoformat()
+            }
+        
+        logger.info(f"Retrieved {len(phone_records)} phone numbers from TPS2 database")
+        
+        # Process each phone number through DNC checking
+        results = []
+        for record in phone_records:
+            try:
+                phone_number = record.get("PhoneNumber", "")
+                if not phone_number:
+                    continue
+                
+                # Check DNC status using our service
+                dnc_status = await dnc_service.check_federal_dnc(phone_number)
+                
+                # Add DNC status to the record
+                result = {
+                    **record,
+                    "is_dnc": dnc_status["is_dnc"],
+                    "dnc_source": dnc_status["dnc_source"],
+                    "dnc_status": dnc_status["status"],
+                    "dnc_notes": dnc_status["notes"]
+                }
+                results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Error checking DNC for phone number {record.get('PhoneNumber', 'unknown')}: {e}")
+                result = {
+                    **record,
+                    "is_dnc": False,
+                    "dnc_source": "error",
+                    "dnc_status": "error",
+                    "dnc_notes": f"Error: {str(e)}"
+                }
+                results.append(result)
+        
+        # Calculate summary statistics
+        dnc_matches = len([r for r in results if r["is_dnc"]])
+        safe_to_call = len([r for r in results if not r["is_dnc"]])
+        
+        logger.info(f"TPS2 database DNC check complete: {len(results)} checked, {dnc_matches} DNC matches")
+        
+        return {
+            "success": True,
+            "message": f"Successfully checked {len(results)} phone numbers from TPS2 database",
+            "total_checked": len(results),
+            "dnc_matches": dnc_matches,
+            "safe_to_call": safe_to_call,
+            "results": results,
+            "checked_at": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in TPS2 database DNC check: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error in TPS2 database DNC check: {str(e)}"
+        )
+
+@router.get("/test_tps_connection")
+async def test_tps_connection():
+    """
+    Test connection to TPS2 database
+    """
+    try:
+        is_connected = await tps_database.test_connection()
+        return {
+            "success": is_connected,
+            "message": "TPS2 database connection test",
+            "connected": is_connected,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"TPS2 connection test failed: {e}")
+        return {
+            "success": False,
+            "message": f"TPS2 database connection test failed: {str(e)}",
+            "connected": False,
+            "timestamp": datetime.now().isoformat()
+        }
 
 @router.get("/status/{processing_id}")
 async def get_processing_status(processing_id: str):
