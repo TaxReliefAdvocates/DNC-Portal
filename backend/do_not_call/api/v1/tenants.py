@@ -207,6 +207,34 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
     } for r in rows]
 
 
+@router.post("/dnc-samples/{organization_id}/bulk_add_to_dnc")
+def bulk_add_samples_to_dnc(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin")(principal)
+    ids: list[int] = payload.get("ids", [])
+    created = 0
+    for sid in ids:
+        s = db.query(CRMDNCSample).get(int(sid))
+        if not s:
+            continue
+        # Skip if already in org DNC
+        exists = db.query(DNCEntry).filter_by(organization_id=organization_id, phone_e164=s.phone_e164, active=True).first()
+        if exists:
+            continue
+        e = DNCEntry(
+            organization_id=organization_id,
+            phone_e164=s.phone_e164,
+            reason="gap (national yes, org no)",
+            channel="voice",
+            source="samples_gap",
+            created_by_user_id=principal.user_id,
+        )
+        db.add(e)
+        created += 1
+    db.commit()
+    return {"created": created}
+
+
 # SMS STOP ingest
 @router.post("/sms-stop/ingest/{organization_id}")
 def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):

@@ -105,6 +105,17 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
       // Basic UX polish: choose channel/reason
       const channel = (document.getElementById('dnc_channel') as HTMLSelectElement)?.value || 'voice'
       const reason = (document.getElementById('dnc_reason') as HTMLInputElement)?.value || 'user request'
+      // Light-weight litigation warning
+      const warn = async () => {
+        try {
+          const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/litigations/${orgId}?q=${encodeURIComponent(phone)}`, { headers: { 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' } })
+          const results = await resp.json()
+          if (Array.isArray(results) && results.length>0) {
+            console.warn('Litigation record exists for this phone; proceed with caution.')
+          }
+        } catch {}
+      }
+      warn()
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: userId }) })
       if (!resp.ok) throw new Error('Failed to submit DNC request')

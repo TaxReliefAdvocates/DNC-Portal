@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button'
 import { Phone, CheckCircle, XCircle, Clock, Database } from 'lucide-react'
 import { AdminLitigation } from './AdminLitigation'
+import { AdminSamplesGaps } from './AdminSamplesGaps'
 import { AdminDncRequests } from './AdminDncRequests'
 
 export const AdminDashboard: React.FC = () => {
@@ -127,6 +128,9 @@ export const AdminDashboard: React.FC = () => {
 
       {/* TCPA Litigation */}
       <AdminLitigation organizationId={1} adminUserId={1} />
+
+      {/* Samples Gaps */}
+      <AdminSamplesGaps organizationId={1} adminUserId={1} />
 
       {/* CRM System Statistics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
