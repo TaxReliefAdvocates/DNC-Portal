@@ -18,6 +18,7 @@ from do_not_call.core.database import get_db
 from do_not_call.core.dnc_service import dnc_service
 from do_not_call.core.cookie_fetcher import fetch_freednclist_phpsessid
 from do_not_call.core.tps_database import tps_database
+from do_not_call.core.tps_api import tps_api
 from do_not_call.config import settings
 
 router = APIRouter()
@@ -529,3 +530,103 @@ async def get_processing_status(processing_id: str):
         "status": "completed",
         "message": "Processing completed successfully"
     }
+
+@router.post("/cases_by_phone")
+async def cases_by_phone(request_data: dict):
+    """
+    Return all cases for a given phone number across TPS2 phone fields.
+
+    Args:
+        request_data: { "phone_number": "..." }
+    Returns:
+        List of case entries with CaseID, CreatedDate, LastModifiedDate, StatusID, StatusName, PhoneType
+    """
+    try:
+        phone_number = request_data.get("phone_number")
+        if not phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="phone_number is required"
+            )
+
+        # 1) Use TPS API to find cases by phone, unless an initial_case_id is provided
+        initial_case_id = request_data.get("case_id")
+        found = []
+        if initial_case_id:
+            found = [{"CaseID": initial_case_id, "CreatedDate": None, "StatusID": None, "CellPhone": phone_number}]
+        else:
+            found = await tps_api.find_cases_by_phone(phone_number)
+        cases: List[Dict[str, Any]] = []
+
+        # 2) For each CaseID, fetch detailed info to get ModifiedDate, StatusName
+        # Prefer configured key, fall back to request override if provided
+        api_key = request_data.get("apikey") or settings.TPS_API_KEY
+        for entry in found:
+            case_id = entry.get("CaseID")
+            if not case_id:
+                continue
+            detail = await tps_api.get_case_info(int(case_id), api_key=api_key)
+            created_date = (detail or {}).get("CreatedDate") or entry.get("CreatedDate")
+            status_id = entry.get("StatusID") or (detail or {}).get("StatusID")
+            cases.append({
+                "CaseID": case_id,
+                "CreatedDate": created_date,
+                "StatusID": status_id,
+                "StatusName": (detail or {}).get("StatusName"),
+                "LastModifiedDate": (detail or {}).get("ModifiedDate"),
+                "PhoneType": _infer_phone_type(entry, phone_number)
+            })
+
+        return {
+            "success": True,
+            "phone_number": phone_number,
+            "count": len(cases),
+            "cases": cases,
+            "queried_at": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching cases for phone {request_data}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching cases: {str(e)}"
+        )
+
+def _infer_phone_type(entry: Dict[str, Any], target: str) -> str:
+    for key in ("CellPhone", "HomePhone", "WorkPhone"):
+        value = entry.get(key) or ""
+        if value == target:
+            return key
+    return "Unknown"
+
+@router.post("/run_automation")
+async def run_dnc_automation(request_data: dict):
+    """
+    Stub endpoint to trigger DNC automation across CRMs for a phone number.
+    Currently returns a placeholder response; integration hooks to Convoso, Ytel,
+    RingCentral, and Genesys will be wired later.
+    """
+    try:
+        phone_number = request_data.get("phone_number")
+        if not phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="phone_number is required"
+            )
+
+        # Placeholder: return an accepted response for now
+        return {
+            "success": True,
+            "message": "DNC automation initiated (stub)",
+            "phone_number": phone_number,
+            "started_at": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error initiating automation for {request_data}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Automation start failed: {str(e)}"
+        )

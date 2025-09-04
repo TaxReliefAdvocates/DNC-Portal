@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react'
+import { Upload, Download, FileText, AlertCircle, CheckCircle, X, Eye } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
@@ -37,6 +37,9 @@ export const DNCChecker: React.FC = () => {
   // TPS2 Database checking
   const [tpsLimit, setTpsLimit] = useState<number>(1000)
   const [tpsResults, setTpsResults] = useState<any>(null)
+  const [selectedNumber, setSelectedNumber] = useState<string | null>(null)
+  const [selectedCases, setSelectedCases] = useState<any[] | null>(null)
+  const [isLoadingCases, setIsLoadingCases] = useState<boolean>(false)
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
   const [tpsConnectionStatus, setTpsConnectionStatus] = useState<string>('')
 
@@ -286,6 +289,58 @@ export const DNCChecker: React.FC = () => {
       setIsCheckingTps(false)
     }
   }
+
+  const openNumberDetails = async (phoneNumber: string, caseId?: number) => {
+    try {
+      setSelectedNumber(phoneNumber)
+      setIsLoadingCases(true)
+      setSelectedCases(null)
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: phoneNumber, case_id: caseId })
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Failed to fetch cases')
+      }
+      const data = await response.json()
+      setSelectedCases(data.cases || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch number details')
+    } finally {
+      setIsLoadingCases(false)
+    }
+  }
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return '—'
+    try {
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return '—'
+      return d.toLocaleString()
+    } catch {
+      return '—'
+    }
+  }
+
+  const runAutomation = async () => {
+    if (!selectedNumber) return
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/run_automation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: selectedNumber })
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Automation failed to start')
+      }
+      // No-op for now; toast could be added later
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Automation failed')
+    }
+  }
   
   const resetForm = () => {
     setFile(null)
@@ -507,13 +562,26 @@ export const DNCChecker: React.FC = () => {
                       }`}>
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="font-medium">{result.PhoneNumber}</span>
+                            <button 
+                              className="font-medium underline hover:text-blue-700"
+                              onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}
+                            >
+                              {result.PhoneNumber}
+                            </button>
                             <span className={result.is_dnc ? 'text-red-700' : 'text-green-700'}>
                               {result.is_dnc ? ' DNC' : ' Safe'}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {result.PhoneType}
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>{result.PhoneType}</span>
+                            <button 
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border hover:bg-gray-50"
+                              title="View details"
+                              onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>View</span>
+                            </button>
                           </div>
                         </div>
                         <div className="text-xs text-gray-600 mt-1">
@@ -533,6 +601,55 @@ export const DNCChecker: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Number Detail Drawer/Section */}
+      {selectedNumber && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-3"
+        >
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-purple-700">{selectedNumber}</CardTitle>
+                <div className="flex gap-2">
+                  <Button onClick={runAutomation} className="bg-red-600 hover:bg-red-700">RUN DNC Automation</Button>
+                  <Button variant="outline" onClick={() => { setSelectedNumber(null); setSelectedCases(null); }}>Close</Button>
+                </div>
+              </div>
+              <CardDescription>All cases for this number with created/last modified/status.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingCases ? (
+                <div className="text-sm text-gray-600">Loading cases...</div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedCases && selectedCases.length > 0 ? (
+                    <div className="max-h-60 overflow-y-auto divide-y border rounded">
+                      {selectedCases.map((c: any, idx: number) => (
+                        <div key={idx} className="p-2 text-sm flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">Case {c.CaseID}</div>
+                            <div className="text-xs text-gray-600">
+                              Created: {formatDateTime(c.CreatedDate)} | Last Modified: {formatDateTime(c.LastModifiedDate)}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-700">
+                            {c.StatusName || `Status ${c.StatusID}`} • {c.PhoneType}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-600">No cases found for this number.</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* File Upload Section */}
       <motion.div

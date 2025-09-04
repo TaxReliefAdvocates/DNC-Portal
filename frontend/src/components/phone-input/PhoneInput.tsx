@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
-import { Phone, Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { Phone, Upload, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Textarea } from '../ui/textarea'
@@ -15,13 +15,15 @@ interface PhoneInputFormData {
 
 interface PhoneInputProps {
   onNumbersSubmit: (numbers: string[], notes?: string) => Promise<void>
+  onPrecheckDnc?: (numbers: string[]) => Promise<void> | void
   isLoading: boolean
 }
 
-export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoading }) => {
+export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrecheckDnc, isLoading }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  
 
   const {
     register,
@@ -66,6 +68,21 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleDncPrecheck = async () => {
+    setError(null)
+    if (!onPrecheckDnc) return
+    const formValues = (document.getElementById('phone_numbers') as HTMLTextAreaElement)?.value || ''
+    const numbers = formValues
+      .split('\n')
+      .map(line => normalizePhoneNumber(line.trim()))
+      .filter(line => line.length > 0)
+    if (numbers.length === 0) {
+      setError('Enter numbers first to cross-check DNC')
+      return
+    }
+    await onPrecheckDnc(numbers)
   }
 
   const handleReset = () => {
@@ -172,6 +189,16 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
                 </>
               )}
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleDncPrecheck}
+              disabled={isSubmitting || isLoading}
+              className="flex-shrink-0"
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Cross-check DNC
+            </Button>
             
             <Button
               type="button"
@@ -184,6 +211,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
             </Button>
           </div>
         </form>
+        
       </CardContent>
     </Card>
   )

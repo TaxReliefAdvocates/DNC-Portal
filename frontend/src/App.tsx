@@ -12,13 +12,15 @@ import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
 import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib/features/phoneNumbers/phoneNumbersSlice'
-import { fetchCRMStatuses } from './lib/features/crmStatus/crmStatusSlice'
+import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
 import { addNotification } from './lib/features/ui/uiSlice'
 
 const AppContent: React.FC = () => {
   const dispatch = useAppDispatch()
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
   const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker'>('main')
+  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck'>('none')
+  const [precheckResults, setPrecheckResults] = useState<any | null>(null)
 
   useEffect(() => {
     // Reset loading state on mount and after a short delay to ensure it's cleared
@@ -57,6 +59,27 @@ const AppContent: React.FC = () => {
         }))
       }
       
+      // Demo-mode simulation of progress across CRMs
+      const total = numbers.length
+      dispatch(initDemoStats(total))
+      const crms: Array<'logics' | 'genesys' | 'ringcentral' | 'convoso' | 'ytel'> = ['logics','genesys','ringcentral','convoso','ytel']
+      // simulate over 5 ticks
+      let tick = 0
+      const interval = setInterval(() => {
+        tick++
+        crms.forEach((crm) => {
+          const completed = Math.min(total, Math.round((tick / 5) * total))
+          const failed = tick === 5 ? Math.floor(completed * 0.1) : 0 // 10% fail at end
+          const processing = tick < 5 ? Math.max(0, total - completed) : 0
+          const pending = Math.max(0, total - completed - processing)
+          dispatch(setCRMStats({ crm, stats: { total: completed, pending, processing, completed: completed - failed, failed } }))
+        })
+        if (tick >= 5) clearInterval(interval)
+      }, 800)
+
+      // Show CRM status dashboard on the right
+      setRightPane('crm')
+
       // Reset loading state after successful submission
       dispatch(resetLoadingState())
     } catch (error) {
@@ -68,6 +91,29 @@ const AppContent: React.FC = () => {
       
       // Reset loading state after error
       dispatch(resetLoadingState())
+    }
+  }
+
+  const handlePrecheck = async (numbers: string[]) => {
+    try {
+      setPrecheckResults(null)
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_numbers: numbers }),
+      })
+      if (!resp.ok) {
+        throw new Error('DNC pre-check failed')
+      }
+      const json = await resp.json()
+      setPrecheckResults(json)
+      setRightPane('precheck')
+    } catch (e) {
+      dispatch(addNotification({
+        type: 'error',
+        message: e instanceof Error ? e.message : 'DNC pre-check failed',
+        duration: 4000,
+      }))
     }
   }
 
@@ -90,8 +136,7 @@ const AppContent: React.FC = () => {
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Phone Input Section */}
+            {rightPane === 'none' ? (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -99,19 +144,63 @@ const AppContent: React.FC = () => {
               >
                 <PhoneInput
                   onNumbersSubmit={handlePhoneNumbersSubmit}
+                  onPrecheckDnc={handlePrecheck}
                   isLoading={isLoading}
                 />
               </motion.div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Phone Input Section */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                  <PhoneInput
+                    onNumbersSubmit={handlePhoneNumbersSubmit}
+                    onPrecheckDnc={handlePrecheck}
+                    isLoading={isLoading}
+                  />
+                </motion.div>
 
-              {/* CRM Status Dashboard */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <CRMStatusDashboard />
-              </motion.div>
-            </div>
+                {/* Right Pane */}
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  {rightPane === 'crm' && <CRMStatusDashboard />}
+                  {rightPane === 'precheck' && precheckResults && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-900">{precheckResults.total_checked}</div>
+                          <div className="text-sm text-gray-600">Total Checked</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">{precheckResults.dnc_matches}</div>
+                          <div className="text-sm text-gray-600">DNC Matches</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{precheckResults.safe_to_call}</div>
+                          <div className="text-sm text-gray-600">Safe to Call</div>
+                        </div>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-2">
+                        {precheckResults.results.slice(0, 20).map((r: any, i: number) => (
+                          <div key={i} className={`p-2 rounded border text-sm ${r.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            <span className="font-medium">{r.phone_number}</span>
+                            <span className={r.is_dnc ? 'text-red-700' : 'text-green-700'}>
+                              {r.is_dnc ? ' DNC' : ' Safe'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            )}
 
             {/* Error Display */}
             <AnimatePresence>

@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     TPS_DB_PASSWORD: str = "TPSZen2025@!"
     TPS_DB_DRIVER: str = "ODBC Driver 17 for SQL Server"
     TPS_DB_TRUST_CERT: bool = True
+
+    # TPS Public API
+    TPS_API_KEY: Optional[str] = None
+    TPS_API_VERIFY_SSL: bool = True
     
     # Processing
     BATCH_SIZE: int = 100

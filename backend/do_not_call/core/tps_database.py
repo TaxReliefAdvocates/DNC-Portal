@@ -48,6 +48,114 @@ class TPSDatabaseService:
         except Exception as e:
             logger.error(f"Error retrieving phone numbers from TPS2: {e}")
             raise
+
+    async def get_cases_by_phone(self, phone_number: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve all cases matching a given phone number across all phone fields.
+
+        Returns a list of dictionaries including CaseID, CreatedDate, LastModifiedDate (if available),
+        StatusID, StatusName (if available), and which PhoneType matched.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self._execute_cases_by_phone_query, phone_number)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving cases for phone {phone_number} from TPS2: {e}")
+            raise
+
+    def _execute_cases_by_phone_query(self, phone_number: str) -> List[Dict[str, Any]]:
+        """Execute SQL to fetch cases matching a phone across possible fields."""
+        try:
+            sql_query = f"""
+            WITH Matches AS (
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'HomePhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE HomePhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'WorkPhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE WorkPhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'CellPhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE CellPhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseHomePhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE SpouseHomePhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseWorkPhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE SpouseWorkPhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseCellPhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE SpouseCellPhone = ?
+                UNION ALL
+                SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseDaytimePhone' AS PhoneType
+                FROM [tps2].[dbo].[Cases]
+                WHERE SpouseDaytimePhone = ?
+            )
+            SELECT M.CaseID, M.CreatedDate, M.ModifiedDate AS LastModifiedDate, M.StatusID, S.StatusName, M.PhoneType
+            FROM Matches M
+            LEFT JOIN [tps2].[dbo].[Status] S ON S.StatusID = M.StatusID
+            ORDER BY M.CreatedDate DESC
+            """
+
+            with pyodbc.connect(self.connection_string) as conn:
+                cursor = conn.cursor()
+                params = [phone_number] * 7
+                try:
+                    cursor.execute(sql_query, params)
+                except pyodbc.Error as e:
+                    # Fallback if Status table name doesn't exist; return without StatusName
+                    if 'Invalid object name' in str(e):
+                        fallback_sql = f"""
+                        WITH Matches AS (
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'HomePhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE HomePhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'WorkPhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE WorkPhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'CellPhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE CellPhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseHomePhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE SpouseHomePhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseWorkPhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE SpouseWorkPhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseCellPhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE SpouseCellPhone = ?
+                            UNION ALL
+                            SELECT CaseID, CreatedDate, ModifiedDate, StatusID, 'SpouseDaytimePhone' AS PhoneType FROM [tps2].[dbo].[Cases] WHERE SpouseDaytimePhone = ?
+                        )
+                        SELECT CaseID, CreatedDate, ModifiedDate AS LastModifiedDate, StatusID, NULL AS StatusName, PhoneType
+                        FROM Matches
+                        ORDER BY CreatedDate DESC
+                        """
+                        cursor.execute(fallback_sql, params)
+                    else:
+                        raise
+
+                columns = [column[0] for column in cursor.description]
+                rows = cursor.fetchall()
+
+                results: List[Dict[str, Any]] = []
+                for row in rows:
+                    entry: Dict[str, Any] = {}
+                    for i, column in enumerate(columns):
+                        value = row[i]
+                        if hasattr(value, 'isoformat'):
+                            value = value.isoformat()
+                        entry[column] = value
+                    results.append(entry)
+
+                return results
+
+        except pyodbc.Error as e:
+            logger.error(f"Database error: {e}")
+            raise Exception(f"Database query failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            raise
     
     def _execute_query(self, limit: int) -> List[Dict[str, Any]]:
         """Execute the SQL query to get phone numbers"""

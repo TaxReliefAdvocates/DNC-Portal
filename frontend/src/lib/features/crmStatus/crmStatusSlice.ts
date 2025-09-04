@@ -6,6 +6,7 @@ interface CRMStatusState {
   crmStatuses: CRMStatus[]
   isLoading: boolean
   error: string | null
+  demoTotal: number
   stats: {
     logics: { total: number, pending: number, processing: number, completed: number, failed: number },
     genesys: { total: number, pending: number, processing: number, completed: number, failed: number },
@@ -19,6 +20,7 @@ const initialState: CRMStatusState = {
   crmStatuses: [],
   isLoading: false,
   error: null,
+  demoTotal: 0,
   stats: {
     logics: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
     genesys: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
@@ -82,7 +84,30 @@ const crmStatusSlice = createSlice({
         convoso: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
         ytel: { total: 0, pending: 0, processing: 0, completed: 0, failed: 0 },
       }
+      state.demoTotal = 0
     },
+    // Demo-mode helpers
+    initDemoStats: (state, action: PayloadAction<number>) => {
+      const total = action.payload
+      const template = { total: 0, pending: total, processing: 0, completed: 0, failed: 0 }
+      state.stats = {
+        logics: { ...template },
+        genesys: { ...template },
+        ringcentral: { ...template },
+        convoso: { ...template },
+        ytel: { ...template },
+      }
+      state.demoTotal = total
+    },
+    setCRMStats: (
+      state,
+      action: PayloadAction<{ crm: CRMSystem; stats: { total: number; pending: number; processing: number; completed: number; failed: number } }>
+    ) => {
+      const { crm, stats } = action.payload
+      // @ts-ignore - index by key
+      state.stats[crm] = stats
+    },
+    clearDemoTotal: (state) => { state.demoTotal = 0 },
   },
   extraReducers: (builder) => {
     builder
@@ -155,6 +180,8 @@ export const {
   updateCRMStatus,
   addCRMStatus,
   clearCRMStatuses,
+  initDemoStats,
+  setCRMStats,
 } = crmStatusSlice.actions
 
 export default crmStatusSlice.reducer

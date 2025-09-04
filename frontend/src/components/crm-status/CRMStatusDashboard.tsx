@@ -138,10 +138,10 @@ const StatusCard: React.FC<StatusCardProps> = ({
 }
 
 export const CRMStatusDashboard: React.FC = () => {
-  const { stats, isLoading } = useAppSelector((state) => state.crmStatus)
+  const { stats, isLoading, demoTotal } = useAppSelector((state) => state.crmStatus)
   const { phoneNumbers } = useAppSelector((state) => state.phoneNumbers)
 
-  const totalPhoneNumbers = phoneNumbers.length
+  const totalPhoneNumbers = demoTotal || phoneNumbers.length
 
   // Updated CRM system display names
   const getCRMDisplayName = (crm: CRMSystem) => {
