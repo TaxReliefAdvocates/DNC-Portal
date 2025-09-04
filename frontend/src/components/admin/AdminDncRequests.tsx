@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 
 type RequestRow = {
   id: number
@@ -23,6 +26,14 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [rows, setRows] = useState<RequestRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<'pending'|'approved'|'denied'|''>('pending')
+  const [query, setQuery] = useState('')
+  const [channel, setChannel] = useState('')
+  const [requester, setRequester] = useState('')
+  const [cursor, setCursor] = useState<number | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [selected, setSelected] = useState<Record<number, boolean>>({})
+  const [decisionNotes, setDecisionNotes] = useState('')
 
   const headers = {
     'Content-Type': 'application/json',
@@ -31,14 +42,20 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     'X-Role': 'owner',
   }
 
-  const fetchPending = async () => {
+  const fetchPending = async (append=false) => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/org/${organizationId}?status=pending`, { headers })
+      const params = new URLSearchParams()
+      if (status) params.set('status', status)
+      if (cursor) params.set('cursor', String(cursor))
+      params.set('limit','50')
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers })
       if (!resp.ok) throw new Error('Failed to load requests')
-      const json = await resp.json()
-      setRows(json)
+      const newRows: RequestRow[] = await resp.json()
+      setRows(append ? [...rows, ...newRows] : newRows)
+      setHasMore(newRows.length === 50)
+      setCursor(newRows.length ? newRows[newRows.length-1].id : null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
@@ -47,17 +64,37 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   }
 
   useEffect(() => {
-    fetchPending()
-  }, [])
+    setCursor(null)
+    fetchPending(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
-        { method: 'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId }) })
+        { method: 'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Action failed')
-      await fetchPending()
+      await fetchPending(false)
+      toast.success(action === 'approve' ? 'Request approved' : 'Request denied')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed')
+      toast.error('Action failed')
+    }
+  }
+
+  const selectedIds = useMemo(()=> Object.entries(selected).filter(([,v])=>v).map(([k])=> Number(k)), [selected])
+
+  const bulk = async (action: 'approve'|'deny') => {
+    if (selectedIds.length===0) return
+    try {
+      const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/bulk/${action}`
+      const resp = await fetch(url, { method:'POST', headers, body: JSON.stringify({ ids: selectedIds, reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
+      if (!resp.ok) throw new Error('Bulk action failed')
+      setSelected({})
+      await fetchPending(false)
+      toast.success(`${action==='approve'?'Approved':'Denied'} ${selectedIds.length} requests`)
+    } catch {
+      toast.error('Bulk action failed')
     }
   }
 
@@ -68,17 +105,59 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
       </CardHeader>
       <CardContent>
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-        {loading ? (
-          <div className="text-sm text-gray-600">Loading…</div>
+        {/* Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
+          <div>
+            <Label className="text-xs">Status</Label>
+            <select className="w-full border rounded px-2 py-1" value={status} onChange={(e)=>setStatus(e.target.value as any)}>
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="denied">Denied</option>
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Channel</Label>
+            <select className="w-full border rounded px-2 py-1" value={channel} onChange={(e)=>setChannel(e.target.value)}>
+              <option value="">Any</option>
+              <option value="voice">Voice</option>
+              <option value="sms">SMS</option>
+              <option value="email">Email</option>
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Requester ID</Label>
+            <Input value={requester} onChange={(e)=>setRequester(e.target.value)} placeholder="e.g. 42" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Search phone</Label>
+            <Input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="digits only" />
+          </div>
+        </div>
+        {/* Bulk actions */}
+        <div className="flex items-center gap-2 mb-3">
+          <Input placeholder="Decision notes (optional)" value={decisionNotes} onChange={(e)=>setDecisionNotes(e.target.value)} />
+          <Button variant="outline" onClick={()=>bulk('approve')} disabled={selectedIds.length===0}>Approve selected</Button>
+          <Button variant="outline" onClick={()=>bulk('deny')} disabled={selectedIds.length===0}>Deny selected</Button>
+        </div>
+        {loading && rows.length===0 ? (
+          <div className="space-y-2">
+            {Array.from({length:5}).map((_,i)=> (<div key={i} className="animate-pulse h-10 bg-gray-100 rounded" />))}
+          </div>
         ) : rows.length === 0 ? (
           <div className="text-sm text-gray-600">No pending requests</div>
         ) : (
           <div className="space-y-2">
-            {rows.map(r => (
+            {rows
+              .filter(r => (!query || r.phone_e164.includes(query)) && (!channel || r.channel===channel) && (!requester || String(r.requested_by_user_id)===requester))
+              .map(r => (
               <div key={r.id} className="flex items-center justify-between p-2 border rounded">
-                <div className="text-sm">
-                  <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
-                  <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by #{r.requested_by_user_id}</div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
+                  <div className="text-sm">
+                    <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
+                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by #{r.requested_by_user_id}</div>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button className="bg-green-600 hover:bg-green-700" onClick={() => act(r.id, 'approve')}>Approve</Button>
@@ -86,6 +165,11 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                 </div>
               </div>
             ))}
+            {hasMore && (
+              <div className="text-center pt-2">
+                <Button variant="outline" onClick={()=>fetchPending(true)}>Load more</Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
