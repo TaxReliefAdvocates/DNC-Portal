@@ -8,7 +8,7 @@ type SystemsResult = {
   providers: Record<string, any>
 }
 
-const getDemoHeaders = () => {
+const getDemoHeaders = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('persist:do-not-call-root')
     if (!raw) return {}
@@ -21,7 +21,7 @@ const getDemoHeaders = () => {
       'X-Role': String(demoAuth.role),
     }
   } catch {
-    return {}
+    return {} as Record<string, string>
   }
 }
 

@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
 
 type Row = { id:number; phone_e164:string; in_national_dnc:boolean; in_org_dnc:boolean; sample_date:string }
 

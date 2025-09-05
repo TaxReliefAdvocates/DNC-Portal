@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
-import { Phone, Upload, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react'
+import { Phone, Upload, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Textarea } from '../ui/textarea'

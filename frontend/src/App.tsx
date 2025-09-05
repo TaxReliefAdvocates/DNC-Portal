@@ -17,7 +17,7 @@ import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib
 import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
 import { addNotification } from './lib/features/ui/uiSlice'
 
-const getDemoHeaders = () => {
+const getDemoHeaders = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('persist:do-not-call-root')
     if (!raw) return {}
@@ -30,7 +30,7 @@ const getDemoHeaders = () => {
       'X-Role': String(demoAuth.role),
     }
   } catch {
-    return {}
+    return {} as Record<string, string>
   }
 }
 

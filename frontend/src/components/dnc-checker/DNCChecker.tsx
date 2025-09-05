@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, Download, FileText, AlertCircle, CheckCircle, X, Eye } from 'lucide-react'
+import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
@@ -267,28 +267,7 @@ export const DNCChecker: React.FC = () => {
     }
   }
 
-  const openNumberDetails = async (phoneNumber: string, caseId?: number) => {
-    try {
-      setSelectedNumber(phoneNumber)
-      setIsLoadingCases(true)
-      setSelectedCases(null)
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phoneNumber, case_id: caseId })
-      })
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.detail || 'Failed to fetch cases')
-      }
-      const data = await response.json()
-      setSelectedCases(data.cases || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch number details')
-    } finally {
-      setIsLoadingCases(false)
-    }
-  }
+  // Removed unused openNumberDetails; using precheck detail flow instead
 
   const formatDateTime = (value?: string | null) => {
     if (!value) return '—'
@@ -327,9 +306,6 @@ export const DNCChecker: React.FC = () => {
     setBatchPhones('')
     setSingleResult(null)
     setBatchResults(null)
-    setTpsLimit(1000)
-    setTpsResults(null)
-    setTpsConnectionStatus('')
     setError(null)
     setProcessingStatus('')
     if (fileInputRef.current) {
