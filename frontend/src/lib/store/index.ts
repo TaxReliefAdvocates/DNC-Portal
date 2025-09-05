@@ -7,11 +7,12 @@ import phoneNumbersReducer from '../features/phoneNumbers/phoneNumbersSlice'
 import crmStatusReducer from '../features/crmStatus/crmStatusSlice'
 import consentReducer from '../features/consent/consentSlice'
 import uiReducer from '../features/ui/uiSlice'
+import demoAuthReducer from '../features/auth/demoAuthSlice'
 
 const persistConfig = {
   key: 'do-not-call-root',
   storage,
-  whitelist: ['ui'], // Only persist UI state, not loading states
+  whitelist: ['ui', 'demoAuth'],
 }
 
 const rootReducer = combineReducers({
@@ -19,6 +20,7 @@ const rootReducer = combineReducers({
   crmStatus: crmStatusReducer,
   consent: consentReducer,
   ui: uiReducer,
+  demoAuth: demoAuthReducer,
 })
 
 const persistedReducer = persistReducer(persistConfig, rootReducer)

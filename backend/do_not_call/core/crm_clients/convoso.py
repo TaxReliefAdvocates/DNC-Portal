@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from loguru import logger
 from .base import BaseCRMClient
+import httpx
+from ...config import settings
 from datetime import datetime
 
 
@@ -23,28 +25,24 @@ class ConvosoClient(BaseCRMClient):
             Dict containing the result of the removal operation
         """
         try:
-            logger.info(f"Removing phone number {phone_number} from Convoso")
-            
-            # TODO: Implement actual Convoso API call here
-            # This is a placeholder implementation
-            
-            # Simulate API call
-            result = {
-                "success": True,
-                "phone_number": phone_number,
-                "crm_system": "convoso",
-                "removal_id": f"convoso_{phone_number}_{int(datetime.now().timestamp())}",
-                "status": "removed",
-                "message": "Phone number successfully removed from Convoso dialer platform",
-                "timestamp": datetime.now().isoformat()
+            logger.info(f"Convoso DNC insert for {phone_number}")
+            params = {
+                'auth_token': settings.CONVOSO_AUTH_TOKEN or '',
+                'phone_number': phone_number,
+                'phone_code': '1',
+                'campaign_id': 0,
             }
-            
-            logger.info(f"Successfully removed {phone_number} from Convoso")
-            return result
-            
+            url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/insert"
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(url, params=params)
+                ok = resp.status_code == 200
+                data = resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+                if not ok:
+                    raise Exception(f"Convoso insert error {resp.status_code}: {data}")
+                return { 'success': True, 'crm_system': 'convoso', 'status': 'inserted', 'response': data }
         except Exception as e:
-            logger.error(f"Failed to remove {phone_number} from Convoso: {e}")
-            raise Exception(f"Convoso removal failed: {str(e)}")
+            logger.error(f"Failed to insert DNC {phone_number} into Convoso: {e}")
+            raise Exception(f"Convoso DNC insert failed: {str(e)}")
     
     async def check_status(self, phone_number: str) -> Dict[str, Any]:
         """
@@ -57,24 +55,25 @@ class ConvosoClient(BaseCRMClient):
             Dict containing the current status
         """
         try:
-            logger.info(f"Checking status of {phone_number} in Convoso")
-            
-            # TODO: Implement actual Convoso API call here
-            # This is a placeholder implementation
-            
-            result = {
-                "phone_number": phone_number,
-                "crm_system": "convoso",
-                "status": "active",  # or "removed", "pending", etc.
-                "last_updated": datetime.now().isoformat(),
-                "notes": "Status check completed"
+            logger.info(f"Convoso DNC search for {phone_number}")
+            params = {
+                'auth_token': settings.CONVOSO_AUTH_TOKEN or '',
+                'phone_number': phone_number,
+                'phone_code': '1',
+                'offset': 0,
+                'limit': 1,
             }
-            
-            return result
-            
+            url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/search"
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(url, params=params)
+                if resp.status_code != 200:
+                    raise Exception(f"Convoso search error {resp.status_code}: {resp.text}")
+                data = resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+                found = bool(data)
+                return { 'phone_number': phone_number, 'crm_system': 'convoso', 'status': 'listed' if found else 'not_listed', 'raw': data }
         except Exception as e:
-            logger.error(f"Failed to check status of {phone_number} in Convoso: {e}")
-            raise Exception(f"Convoso status check failed: {str(e)}")
+            logger.error(f"Failed Convoso DNC search: {e}")
+            raise Exception(f"Convoso DNC search failed: {str(e)}")
     
     async def get_removal_history(self, phone_number: str) -> Dict[str, Any]:
         """
@@ -87,27 +86,8 @@ class ConvosoClient(BaseCRMClient):
             Dict containing removal history
         """
         try:
-            logger.info(f"Getting removal history for {phone_number} in Convoso")
-            
-            # TODO: Implement actual Convoso API call here
-            # This is a placeholder implementation
-            
-            result = {
-                "phone_number": phone_number,
-                "crm_system": "convoso",
-                "history": [
-                    {
-                        "action": "removal_requested",
-                        "timestamp": datetime.now().isoformat(),
-                        "status": "completed",
-                        "user": "system"
-                    }
-                ],
-                "total_actions": 1
-            }
-            
-            return result
-            
+            # Convoso APIs shown do not provide explicit history; return last search result as placeholder
+            return await self.check_status(phone_number)
         except Exception as e:
-            logger.error(f"Failed to get removal history for {phone_number} in Convoso: {e}")
-            raise Exception(f"Convoso history retrieval failed: {str(e)}")
+            logger.error(f"Failed Convoso history: {e}")
+            raise

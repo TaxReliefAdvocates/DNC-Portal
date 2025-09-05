@@ -76,7 +76,11 @@ class TPSApiClient:
             data: Optional[Dict[str, Any]] = None
             try:
                 connector = aiohttp.TCPConnector(ssl=self.ssl_context_verified if self.verify_ssl_default else False)
-                async with aiohttp.ClientSession(connector=connector) as session:
+                headers = {}
+                # If provided, include Basic Authorization header for V3 search
+                if settings.TPS_API_BASIC_AUTH:
+                    headers["Authorization"] = settings.TPS_API_BASIC_AUTH
+                async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
                     async with session.get(url, params=params, timeout=30) as resp:
                         text = await resp.text()
                         data = await resp.json(content_type=None)
@@ -85,7 +89,10 @@ class TPSApiClient:
                 if "CERTIFICATE_VERIFY_FAILED" in str(e):
                     logger.warning("TPS find_cases_by_phone SSL verify failed; retrying without verification")
                     connector = aiohttp.TCPConnector(ssl=False)
-                    async with aiohttp.ClientSession(connector=connector) as session:
+                    headers = {}
+                    if settings.TPS_API_BASIC_AUTH:
+                        headers["Authorization"] = settings.TPS_API_BASIC_AUTH
+                    async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
                         async with session.get(url, params=params, timeout=30) as resp:
                             text = await resp.text()
                             data = await resp.json(content_type=None)
@@ -132,6 +139,53 @@ class TPSApiClient:
         if data and data.get("status") == "success":
             return data.get("data")
         return None
+
+    async def update_case_status(self, case_id: int, status_id: int) -> Dict[str, Any]:
+        """Update a case's StatusID via V3 UpdateCase endpoint (Basic auth)."""
+        url = f"{self.base_url}/V3/UpdateCase/UpdateCase"
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if settings.TPS_API_BASIC_AUTH:
+            headers["Authorization"] = settings.TPS_API_BASIC_AUTH
+        payload = {"CaseID": case_id, "StatusID": status_id}
+        connector = aiohttp.TCPConnector(ssl=self.ssl_context_verified if self.verify_ssl_default else False)
+        try:
+            async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
+                async with session.post(url, json=payload, timeout=30) as resp:
+                    text = await resp.text()
+                    try:
+                        data = await resp.json(content_type=None)
+                    except Exception:
+                        return {"success": False, "status": resp.status, "text": text}
+        except Exception as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False), headers=headers) as session:
+                    async with session.post(url, json=payload, timeout=30) as resp:
+                        text = await resp.text()
+                        try:
+                            data = await resp.json(content_type=None)
+                        except Exception:
+                            return {"success": False, "status": resp.status, "text": text}
+            else:
+                raise
+        return data
+
+    async def get_cases_by_status(self, status_id: int, api_key: Optional[str] = None, page: int = 1, per_page: int = 100) -> Dict[str, Any]:
+        """Read cases by Status via 2020-02-22 API; requires apikey."""
+        if not api_key:
+            api_key = settings.TPS_API_KEY
+        url = f"{self.base_url}/2020-02-22/cases/GetCasesByStatus"
+        params = {"StatusID": str(status_id)}
+        if api_key:
+            params["apikey"] = api_key
+        connector = aiohttp.TCPConnector(ssl=self.ssl_context_verified if self.verify_ssl_default else False)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url, params=params, timeout=30) as resp:
+                text = await resp.text()
+                try:
+                    data = await resp.json(content_type=None)
+                except Exception:
+                    return {"success": False, "status": resp.status, "text": text}
+        return data
 
 
 tps_api = TPSApiClient()

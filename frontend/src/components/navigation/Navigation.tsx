@@ -1,13 +1,19 @@
 import React from 'react'
 import { Button } from '../ui/button'
 import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
+import { useAppSelector, useAppDispatch } from '../../lib/hooks'
+import { setRole } from '../../lib/features/auth/demoAuthSlice'
 
 interface NavigationProps {
-  activeTab: 'main' | 'admin' | 'dnc-checker'
-  onTabChange: (tab: 'main' | 'admin' | 'dnc-checker') => void
+  activeTab: 'main' | 'admin' | 'dnc-checker' | 'requests'
+  onTabChange: (tab: 'main' | 'admin' | 'dnc-checker' | 'requests') => void
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
+  const { role } = useAppSelector((s) => s.demoAuth)
+  const dispatch = useAppDispatch()
+  const isAdmin = role === 'admin' || role === 'owner'
+
   return (
     <nav className="bg-white shadow-sm border-b">
       <div className="container mx-auto px-4">
@@ -37,23 +43,43 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 <span>DNC Checker</span>
               </Button>
               
-              <Button
-                variant={activeTab === 'admin' ? 'default' : 'ghost'}
-                onClick={() => onTabChange('admin')}
-                className="flex items-center space-x-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span>Admin: Requests</span>
-              </Button>
-              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: DNC List</Button>
-              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: SMS STOPs</Button>
-              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Samples</Button>
-              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Services</Button>
-              <Button variant="ghost" onClick={() => onTabChange('admin')} className="text-gray-700">Admin: Access</Button>
+              {!isAdmin && (
+                <Button
+                  variant={activeTab === 'requests' ? 'default' : 'ghost'}
+                  onClick={() => onTabChange('requests')}
+                  className="flex items-center space-x-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>My Requests</span>
+                </Button>
+              )}
+              
+              {isAdmin && (
+                <Button
+                  variant={activeTab === 'admin' ? 'default' : 'ghost'}
+                  onClick={() => onTabChange('admin')}
+                  className="flex items-center space-x-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Admin</span>
+                </Button>
+              )}
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span>Role:</span>
+              <select
+                value={role}
+                onChange={(e) => dispatch(setRole(e.target.value as any))}
+                className="border rounded px-2 py-1"
+              >
+                <option value="member">User</option>
+                <option value="admin">Admin</option>
+                <option value="owner">Owner</option>
+              </select>
+            </div>
             <Button variant="outline" size="sm">
               <Settings className="h-4 w-4 mr-2" />
               Settings

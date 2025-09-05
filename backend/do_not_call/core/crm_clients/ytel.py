@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from loguru import logger
 from .base import BaseCRMClient
+import httpx
+from ...config import settings
 from datetime import datetime
 
 
@@ -24,24 +26,50 @@ class YtelClient(BaseCRMClient):
         """
         try:
             logger.info(f"Removing phone number {phone_number} from Ytel")
-            
-            # TODO: Implement actual Ytel API call here
-            # This is a placeholder implementation
-            
-            # Simulate API call
-            result = {
-                "success": True,
-                "phone_number": phone_number,
-                "crm_system": "ytel",
-                "removal_id": f"ytel_{phone_number}_{int(datetime.now().timestamp())}",
-                "status": "removed",
-                "message": "Phone number successfully removed from Ytel communication platform",
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            logger.info(f"Successfully removed {phone_number} from Ytel")
-            return result
-            
+            # Prefer v4 API if bearer token present; else fallback to legacy non_agent
+            if settings.YTEL_BEARER_TOKEN:
+                url = f"{settings.YTEL_V4_BASE_URL}/dnc"
+                headers = {"Authorization": f"Bearer {settings.YTEL_BEARER_TOKEN}", "Content-Type": "application/json"}
+                payload = {
+                    "endpoint": phone_number,
+                    "selector": settings.YTEL_SELECTOR_DEFAULT,
+                    "subtype": "call",
+                }
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(url, headers=headers, json=payload)
+                    ok = resp.status_code in (200, 201)
+                    data = resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+                    if not ok:
+                        raise Exception(f"Ytel v4 error {resp.status_code}: {data}")
+                    return { "success": True, "phone_number": phone_number, "crm_system": "ytel", "status": "removed", "response": data }
+            else:
+                params = {
+                    "function": "update_lead",
+                    "user": settings.YTEL_USER or "",
+                    "pass": settings.YTEL_PASS or "",
+                    "source": "dncfilter",
+                    "status": "DNC",
+                    "phone_number": phone_number,
+                    "ADDTODNC": settings.YTEL_ADD_TO_DNC,
+                    "CAMPAIGN": settings.YTEL_CAMPAIGN,
+                }
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.get(settings.YTEL_NON_AGENT_URL, params=params)
+                    body = resp.text.strip()
+                    ok = resp.status_code == 200 and ("ALREADY" in body.upper() or "DNC" in body.upper() or "SUCCESS" in body.upper())
+                    result = {
+                        "success": ok,
+                        "phone_number": phone_number,
+                        "crm_system": "ytel",
+                        "status": "removed" if ok else "failed",
+                        "message": body,
+                        "http_status": resp.status_code,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    if not ok:
+                        raise Exception(f"Ytel responded with {resp.status_code}: {body}")
+                    logger.info(f"Ytel DNC add response for {phone_number}: {body}")
+                    return result
         except Exception as e:
             logger.error(f"Failed to remove {phone_number} from Ytel: {e}")
             raise Exception(f"Ytel removal failed: {str(e)}")

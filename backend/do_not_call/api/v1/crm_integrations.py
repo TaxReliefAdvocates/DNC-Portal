@@ -15,8 +15,61 @@ from ...core.crm_clients.genesys import GenesysClient
 from ...core.crm_clients.ringcentral import RingCentralClient
 from ...core.crm_clients.convoso import ConvosoClient
 from ...core.crm_clients.ytel import YtelClient
+from ...core.tps_api import TPSApiClient
 
 router = APIRouter()
+@router.get("/ringcentral/blocked")
+async def ringcentral_list_blocked():
+    """List blocked numbers on RingCentral (first page)."""
+    client = RingCentralClient()
+    # Reuse check_status list method without filter; return records
+    from ...core.config import settings
+    import httpx
+    url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"
+    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
+    params = {"page": 1, "perPage": 100, "status": "Blocked"}
+    async with httpx.AsyncClient(timeout=30) as client_http:
+        resp = await client_http.get(url, headers=headers, params=params)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json()
+
+@router.post("/ringcentral/block")
+async def ringcentral_block_number(phone_number: str):
+    """Add a phone number to RingCentral blocked list."""
+    client = RingCentralClient()
+    result = await client.remove_phone_number(phone_number)
+    return result
+
+@router.get("/ringcentral/blocked/search")
+async def ringcentral_search_blocked(phone_number: str, per_page: int = 100, max_pages: int = 50):
+    """Search RingCentral blocked list for a phone number by paging until found or exhausted."""
+    from ...core.config import settings
+    import httpx
+    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
+    page = 1
+    found = None
+    while page <= max_pages:
+        url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"
+        params = {"page": page, "perPage": per_page, "status": "Blocked"}
+        async with httpx.AsyncClient(timeout=30) as client_http:
+            resp = await client_http.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            data = resp.json()
+            items = data.get('records') or data.get('phoneNumbers') or []
+            for item in items:
+                pn = item.get('phoneNumber') or item.get('blockedNumber')
+                if pn == phone_number:
+                    found = item
+                    break
+            if found:
+                break
+            # Stop if fewer than requested were returned (no more pages)
+            if len(items) < per_page:
+                break
+            page += 1
+    return {"found": bool(found), "record": found, "pages_checked": page}
 
 
 def get_crm_client(crm_system: str) -> BaseCRMClient:
@@ -327,6 +380,132 @@ async def get_supported_crm_systems():
             }
         ]
     }
+
+
+# RingCentral helpers
+@router.delete("/ringcentral/blocked/{blocked_id}")
+async def ringcentral_delete_blocked(blocked_id: str):
+    from ...core.config import settings
+    import httpx
+    url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers/{blocked_id}"
+    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.delete(url, headers=headers)
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return {"success": True}
+
+@router.put("/ringcentral/blocked/{blocked_id}")
+async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status: str = "Blocked", label: str | None = None):
+    from ...core.config import settings
+    import httpx
+    url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers/{blocked_id}"
+    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json", "Content-Type": "application/json"}
+    body = {"phoneNumber": phone_number, "status": status}
+    if label:
+        body["label"] = label
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.put(url, headers=headers, json=body)
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json() if resp.content else {"success": True}
+
+
+# Convoso DNC helpers
+@router.post("/convoso/dnc/insert")
+async def convoso_dnc_insert(phone_number: str):
+    client = ConvosoClient()
+    return await client.remove_phone_number(phone_number)
+
+@router.get("/convoso/dnc/search")
+async def convoso_dnc_search(phone_number: str):
+    client = ConvosoClient()
+    return await client.check_status(phone_number)
+
+@router.post("/convoso/dnc/delete")
+async def convoso_dnc_delete(phone_number: str):
+    from ...core.config import settings
+    import httpx
+    url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/delete"
+    params = { 'auth_token': settings.CONVOSO_AUTH_TOKEN or '', 'phone_number': phone_number, 'phone_code': '1', 'campaign_id': 0 }
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(url, params=params)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+
+
+# Ytel modern v4 helpers
+@router.post("/ytel/dnc")
+async def ytel_add_dnc(phone_number: str):
+    client = YtelClient()
+    return await client.remove_phone_number(phone_number)
+
+@router.post("/ytel/dnc/bulk")
+async def ytel_bulk_upload(file_path: str):
+    """Upload a CSV file to Ytel v4 bulk DNC (server-side path)."""
+    from ...core.config import settings
+    import httpx
+    headers = {"Authorization": f"Bearer {settings.YTEL_BEARER_TOKEN}"}
+    url = f"{settings.YTEL_V4_BASE_URL}/dnc/bulk"
+    async with httpx.AsyncClient(timeout=60) as client:
+        with open(file_path, 'rb') as f:
+            files = { 'file': (file_path.split('/')[-1], f, 'text/csv') }
+            resp = await client.post(url, headers=headers, files=files)
+            if resp.status_code not in (200, 201):
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            return resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+
+
+# Logics (TPS) helpers
+@router.post("/logics/dnc/update-case")
+async def logics_update_case(case_id: int, status_id: int):
+    client = TPSApiClient()
+    return await client.update_case_status(case_id, status_id)
+
+@router.get("/logics/dnc/cases-by-status")
+async def logics_cases_by_status(status_id: int):
+    client = TPSApiClient()
+    return await client.get_cases_by_status(status_id)
+
+
+@router.get("/systems-check")
+async def systems_check(phone_number: str):
+    """Check multiple CRM systems for DNC/blocked status for a given phone number.
+
+    Returns a consolidated object with per-provider results.
+    """
+    results: dict[str, dict] = {}
+
+    # RingCentral
+    try:
+        rc = await ringcentral_search_blocked(phone_number)
+        results["ringcentral"] = {"listed": bool(rc.get("found")), "raw": rc}
+    except Exception as e:
+        results["ringcentral"] = {"error": str(e)}
+
+    # Convoso
+    try:
+        conv = await convoso_dnc_search(phone_number)
+        results["convoso"] = {"listed": conv.get("status") == "listed", "raw": conv}
+    except Exception as e:
+        results["convoso"] = {"error": str(e)}
+
+    # Logics (TPS) - presence if cases exist for the phone
+    try:
+        tps = TPSApiClient()
+        cases = await tps.find_cases_by_phone(phone_number)
+        results["logics"] = {"listed": len(cases) > 0, "count": len(cases), "cases": cases[:10]}
+    except Exception as e:
+        results["logics"] = {"error": str(e)}
+
+    # Ytel - no read endpoint; report unknown
+    results["ytel"] = {"listed": None, "note": "read not supported; add when available"}
+
+    # Genesys - not implemented; placeholder
+    results["genesys"] = {"listed": None, "note": "not implemented"}
+
+    return {"phone_number": phone_number, "providers": results}
 
 
 

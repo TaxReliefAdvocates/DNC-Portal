@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
 import { cn, validatePhoneNumber, normalizePhoneNumber } from '@/lib/utils'
+import { useAppSelector } from '@/lib/hooks'
 
 interface PhoneInputFormData {
   phone_numbers: string
@@ -23,7 +24,10 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(['voice'])
   
+  // Reactively read role and IDs from Redux to update immediately when dropdown changes
+  const { role, organizationId, userId } = useAppSelector((s) => s.demoAuth)
 
   const {
     register,
@@ -57,7 +61,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
         return
       }
 
-      // Submit phone numbers
+      // Submit phone numbers (only for admin/owner)
       await onNumbersSubmit(phoneNumbers, data.notes)
       
       setSuccess(`Successfully submitted ${phoneNumbers.length} phone numbers`)
@@ -94,36 +98,34 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
   // User-facing DNC Request form (inline minimal)
   const submitDncRequest = async () => {
     try {
-      const orgId = 1
-      const userId = 1
+      const orgId = organizationId || 1
+      const reqUserId = userId || 1
       const phoneRaw = (document.getElementById('phone_numbers') as HTMLTextAreaElement)?.value.split('\n').find(l => l.trim()) || ''
       const phone = normalizePhoneNumber(phoneRaw.trim())
       if (!phone) {
         setError('Enter at least one phone number to request DNC')
         return
       }
-      // Basic UX polish: choose channel/reason
-      const channel = (document.getElementById('dnc_channel') as HTMLSelectElement)?.value || 'voice'
+      // Basic UX polish: choose channels/reason
       const reason = (document.getElementById('dnc_reason') as HTMLInputElement)?.value || 'user request'
-      // Light-weight litigation warning
-      const warn = async () => {
-        try {
-          const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/litigations/${orgId}?q=${encodeURIComponent(phone)}`, { headers: { 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' } })
-          const results = await resp.json()
-          if (Array.isArray(results) && results.length>0) {
-            console.warn('Litigation record exists for this phone; proceed with caution.')
-          }
-        } catch {}
+      const headers = { 'X-Org-Id': String(orgId), 'X-User-Id': String(reqUserId), 'X-Role': String(role || 'member') }
+      if (!selectedChannels.length) {
+        setError('Select at least one channel (Call, SMS, Email)')
+        return
       }
-      warn()
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Org-Id': String(orgId), 'X-User-Id': String(userId), 'X-Role': 'member' }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: userId }) })
-      if (!resp.ok) throw new Error('Failed to submit DNC request')
+      for (const channel of selectedChannels) {
+        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${1}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: reqUserId }) })
+        if (!resp.ok) throw new Error('Failed to submit DNC request')
+      }
       setSuccess('DNC request submitted for review')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to submit DNC request')
     }
   }
+
+  const isAdmin = role === 'admin' || role === 'owner'
+  const isMember = role === 'member'
 
   return (
     <Card className="border-2 border-dashed border-blue-300 hover:border-blue-400 transition-colors">
@@ -205,64 +207,77 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="submit"
-              disabled={isSubmitting || isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-            >
-              {isSubmitting || isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  {isSubmitting ? 'Submitting...' : 'Loading...'}
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Submit Phone Numbers
-                </>
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleDncPrecheck}
-              disabled={isSubmitting || isLoading}
-              className="flex-shrink-0"
-            >
-              <ShieldCheck className="h-4 w-4 mr-2" />
-              Cross-check DNC
-            </Button>
-            <div className="hidden md:flex items-end gap-2">
-              <div>
-                <Label htmlFor="dnc_channel" className="text-xs">Channel</Label>
-                <select id="dnc_channel" className="border rounded px-2 py-1 text-sm">
-                  <option value="voice">Voice</option>
-                  <option value="sms">SMS</option>
-                  <option value="email">Email</option>
-                </select>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {isAdmin && (
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap"
+              >
+                {isSubmitting || isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    {isSubmitting ? 'Submitting...' : 'Loading...'}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Run Number Check
+                  </>
+                )}
+              </Button>
+            )}
+            {/* Cross-check button removed in admin flow */}
+            {isMember && (
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-700">Channels</span>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: 'voice', label: 'Call' },
+                      { key: 'sms', label: 'SMS' },
+                      { key: 'email', label: 'Email' },
+                    ].map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => setSelectedChannels((prev) => prev.includes(c.key) ? prev.filter(v => v !== c.key) : [...prev, c.key])}
+                        className={cn(
+                          'px-3 py-1 rounded border text-sm',
+                          selectedChannels.includes(c.key)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        )}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="dnc_reason" className="text-xs">Reason</Label>
+                  <input id="dnc_reason" className="border rounded px-2 py-1 text-sm" placeholder="Customer opt-out" />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="dnc_reason" className="text-xs">Reason</Label>
-                <input id="dnc_reason" className="border rounded px-2 py-1 text-sm" placeholder="Customer opt-out" />
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={submitDncRequest}
-              disabled={isSubmitting || isLoading}
-              className="flex-shrink-0"
-            >
-              Request DNC
-            </Button>
+            )}
+            {isMember && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={submitDncRequest}
+                disabled={isSubmitting || isLoading}
+                className="flex-shrink-0 whitespace-nowrap"
+              >
+                Request DNC
+              </Button>
+            )}
             
             <Button
               type="button"
               variant="outline"
               onClick={handleReset}
               disabled={isSubmitting || isLoading}
-              className="flex-shrink-0"
+              className="flex-shrink-0 whitespace-nowrap"
             >
               Reset
             </Button>

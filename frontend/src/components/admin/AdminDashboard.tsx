@@ -8,6 +8,7 @@ import { Phone, CheckCircle, XCircle, Clock, Database } from 'lucide-react'
 import { AdminLitigation } from './AdminLitigation'
 import { AdminSamplesGaps } from './AdminSamplesGaps'
 import { AdminDncRequests } from './AdminDncRequests'
+import { AdminSystemsCheck } from './AdminSystemsCheck'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -125,6 +126,9 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Pending DNC Requests */}
       <AdminDncRequests organizationId={1} adminUserId={1} />
+
+      {/* Systems Check */}
+      <AdminSystemsCheck />
 
       {/* TCPA Litigation */}
       <AdminLitigation organizationId={1} adminUserId={1} />

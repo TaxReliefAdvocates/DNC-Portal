@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { AdminRequestDetail } from './AdminRequestDetail'
 
 type RequestRow = {
   id: number
@@ -34,6 +35,8 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [hasMore, setHasMore] = useState(false)
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [decisionNotes, setDecisionNotes] = useState('')
+
+  const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null)
 
   const headers = {
     'Content-Type': 'application/json',
@@ -98,6 +101,17 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     }
   }
 
+  if (activeRequest) {
+    return (
+      <AdminRequestDetail
+        organizationId={organizationId}
+        adminUserId={adminUserId}
+        request={activeRequest}
+        onBack={() => { setActiveRequest(null); fetchPending(false) }}
+      />
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -160,6 +174,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
                   <Button className="bg-green-600 hover:bg-green-700" onClick={() => act(r.id, 'approve')}>Approve</Button>
                   <Button variant="outline" onClick={() => act(r.id, 'deny')}>Deny</Button>
                 </div>

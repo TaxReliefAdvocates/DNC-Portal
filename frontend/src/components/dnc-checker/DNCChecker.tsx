@@ -34,14 +34,13 @@ export const DNCChecker: React.FC = () => {
   const [isCheckingSingle, setIsCheckingSingle] = useState<boolean>(false)
   const [isCheckingBatch, setIsCheckingBatch] = useState<boolean>(false)
   
-  // TPS2 Database checking
-  const [tpsLimit, setTpsLimit] = useState<number>(1000)
-  const [tpsResults, setTpsResults] = useState<any>(null)
+  // TPS (Logiqs) case lookups
+  const [tpsPhone, setTpsPhone] = useState<string>('')
+  const [tpsCasesResults, setTpsCasesResults] = useState<any[] | null>(null)
   const [selectedNumber, setSelectedNumber] = useState<string | null>(null)
   const [selectedCases, setSelectedCases] = useState<any[] | null>(null)
   const [isLoadingCases, setIsLoadingCases] = useState<boolean>(false)
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
-  const [tpsConnectionStatus, setTpsConnectionStatus] = useState<string>('')
 
   // Local sub-tabs for methods
   const [activeTab, setActiveTab] = useState<'quick' | 'tps' | 'csv'>('quick')
@@ -244,50 +243,25 @@ export const DNCChecker: React.FC = () => {
     }
   }
   
-  const testTpsConnection = async () => {
-    try {
-      setTpsConnectionStatus('Testing connection...')
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/test_tps_connection`)
-      
-      if (!response.ok) {
-        throw new Error('Failed to test connection')
-      }
-      
-      const result = await response.json()
-      if (result.connected) {
-        setTpsConnectionStatus('✅ Connected to TPS2 database')
-      } else {
-        setTpsConnectionStatus('❌ Connection failed')
-      }
-    } catch (err) {
-      setTpsConnectionStatus('❌ Connection test failed')
-      setError(err instanceof Error ? err.message : 'Connection test failed')
-    }
-  }
-  
-  const checkTpsDatabase = async () => {
+  const findTpsCases = async () => {
+    if (!tpsPhone.trim()) return
     setIsCheckingTps(true)
     setError(null)
-    setTpsResults(null)
-    
+    setTpsCasesResults(null)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_tps_database`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ limit: tpsLimit }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: tpsPhone.trim() })
       })
-      
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to check TPS2 database')
+        const err = await response.json()
+        throw new Error(err.detail || 'Failed to fetch TPS cases')
       }
-      
-      const result = await response.json()
-      setTpsResults(result)
+      const data = await response.json()
+      setTpsCasesResults(data.cases || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      setError(err instanceof Error ? err.message : 'Failed to fetch TPS cases')
     } finally {
       setIsCheckingTps(false)
     }
@@ -506,54 +480,27 @@ export const DNCChecker: React.FC = () => {
             {activeTab === 'tps' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="tps-limit">TPS2 Database Check</Label>
-                <Button onClick={testTpsConnection} size="sm" variant="outline" className="text-xs">Test Connection</Button>
+                <Label htmlFor="tps-phone">TPS (Logiqs) Cases</Label>
               </div>
-              {tpsConnectionStatus && (
-                <div className={`text-sm p-2 rounded ${
-                  tpsConnectionStatus.includes('✅') 
-                    ? 'bg-green-50 text-green-700 border border-green-200' 
-                    : tpsConnectionStatus.includes('❌')
-                    ? 'bg-red-50 text-red-700 border border-red-200'
-                    : 'bg-blue-50 text-blue-700 border border-blue-200'
-                }`}>{tpsConnectionStatus}</div>
-              )}
               <div className="flex gap-2 items-center">
-                <Label htmlFor="tps-limit" className="text-sm">Limit:</Label>
-                <Input id="tps-limit" type="number" min="1" max="10000" value={tpsLimit} onChange={(e) => setTpsLimit(parseInt(e.target.value) || 1000)} className="w-24" />
-                <span className="text-sm text-gray-500">(max 10,000)</span>
+                <Input id="tps-phone" type="tel" placeholder="Enter phone number" value={tpsPhone} onChange={(e)=>setTpsPhone(e.target.value)} className="flex-1" />
+                <Button onClick={findTpsCases} disabled={isCheckingTps} className="bg-purple-600 hover:bg-purple-700">
+                  {isCheckingTps ? 'Finding cases…' : 'Find cases'}
+                </Button>
               </div>
-              <Button onClick={checkTpsDatabase} disabled={isCheckingTps} className="bg-purple-600 hover:bg-purple-700 w-full">
-                {isCheckingTps ? 'Checking TPS2 Database...' : `Run DNC Check on ${tpsLimit} Numbers`}
-              </Button>
-              {tpsResults && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="text-center"><div className="text-2xl font-bold text-gray-900">{tpsResults.total_checked}</div><div className="text-sm text-gray-600">Total Checked</div></div>
-                    <div className="text-center"><div className="text-2xl font-bold text-red-600">{tpsResults.dnc_matches}</div><div className="text-sm text-gray-600">DNC Matches</div></div>
-                    <div className="text-center"><div className="text-2xl font-bold text-green-600">{tpsResults.safe_to_call}</div><div className="text-sm text-gray-600">Safe to Call</div></div>
-                  </div>
-                  <div className="text-sm text-gray-600 text-center">{tpsResults.message}</div>
-                  <div className="max-h-60 overflow-y-auto space-y-2">
-                    {tpsResults.results.slice(0, 20).map((result: any, index: number) => (
-                      <div key={index} className={`p-2 rounded border text-sm ${result.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <button className="font-medium underline hover:text-blue-700" onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}>{result.PhoneNumber}</button>
-                            <span className={result.is_dnc ? 'text-red-700' : 'text-green-700'}>{result.is_dnc ? ' DNC' : ' Safe'}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>{result.PhoneType}</span>
-                            <button className="inline-flex items-center gap-1 px-2 py-1 rounded border hover:bg-gray-50" title="View details" onClick={() => openNumberDetails(result.PhoneNumber, result.CaseID)}>
-                              <Eye className="h-3 w-3" />
-                              <span>View</span>
-                            </button>
-                          </div>
+              {tpsCasesResults && (
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-700">Found {tpsCasesResults.length} case(s)</div>
+                  <div className="max-h-60 overflow-y-auto divide-y border rounded">
+                    {tpsCasesResults.map((c: any, idx: number)=> (
+                      <div key={idx} className="p-2 text-sm flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">Case {c.CaseID}</div>
+                          <div className="text-xs text-gray-600">Created: {formatDateTime(c.CreatedDate)} | Last Modified: {formatDateTime(c.LastModifiedDate)}</div>
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">Case: {result.CaseID} | {result.dnc_notes}</div>
+                        <div className="text-xs text-gray-700">{c.StatusName || `Status ${c.StatusID}`}</div>
                       </div>
                     ))}
-                    {tpsResults.results.length > 20 && (<div className="text-center text-sm text-gray-500 py-2">Showing first 20 results. Total: {tpsResults.results.length}</div>)}
                   </div>
                 </div>
               )}

@@ -9,12 +9,33 @@ export const API_ENDPOINTS = {
   DNC_PROCESSING: `${API_BASE_URL}/api/v1/dnc`,
 } as const
 
+// Helper to extract demo auth headers from persisted store
+function getDemoHeaders(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('persist:do-not-call-root')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    const demoAuth = parsed.demoAuth ? JSON.parse(parsed.demoAuth) : null
+    if (!demoAuth) return {}
+    const { organizationId, userId, role } = demoAuth
+    if (!organizationId || !userId || !role) return {}
+    return {
+      'X-Org-Id': String(organizationId),
+      'X-User-Id': String(userId),
+      'X-Role': String(role),
+    }
+  } catch {
+    return {}
+  }
+}
+
 // Helper function for API calls
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const response = await fetch(endpoint, {
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...getDemoHeaders(),
+      ...(options.headers || {}),
     },
     ...options,
   })

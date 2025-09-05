@@ -40,13 +40,27 @@ class Settings(BaseSettings):
     GENESYS_BASE_URL: str = "https://api.genesys.com"
     
     RINGCENTRAL_API_KEY: Optional[str] = None
-    RINGCENTRAL_BASE_URL: str = "https://api.ringcentral.com"
+    RINGCENTRAL_BASE_URL: str = "https://platform.ringcentral.com"
+    RINGCENTRAL_ACCESS_TOKEN: Optional[str] = None
+    RINGCENTRAL_ACCOUNT_ID: str = "~"  # use ~ for current
+    RINGCENTRAL_EXTENSION_ID: str = "~"  # use ~ for current
     
     CONVOSO_API_KEY: Optional[str] = None
     CONVOSO_BASE_URL: str = "https://api.convoso.com"
+    CONVOSO_AUTH_TOKEN: Optional[str] = None
     
     YTEL_API_KEY: Optional[str] = None
     YTEL_BASE_URL: str = "https://api.ytel.com"
+    # Legacy/non-agent endpoint used to add to Ytel DNC list
+    YTEL_NON_AGENT_URL: str = "https://tra.ytel.com/x5/api/non_agent.php"
+    YTEL_USER: Optional[str] = None
+    YTEL_PASS: Optional[str] = None
+    YTEL_CAMPAIGN: str = "1000"
+    YTEL_ADD_TO_DNC: str = "BOTH"  # NONE | CAMPAIGN | GLOBAL | BOTH
+    # Modern v4 API
+    YTEL_V4_BASE_URL: str = "https://api.ytel.com/api/v4"
+    YTEL_BEARER_TOKEN: Optional[str] = None
+    YTEL_SELECTOR_DEFAULT: str = "CUSTOMER_GLOBAL"
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100

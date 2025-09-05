@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { store, persistor } from './lib/store'
 import { PhoneInput } from './components/phone-input/PhoneInput'
 import { CRMStatusDashboard } from './components/crm-status/CRMStatusDashboard'
+import { SystemsCheckPane } from './components/admin/SystemsCheckPane'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { UserRequestHistory } from './components/admin/UserRequestHistory'
 import { DNCChecker } from './components/dnc-checker/DNCChecker'
@@ -16,28 +17,41 @@ import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib
 import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
 import { addNotification } from './lib/features/ui/uiSlice'
 
+const getDemoHeaders = () => {
+  try {
+    const raw = localStorage.getItem('persist:do-not-call-root')
+    if (!raw) return {}
+    const state = JSON.parse(raw)
+    const demoAuth = state.demoAuth ? JSON.parse(state.demoAuth) : null
+    if (!demoAuth) return {}
+    return {
+      'X-Org-Id': String(demoAuth.organizationId),
+      'X-User-Id': String(demoAuth.userId),
+      'X-Role': String(demoAuth.role),
+    }
+  } catch {
+    return {}
+  }
+}
+
 const AppContent: React.FC = () => {
   const dispatch = useAppDispatch()
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
-  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker'>('main')
-  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck'>('none')
+  const role = useAppSelector((s) => s.demoAuth.role)
+  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests'>('main')
+  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('none')
+  const [systemsNumbers, setSystemsNumbers] = useState<string[]>([])
   const [precheckResults, setPrecheckResults] = useState<any | null>(null)
   const [precheckSelected, setPrecheckSelected] = useState<{ phone: string, cases: any[] } | null>(null)
   const [precheckLoading, setPrecheckLoading] = useState<boolean>(false)
 
   useEffect(() => {
-    // Reset loading state on mount and after a short delay to ensure it's cleared
     dispatch(resetLoadingState())
-    
     const timer = setTimeout(() => {
       dispatch(resetLoadingState())
     }, 100)
-    
-    // Load initial data
     dispatch(fetchPhoneNumbers())
     dispatch(fetchCRMStatuses())
-    
-    // Cleanup function to reset loading state when component unmounts
     return () => {
       clearTimeout(timer)
       dispatch(resetLoadingState())
@@ -45,54 +59,39 @@ const AppContent: React.FC = () => {
   }, [dispatch])
 
   const handlePhoneNumbersSubmit = async (numbers: string[], notes?: string) => {
+    // Admin/Owner: run systems lookup and show actionable table (no auto-push)
+    if (role === 'admin' || role === 'owner') {
+      setSystemsNumbers(numbers)
+      setRightPane('systems')
+      console.log('[Submit] Showing Systems Check for numbers', numbers)
+      return
+    }
+    // Member fallback: keep previous flow (if ever enabled)
     try {
       const result = await dispatch(addBulkPhoneNumbers({ phone_numbers: numbers, notes })).unwrap()
-      
-      dispatch(addNotification({
-        type: 'success',
-        message: `Successfully submitted ${result.success_count} phone numbers for removal`,
-        duration: 5000,
-      }))
-
+      dispatch(addNotification({ type: 'success', message: `Successfully submitted ${result.success_count} phone numbers for removal`, duration: 5000 }))
       if (result.failed_count > 0) {
-        dispatch(addNotification({
-          type: 'warning',
-          message: `${result.failed_count} phone numbers failed validation`,
-          duration: 5000,
-        }))
+        dispatch(addNotification({ type: 'warning', message: `${result.failed_count} phone numbers failed validation`, duration: 5000 }))
       }
-      
-      // Demo-mode simulation of progress across CRMs
       const total = numbers.length
       dispatch(initDemoStats(total))
       const crms: Array<'logics' | 'genesys' | 'ringcentral' | 'convoso' | 'ytel'> = ['logics','genesys','ringcentral','convoso','ytel']
-      // simulate over 5 ticks
       let tick = 0
+      setRightPane('crm')
       const interval = setInterval(() => {
         tick++
         crms.forEach((crm) => {
           const completed = Math.min(total, Math.round((tick / 5) * total))
-          const failed = tick === 5 ? Math.floor(completed * 0.1) : 0 // 10% fail at end
+          const failed = tick === 5 ? Math.floor(completed * 0.1) : 0
           const processing = tick < 5 ? Math.max(0, total - completed) : 0
           const pending = Math.max(0, total - completed - processing)
           dispatch(setCRMStats({ crm, stats: { total: completed, pending, processing, completed: completed - failed, failed } }))
         })
         if (tick >= 5) clearInterval(interval)
       }, 800)
-
-      // Show CRM status dashboard on the right
-      setRightPane('crm')
-
-      // Reset loading state after successful submission
       dispatch(resetLoadingState())
     } catch (error) {
-      dispatch(addNotification({
-        type: 'error',
-        message: 'Failed to submit phone numbers for removal',
-        duration: 5000,
-      }))
-      
-      // Reset loading state after error
+      dispatch(addNotification({ type: 'error', message: 'Failed to submit phone numbers for removal', duration: 5000 }))
       dispatch(resetLoadingState())
     }
   }
@@ -103,7 +102,7 @@ const AppContent: React.FC = () => {
       setPrecheckSelected(null)
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_batch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_numbers: numbers }),
       })
       if (!resp.ok) {
@@ -127,7 +126,7 @@ const AppContent: React.FC = () => {
       setPrecheckSelected({ phone, cases: [] })
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })
       })
     
@@ -149,6 +148,8 @@ const AppContent: React.FC = () => {
     return isNaN(d.getTime()) ? '—' : d.toLocaleString()
   }
 
+  const isTwoPane = rightPane !== 'none'
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'main':
@@ -168,97 +169,103 @@ const AppContent: React.FC = () => {
               </p>
             </motion.div>
 
-            {/* Keep a single PhoneInput instance mounted to preserve textarea contents */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Phone Input Section */}
+            {/* Responsive container that centers when single-pane and expands when two-pane */}
+            <div className={`${isTwoPane ? 'max-w-7xl' : 'max-w-3xl'} mx-auto w-full transition-all duration-300`}>
               <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                layout
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className={`grid gap-8 ${isTwoPane ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} ${isTwoPane ? '' : 'justify-items-center'}`}
               >
-                <PhoneInput
-                  onNumbersSubmit={handlePhoneNumbersSubmit}
-                  onPrecheckDnc={handlePrecheck}
-                  isLoading={isLoading}
-                />
-                {/* User request history below the form */}
-                <div className="mt-4">
-                  <UserRequestHistory userId={1} />
-                </div>
-              </motion.div>
-
-              {/* Right Pane (conditionally rendered) */}
-              {rightPane !== 'none' && (
+                {/* Phone Input Section */}
                 <motion.div
-                  initial={{ opacity: 0, x: 20 }}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  className={`${isTwoPane ? '' : 'w-full max-w-3xl'}`}
                 >
-                  {rightPane === 'crm' && <CRMStatusDashboard />}
-                  {rightPane === 'precheck' && precheckResults && (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">{precheckResults.total_checked}</div>
-                          <div className="text-sm text-gray-600">Total Checked</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-red-600">{precheckResults.dnc_matches}</div>
-                          <div className="text-sm text-gray-600">DNC Matches</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">{precheckResults.safe_to_call}</div>
-                          <div className="text-sm text-gray-600">Safe to Call</div>
-                        </div>
-                      </div>
-                      <div className="max-h-60 overflow-y-auto space-y-2">
-                        {precheckResults.results.slice(0, 20).map((r: any, i: number) => (
-                          <div key={i} className={`p-2 rounded border text-sm ${r.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} flex items-center justify-between`}>
-                            <span className="font-medium">{r.phone_number}</span>
-                            <span className={r.is_dnc ? 'text-red-700' : 'text-green-700'}>
-                              {r.is_dnc ? ' DNC' : ' Safe'}
-                            </span>
-                            <button
-                              className="ml-2 px-2 py-1 text-xs border rounded hover:bg-gray-50"
-                              onClick={() => openPrecheckDetails(r.phone_number)}
-                            >
-                              View details
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      {precheckSelected && (
-                        <div className="p-3 rounded border bg-white">
-                          <div className="flex items-center justify-between">
-                            <div className="font-medium">{precheckSelected.phone}</div>
-                            <button className="text-xs text-gray-500 underline" onClick={() => setPrecheckSelected(null)}>Close</button>
-                          </div>
-                          {precheckLoading ? (
-                            <div className="text-sm text-gray-600 mt-2">Loading details...</div>
-                          ) : precheckSelected.cases.length ? (
-                            <div className="mt-2 space-y-1 text-sm">
-                              <div className="text-gray-700">Cases found: {precheckSelected.cases.length}</div>
-                              <div className="max-h-40 overflow-y-auto divide-y">
-                                {precheckSelected.cases.map((c: any, idx: number) => (
-                                  <div key={idx} className="py-1 flex items-center justify-between">
-                                    <div>
-                                      <div className="text-gray-800">Case {c.CaseID}</div>
-                                      <div className="text-xs text-gray-600">Created: {fmt(c.CreatedDate)} • Last Modified: {fmt(c.LastModifiedDate)}</div>
-                                    </div>
-                                    <div className="text-xs text-gray-700">{c.StatusName || `Status ${c.StatusID}`}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-600 mt-2">No cases found for this number.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <PhoneInput
+                    onNumbersSubmit={handlePhoneNumbersSubmit}
+                    onPrecheckDnc={role === 'admin' || role === 'owner' ? handlePrecheck : undefined}
+                    isLoading={isLoading}
+                  />
                 </motion.div>
-              )}
+
+                {/* Right Pane (conditionally rendered) */}
+                {isTwoPane && (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                  >
+                    {rightPane === 'crm' && <CRMStatusDashboard />}
+                    {rightPane === 'systems' && <SystemsCheckPane numbers={systemsNumbers} />}
+                    {rightPane === 'precheck' && precheckResults && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-3 gap-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-gray-900">{precheckResults.total_checked}</div>
+                            <div className="text-sm text-gray-600">Total Checked</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-red-600">{precheckResults.dnc_matches}</div>
+                            <div className="text-sm text-gray-600">DNC Matches</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">{precheckResults.safe_to_call}</div>
+                            <div className="text-sm text-gray-600">Safe to Call</div>
+                          </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-2">
+                          {precheckResults.results.slice(0, 20).map((r: any, i: number) => (
+                            <div key={i} className={`p-2 rounded border text-sm ${r.is_dnc ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'} flex items-center justify-between`}>
+                              <span className="font-medium">{r.phone_number}</span>
+                              <span className={r.is_dnc ? 'text-red-700' : 'text-green-700'}>
+                                {r.is_dnc ? ' DNC' : ' Safe'}
+                              </span>
+                              <button
+                                className="ml-2 px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                                onClick={() => openPrecheckDetails(r.phone_number)}
+                              >
+                                View details
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        {precheckSelected && (
+                          <div className="p-3 rounded border bg-white">
+                            <div className="flex items-center justify-between">
+                              <div className="font-medium">{precheckSelected.phone}</div>
+                              <button className="text-xs text-gray-500 underline" onClick={() => setPrecheckSelected(null)}>Close</button>
+                            </div>
+                            {precheckLoading ? (
+                              <div className="text-sm text-gray-600 mt-2">Loading details...</div>
+                            ) : precheckSelected.cases.length ? (
+                              <div className="mt-2 space-y-1 text-sm">
+                                <div className="text-gray-700">Cases found: {precheckSelected.cases.length}</div>
+                                <div className="max-h-40 overflow-y-auto divide-y">
+                                  {precheckSelected.cases.map((c: any, idx: number) => (
+                                    <div key={idx} className="py-1 flex items-center justify-between">
+                                      <div>
+                                        <div className="text-gray-800">Case {c.CaseID}</div>
+                                        <div className="text-xs text-gray-600">Created: {fmt(c.CreatedDate)} • Last Modified: {fmt(c.LastModifiedDate)}</div>
+                                      </div>
+                                      <div className="text-xs text-gray-700">{c.StatusName || `Status ${c.StatusID}`}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600 mt-2">No cases found for this number.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </motion.div>
             </div>
 
             {/* Error Display */}
@@ -280,39 +287,34 @@ const AppContent: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Debug: Reset Loading State Button */}
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-yellow-700">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">Loading state is stuck. Click to reset:</span>
-                  </div>
-                  <button
-                    onClick={() => dispatch(resetLoadingState())}
-                    className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
-                  >
-                    Reset Loading
-                  </button>
-                </div>
-              </motion.div>
-            )}
           </>
         )
-      
       case 'dnc-checker':
         return <DNCChecker />
+      case 'requests':
+        if (role === 'admin' || role === 'owner') {
+          return (
+            <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
+              <div className="text-lg font-semibold mb-2">No personal requests for admins</div>
+              <div className="text-sm text-gray-600">Admins submit removals directly and review member requests on the Admin page.</div>
+            </div>
+          )
+        }
+        return (
+          <div>
+            <motion.h2 initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} className="text-2xl font-semibold mb-4">Your DNC Requests</motion.h2>
+            <UserRequestHistory userId={1} />
+          </div>
+        )
       
       case 'admin':
-        return <AdminDashboard />
-      
+        if (role === 'admin' || role === 'owner') return <AdminDashboard />
+        return (
+          <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
+            <div className="text-lg font-semibold mb-2">Admin access required</div>
+            <div className="text-sm text-gray-600">Switch role to Admin in the top-right selector to view the Admin dashboard.</div>
+          </div>
+        )
       default:
         return null
     }
@@ -321,11 +323,8 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
-      
       <div className="container mx-auto px-4 py-8">
         {renderTabContent()}
-
-        {/* Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
