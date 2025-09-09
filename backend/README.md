@@ -27,7 +27,14 @@ Commands run from `backend/`:
 
 ### First-time setup
 1) Set `DATABASE_URL` in environment (or `.env`).
-2) Run `./migrate.sh upgrade` to create tables.
+2) Alternatively use the CLI for managed Postgres (Supabase/Azure):
+```bash
+poetry install
+export $(cat .env.supabase | xargs)  # or set DATABASE_URL manually
+poetry run python -m do_not_call.cli ping
+poetry run python -m do_not_call.cli reset
+poetry run python -m do_not_call.cli seed
+```
 
 FastAPI backend for the Do Not Call List Management application.
 

@@ -6,7 +6,7 @@ Seed script to populate the database with sample data for testing
 import asyncio
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 # Add the backend directory to the Python path
@@ -83,7 +83,7 @@ def seed_database():
                 phone_number=phone,
                 status="active",
                 notes=f"Sample phone number {i+1}",
-                created_at=datetime.utcnow() - timedelta(days=random.randint(1, 30))
+                created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30))
             )
             db.add(phone_number)
             phone_numbers.append(phone_number)

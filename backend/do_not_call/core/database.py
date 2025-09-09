@@ -7,7 +7,7 @@ from typing import Generator
 
 from ..config import settings
 
-# Create database engine
+# Create database engine with production-safe defaults
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
         settings.DATABASE_URL,
@@ -15,7 +15,12 @@ if settings.DATABASE_URL.startswith("sqlite"):
         poolclass=StaticPool,
     )
 else:
-    engine = create_engine(settings.DATABASE_URL)
+    # Enable pre_ping to avoid stale connections (Supabase/Azure)
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=1800,  # recycle every 30 minutes
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

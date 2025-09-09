@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 import typer
 from typing import Optional
@@ -118,7 +118,7 @@ def seed(org_name: str = "Test Org", org_slug: str = "test-org") -> None:
                 phone_number=pn,
                 status="active",
                 notes=f"Seed number {idx+1}",
-                created_at=datetime.utcnow() - timedelta(days=random.randint(1, 14)),
+                created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 14)),
             )
             db.add(row)
             phone_rows.append(row)
