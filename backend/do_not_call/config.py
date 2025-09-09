@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     RINGCENTRAL_ACCESS_TOKEN: Optional[str] = None
     RINGCENTRAL_ACCOUNT_ID: str = "~"  # use ~ for current
     RINGCENTRAL_EXTENSION_ID: str = "~"  # use ~ for current
+    # OAuth app credentials
+    RINGCENTRAL_CLIENT_ID: Optional[str] = None
+    RINGCENTRAL_CLIENT_SECRET: Optional[str] = None
+    RINGCENTRAL_REDIRECT_URI: Optional[str] = None
     
     CONVOSO_API_KEY: Optional[str] = None
     CONVOSO_BASE_URL: str = "https://api.convoso.com"
