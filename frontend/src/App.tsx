@@ -12,6 +12,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard'
 import { UserRequestHistory } from './components/admin/UserRequestHistory'
 import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
+import { SystemSettings } from './components/admin/SystemSettings'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
 import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib/features/phoneNumbers/phoneNumbersSlice'
 import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
@@ -332,6 +333,8 @@ const AppContent: React.FC = () => {
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="container mx-auto px-4 py-8">
         {renderTabContent()}
+        {/* System settings modal mounted globally so navbar button works anywhere */}
+        <SystemSettings />
         <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
