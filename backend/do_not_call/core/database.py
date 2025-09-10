@@ -41,8 +41,29 @@ def get_db() -> Generator:
 async def init_db():
     """Initialize database tables"""
     try:
-        # Import all models to ensure they are registered
-        from .models import PhoneNumber, CRMStatus, Consent, AuditLog, APIRateLimit
+        # Import all models to ensure they are registered in SQLAlchemy metadata
+        from .models import (
+            PhoneNumber,
+            CRMStatus,
+            Consent,
+            AuditLog,
+            APIRateLimit,
+            Organization,
+            User,
+            OrgUser,
+            ServiceCatalog,
+            OrgService,
+            DNCEntry,
+            RemovalJob,
+            RemovalJobItem,
+            PropagationAttempt,
+            SMSOptOut,
+            DNCRequest,
+            CRMDNCSample,
+            LitigationRecord,
+            SystemSetting,
+            IntegrationTestResult,
+        )
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
@@ -64,8 +85,29 @@ async def close_db():
 def create_tables():
     """Create database tables (synchronous version for CLI)"""
     try:
-        # Import all models to ensure they are registered
-        from .models import PhoneNumber, CRMStatus, Consent, AuditLog, APIRateLimit
+        # Import all models to ensure they are registered in SQLAlchemy metadata
+        from .models import (
+            PhoneNumber,
+            CRMStatus,
+            Consent,
+            AuditLog,
+            APIRateLimit,
+            Organization,
+            User,
+            OrgUser,
+            ServiceCatalog,
+            OrgService,
+            DNCEntry,
+            RemovalJob,
+            RemovalJobItem,
+            PropagationAttempt,
+            SMSOptOut,
+            DNCRequest,
+            CRMDNCSample,
+            LitigationRecord,
+            SystemSetting,
+            IntegrationTestResult,
+        )
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

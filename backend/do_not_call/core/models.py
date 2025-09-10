@@ -145,6 +145,8 @@ class User(Base):
     name = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     role = Column(String(50), default="member", nullable=False)  # owner, admin, member
+    password_hash = Column(String(255), nullable=True)
+    is_super_admin = Column(Boolean, default=False, nullable=False)
 
     org_links = relationship("OrgUser", back_populates="user", cascade="all, delete-orphan")
 
@@ -543,12 +545,14 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    password: str | None = None
 
 
 class UserResponse(UserBase):
     id: int
     created_at: datetime
+    role: str
+    is_super_admin: bool
 
     class Config:
         from_attributes = True

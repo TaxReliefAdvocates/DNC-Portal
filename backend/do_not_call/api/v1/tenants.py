@@ -14,8 +14,10 @@ from ...core.models import (
     CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord,
     SystemSetting, IntegrationTestResult,
 )
+from passlib.context import CryptContext
 
 router = APIRouter()
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Dev login (temporary)
 @router.post("/auth/login")
 def dev_login(payload: dict):
@@ -24,6 +26,22 @@ def dev_login(payload: dict):
     if username == "admin" and password == "admin":
         return {"success": True, "user_id": 1, "organization_id": 1, "role": "superadmin"}
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+# Simple password login (email + password) for dev/testing
+@router.post("/auth/password-login")
+def password_login(payload: dict, db: Session = Depends(get_db)):
+    email = (payload or {}).get("email")
+    password = (payload or {}).get("password")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="email and password required")
+    user = db.query(User).filter_by(email=str(email)).first()
+    if not user or not user.password_hash or not pwd_ctx.verify(password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Find a default org link if any
+    org_link = db.query(OrgService.organization_id).first()
+    org_id = getattr(org_link, "organization_id", 1)
+    role = user.role or "member"
+    return {"success": True, "user_id": user.id, "organization_id": org_id, "role": role}
 
 # System Admin endpoints
 @router.get("/system/services")
@@ -133,6 +151,8 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter_by(email=payload.email).first():
         raise HTTPException(status_code=400, detail="User email already exists")
     user = User(email=payload.email, name=payload.name)
+    if getattr(payload, "password", None):
+        user.password_hash = pwd_ctx.hash(payload.password)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -142,6 +162,24 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 @router.get("/users", response_model=list[UserResponse])
 def list_users(db: Session = Depends(get_db)):
     return db.query(User).order_by(User.id.desc()).all()
+
+# Update a user's role or superadmin flag
+@router.put("/users/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin", "superadmin")(principal)
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if "role" in payload:
+        role = str(payload["role"]).lower()
+        if role not in {"owner","admin","member"}:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        user.role = role
+    if "is_super_admin" in payload:
+        user.is_super_admin = bool(payload["is_super_admin"])
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 # Org Services

@@ -21,10 +21,13 @@ from .core.models import (
     DNCEntry,
     RemovalJob,
     RemovalJobItem,
+    DNCRequest,
 )
+from passlib.context import CryptContext
 
 
 app = typer.Typer(help="DNC Portal backend CLI")
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @app.callback()
@@ -89,7 +92,8 @@ def seed(org_name: str = "Test Org", org_slug: str = "test-org") -> None:
         # Organization and admin user
         org = Organization(name=org_name, slug=org_slug)
         db.add(org)
-        admin = User(email="admin@example.com", name="Admin User", role="owner")
+        admin = User(email="admin@example.com", name="Admin User", role="owner", is_super_admin=True,
+                     password_hash=pwd_ctx.hash("admin"))
         db.add(admin)
         db.flush()
         db.add(OrgUser(organization_id=org.id, user_id=admin.id, role="owner"))
@@ -151,7 +155,28 @@ def seed(org_name: str = "Test Org", org_slug: str = "test-org") -> None:
             db.add(RemovalJobItem(job_id=job.id, phone_e164=pn.replace("+", ""), status="pending"))
         db.commit()
 
-        typer.secho("Seed data inserted", fg=typer.colors.GREEN)
+        # Seed DNC Requests (pending/approved/denied)
+        statuses = ["pending", "approved", "denied"]
+        for i in range(15):
+            status = random.choice(statuses)
+            created_at = datetime.now(timezone.utc) - timedelta(days=random.randint(0, 10))
+            decided_at = created_at + timedelta(days=random.randint(0, 3)) if status != "pending" else None
+            req = DNCRequest(
+                organization_id=org.id,
+                phone_e164=sample_numbers[i % len(sample_numbers)].replace("+", ""),
+                reason=random.choice(["customer opt-out", "internal block", "litigation risk"]),
+                channel=random.choice(["sms", "voice", "email"]),
+                status=status,
+                requested_by_user_id=admin.id,
+                reviewed_by_user_id=admin.id if status != "pending" else None,
+                decision_notes=("auto-approved for test" if status == "approved" else ("auto-denied for test" if status == "denied" else None)),
+                created_at=created_at,
+                decided_at=decided_at,
+            )
+            db.add(req)
+        db.commit()
+
+        typer.secho("Seed data inserted (org/user/services/phones/DNC entries/requests/jobs)", fg=typer.colors.GREEN)
     finally:
         db.close()
 
