@@ -348,8 +348,6 @@ const AppContent: React.FC = () => {
       <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="container mx-auto px-4 py-8">
         {renderTabContent()}
-        {/* System settings modal mounted globally so navbar button works anywhere */}
-        <SystemSettings />
         <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
