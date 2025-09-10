@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { SystemSettings } from './SystemSettings'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -118,8 +117,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   return (
     <>
-    {/* System Settings modal trigger for superadmin */}
-    <SystemSettings />
     <Card>
       <CardHeader>
         <CardTitle>Systems Check Results</CardTitle>
