@@ -105,6 +105,12 @@ class Settings(BaseSettings):
     ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
     ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
     ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
+
+    # Dataverse (Dynamics 365) API
+    DATAVERSE_BASE_URL: Optional[str] = None  # e.g. https://org.crm.dynamics.com
+    DATAVERSE_TENANT_ID: Optional[str] = None
+    DATAVERSE_CLIENT_ID: Optional[str] = None
+    DATAVERSE_CLIENT_SECRET: Optional[str] = None
     
     # Processing
     BATCH_SIZE: int = 100
