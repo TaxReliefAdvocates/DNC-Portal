@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { SystemSettings } from './SystemSettings'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -29,7 +30,7 @@ interface Props { numbers: string[], onAutomationComplete?: (total: number) => v
 export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplete }) => {
   const [results, setResults] = useState<Record<string, SystemsResult>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
-  const [err, setErr] = useState<string | null>(null)
+  const [, setErr] = useState<string | null>(null)
   const [pushing, setPushing] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [progress, setProgress] = useState<{ total: number, completed: number, failed: number, per: Record<string, { completed: number, failed: number }>, logs: string[] }>({ total: 0, completed: 0, failed: 0, per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 } }, logs: [] })
@@ -117,6 +118,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   return (
     <>
+    {/* System Settings modal trigger for superadmin */}
+    <SystemSettings />
     <Card>
       <CardHeader>
         <CardTitle>Systems Check Results</CardTitle>

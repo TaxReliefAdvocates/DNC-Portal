@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '../ui/button'
 import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '../../lib/hooks'
-import { setRole } from '../../lib/features/auth/demoAuthSlice'
+import { setRole, setSuperAdmin } from '../../lib/features/auth/demoAuthSlice'
 
 interface NavigationProps {
   activeTab: 'main' | 'admin' | 'dnc-checker' | 'requests'
@@ -13,6 +13,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   const { role } = useAppSelector((s) => s.demoAuth)
   const dispatch = useAppDispatch()
   const isAdmin = role === 'admin' || role === 'owner'
+  const isSuperAdmin = role === 'superadmin'
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -64,6 +65,16 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                   <span>Admin</span>
                 </Button>
               )}
+              {isSuperAdmin && (
+                <Button
+                  variant={'ghost'}
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-system-settings'))}
+                  className="flex items-center space-x-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </Button>
+              )}
             </div>
           </div>
           
@@ -74,16 +85,35 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 value={role}
                 onChange={(e) => dispatch(setRole(e.target.value as any))}
                 className="border rounded px-2 py-1"
+                disabled={!isSuperAdmin}
               >
                 <option value="member">User</option>
                 <option value="admin">Admin</option>
                 <option value="owner">Owner</option>
+                <option value="superadmin">System Admin</option>
               </select>
             </div>
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
+            {!isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async ()=>{
+                  try {
+                    const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username:'admin', password:'admin' }) })
+                    if (resp.ok) {
+                      dispatch(setSuperAdmin())
+                    } else {
+                      alert('Dev login failed')
+                    }
+                  } catch {
+                    alert('Dev login failed')
+                  }
+                }}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Dev Login
+              </Button>
+            )}
           </div>
         </div>
       </div>

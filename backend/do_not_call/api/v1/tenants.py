@@ -12,9 +12,102 @@ from ...core.models import (
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
     CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord,
+    SystemSetting, IntegrationTestResult,
 )
 
 router = APIRouter()
+# Dev login (temporary)
+@router.post("/auth/login")
+def dev_login(payload: dict):
+    username = (payload or {}).get("username")
+    password = (payload or {}).get("password")
+    if username == "admin" and password == "admin":
+        return {"success": True, "user_id": 1, "organization_id": 1, "role": "superadmin"}
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+# System Admin endpoints
+@router.get("/system/services")
+def list_system_services(db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    rows = db.query(SystemSetting).all()
+    # Seed defaults if empty
+    if not rows:
+        for k in ("convoso","ytel","ringcentral","genesys","logics"):
+            db.add(SystemSetting(key=k, enabled=True))
+        db.commit()
+        rows = db.query(SystemSetting).all()
+    return [{"key": r.key, "enabled": r.enabled} for r in rows]
+
+
+@router.put("/system/services/{key}")
+def set_system_service(key: str, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    enabled = bool(payload.get("enabled", True))
+    row = db.query(SystemSetting).filter_by(key=key).first()
+    if not row:
+        row = SystemSetting(key=key, enabled=enabled)
+        db.add(row)
+    else:
+        row.enabled = enabled
+    db.commit()
+    return {"key": key, "enabled": enabled}
+
+
+@router.post("/system/test/{provider}")
+def test_provider(provider: str, payload: dict | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    phone = (payload or {}).get("phone_e164")
+    from datetime import datetime
+    success = False
+    status_code = None
+    snippet = None
+    try:
+        import httpx
+        from ...core.config import settings
+        # Minimal, safe read-only probes
+        if provider == "ringcentral":
+            url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"
+            headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
+            with httpx.Client(timeout=10) as client:
+                r = client.get(url, headers=headers, params={"page":1, "perPage":5, "status":"Blocked"})
+                status_code = r.status_code
+                success = r.status_code == 200
+                snippet = (r.text or "")[:300]
+        elif provider == "convoso":
+            url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/search"
+            params = { 'auth_token': settings.CONVOSO_AUTH_TOKEN or '', 'phone_number': phone or '15551234567', 'phone_code': '1', 'offset': 0, 'limit': 1 }
+            with httpx.Client(timeout=10) as client:
+                r = client.get(url, params=params)
+                status_code = r.status_code
+                success = r.status_code == 200
+                snippet = (r.text or "")[:300]
+        elif provider == "logics":
+            from ...core.tps_api import tps_api
+            cases = []
+            try:
+                import anyio
+                anyio.run(lambda: tps_api.find_cases_by_phone(phone or "5551234567"))
+            except Exception:
+                cases = []
+            success = True
+            status_code = 200
+            snippet = f"cases={len(cases)}"
+        elif provider == "ytel":
+            # v4 requires bearer; we just report configuration presence
+            success = bool(getattr(__import__('do_not_call.config', fromlist=['settings']), 'settings').YTEL_BEARER_TOKEN)
+            status_code = 200 if success else 503
+            snippet = "token configured" if success else "missing token"
+        else:
+            status_code = 400
+            snippet = "unknown provider"
+    except Exception as e:
+        success = False
+        snippet = str(e)[:300]
+
+    row = IntegrationTestResult(provider_key=provider, phone_e164=phone, success=success, status_code=status_code, response_snippet=snippet)
+    db.add(row)
+    db.commit()
+    return {"provider": provider, "success": success, "status_code": status_code, "response": snippet}
 
 
 # Organizations

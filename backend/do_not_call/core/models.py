@@ -365,6 +365,31 @@ class LitigationRecord(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+class SystemSetting(Base):
+    """Global system settings such as provider enable/disable flags."""
+
+    __tablename__ = "system_settings"
+    __table_args__ = (UniqueConstraint("key", name="uq_system_setting_key"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(50), nullable=False)  # e.g., 'ringcentral', 'convoso', 'ytel', 'logics', 'genesys'
+    enabled = Column(Boolean, default=True, nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class IntegrationTestResult(Base):
+    """Stores results of provider endpoint tests for system admin visibility."""
+
+    __tablename__ = "integration_test_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_key = Column(String(50), nullable=False)
+    phone_e164 = Column(String(20), nullable=True)
+    success = Column(Boolean, default=False, nullable=False)
+    status_code = Column(Integer, nullable=True)
+    response_snippet = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
 # Pydantic models for API requests/responses
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any

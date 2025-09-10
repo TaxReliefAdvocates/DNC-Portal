@@ -16,6 +16,9 @@ from ...core.crm_clients.ringcentral import RingCentralClient
 from ...core.crm_clients.convoso import ConvosoClient
 from ...core.crm_clients.ytel import YtelClient
 from ...core.tps_api import TPSApiClient
+from ...core.database import get_db
+from sqlalchemy.orm import Session
+from ...core.models import SystemSetting
 
 router = APIRouter()
 @router.get("/ringcentral/blocked")
@@ -34,8 +37,15 @@ async def ringcentral_list_blocked():
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return resp.json()
 
+def _provider_enabled(db: Session, key: str) -> bool:
+    row = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+    return True if row is None else bool(row.enabled)
+
+
 @router.post("/ringcentral/block")
-async def ringcentral_block_number(phone_number: str):
+async def ringcentral_block_number(phone_number: str, db: Session = Depends(get_db)):
+    if not _provider_enabled(db, "ringcentral"):
+        raise HTTPException(status_code=403, detail="RingCentral integration disabled")
     """Add a phone number to RingCentral blocked list."""
     client = RingCentralClient()
     result = await client.remove_phone_number(phone_number)
@@ -413,7 +423,9 @@ async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status:
 
 # Convoso DNC helpers
 @router.post("/convoso/dnc/insert")
-async def convoso_dnc_insert(phone_number: str):
+async def convoso_dnc_insert(phone_number: str, db: Session = Depends(get_db)):
+    if not _provider_enabled(db, "convoso"):
+        raise HTTPException(status_code=403, detail="Convoso integration disabled")
     client = ConvosoClient()
     return await client.remove_phone_number(phone_number)
 
@@ -423,7 +435,9 @@ async def convoso_dnc_search(phone_number: str):
     return await client.check_status(phone_number)
 
 @router.post("/convoso/dnc/delete")
-async def convoso_dnc_delete(phone_number: str):
+async def convoso_dnc_delete(phone_number: str, db: Session = Depends(get_db)):
+    if not _provider_enabled(db, "convoso"):
+        raise HTTPException(status_code=403, detail="Convoso integration disabled")
     from ...core.config import settings
     import httpx
     url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/delete"
@@ -437,7 +451,9 @@ async def convoso_dnc_delete(phone_number: str):
 
 # Ytel modern v4 helpers
 @router.post("/ytel/dnc")
-async def ytel_add_dnc(phone_number: str):
+async def ytel_add_dnc(phone_number: str, db: Session = Depends(get_db)):
+    if not _provider_enabled(db, "ytel"):
+        raise HTTPException(status_code=403, detail="Ytel integration disabled")
     client = YtelClient()
     return await client.remove_phone_number(phone_number)
 
@@ -459,7 +475,9 @@ async def ytel_bulk_upload(file_path: str):
 
 # Logics (TPS) helpers
 @router.post("/logics/dnc/update-case")
-async def logics_update_case(case_id: int, status_id: int):
+async def logics_update_case(case_id: int, status_id: int, db: Session = Depends(get_db)):
+    if not _provider_enabled(db, "logics"):
+        raise HTTPException(status_code=403, detail="Logics integration disabled")
     client = TPSApiClient()
     return await client.update_case_status(case_id, status_id)
 

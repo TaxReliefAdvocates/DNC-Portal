@@ -39,7 +39,7 @@ export const DNCChecker: React.FC = () => {
   const [tpsCasesResults, setTpsCasesResults] = useState<any[] | null>(null)
   const [selectedNumber, setSelectedNumber] = useState<string | null>(null)
   const [selectedCases, setSelectedCases] = useState<any[] | null>(null)
-  const [isLoadingCases, setIsLoadingCases] = useState<boolean>(false)
+  const [isLoadingCases] = useState<boolean>(false)
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
 
   // Local sub-tabs for methods

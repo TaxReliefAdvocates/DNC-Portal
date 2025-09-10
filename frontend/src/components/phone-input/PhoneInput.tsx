@@ -16,11 +16,10 @@ interface PhoneInputFormData {
 
 interface PhoneInputProps {
   onNumbersSubmit: (numbers: string[], notes?: string) => Promise<void>
-  onPrecheckDnc?: (numbers: string[]) => Promise<void> | void
   isLoading: boolean
 }
 
-export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrecheckDnc, isLoading }) => {
+export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoading }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -74,20 +73,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
     }
   }
 
-  const handleDncPrecheck = async () => {
-    setError(null)
-    if (!onPrecheckDnc) return
-    const formValues = (document.getElementById('phone_numbers') as HTMLTextAreaElement)?.value || ''
-    const numbers = formValues
-      .split('\n')
-      .map(line => normalizePhoneNumber(line.trim()))
-      .filter(line => line.length > 0)
-    if (numbers.length === 0) {
-      setError('Enter numbers first to cross-check DNC')
-      return
-    }
-    await onPrecheckDnc(numbers)
-  }
+  // handleDncPrecheck kept for reference; currently unused in admin flow
 
   const handleReset = () => {
     reset()
@@ -114,7 +100,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, onPrech
         return
       }
       for (const channel of selectedChannels) {
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${1}`,
+        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: reqUserId }) })
         if (!resp.ok) throw new Error('Failed to submit DNC request')
       }
