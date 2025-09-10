@@ -23,6 +23,7 @@ export const SystemSettings: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('')
   const [newUserName, setNewUserName] = useState('')
   const [superAdminIds, setSuperAdminIds] = useState<Record<number, boolean>>({})
+  const [roleById, setRoleById] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(false)
   const [testPhone, setTestPhone] = useState('5551234567')
   const [testLog, setTestLog] = useState<string>('')
@@ -37,7 +38,15 @@ export const SystemSettings: React.FC = () => {
         if (resp.ok) setServices(await resp.json())
         // fetch users (minimal: reuse tenants GET /users)
         const u = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users`)
-        if (u.ok) setUsers(await u.json())
+        if (u.ok) {
+          const arr = await u.json()
+          setUsers(arr)
+          const sa: Record<number, boolean> = {}
+          const roles: Record<number, string> = {}
+          arr.forEach((x: any)=> { sa[x.id] = !!x.is_super_admin; roles[x.id] = x.role || 'member' })
+          setSuperAdminIds(sa)
+          setRoleById(roles)
+        }
       } catch {}
     })()
   }, [open, isSuperAdmin])
@@ -136,10 +145,27 @@ export const SystemSettings: React.FC = () => {
                         <div className="font-medium">{u.email}</div>
                         <div className="text-gray-600">{u.name || '—'}</div>
                       </div>
-                      <label className="flex items-center gap-2 text-sm">
-                        <span>System Admin</span>
-                        <input type="checkbox" checked={!!superAdminIds[u.id]} onChange={(e)=> setSuperAdminIds({ ...superAdminIds, [u.id]: e.target.checked })} />
-                      </label>
+                      <div className="flex items-center gap-3 text-sm">
+                        <select className="border rounded px-2 py-1" value={roleById[u.id] || 'member'} onChange={(e)=> setRoleById({ ...roleById, [u.id]: e.target.value })}>
+                          <option value="member">User</option>
+                          <option value="admin">Admin</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                        <label className="flex items-center gap-2 text-sm">
+                          <span>System Admin</span>
+                          <input type="checkbox" checked={!!superAdminIds[u.id]} onChange={(e)=> setSuperAdminIds({ ...superAdminIds, [u.id]: e.target.checked })} />
+                        </label>
+                        <Button size="sm" variant="outline" onClick={async ()=>{
+                          try {
+                            const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users/${u.id}`, {
+                              method:'PUT',
+                              headers: getHeaders(role, organizationId, userId),
+                              body: JSON.stringify({ role: roleById[u.id], is_super_admin: !!superAdminIds[u.id] })
+                            })
+                            if (!resp.ok) throw new Error('Save failed')
+                          } catch {}
+                        }}>Save</Button>
+                      </div>
                     </div>
                   ))}
                 </div>
