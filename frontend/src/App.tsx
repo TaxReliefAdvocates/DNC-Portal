@@ -39,7 +39,7 @@ const AppContent: React.FC = () => {
   const dispatch = useAppDispatch()
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
   const role = useAppSelector((s) => s.demoAuth.role)
-  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests'>('main')
+  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'>('main')
   const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('none')
   const [systemsNumbers] = useState<string[]>([])
   const [precheckResults] = useState<any | null>(null)
@@ -321,6 +321,21 @@ const AppContent: React.FC = () => {
           <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
             <div className="text-lg font-semibold mb-2">Admin access required</div>
             <div className="text-sm text-gray-600">Switch role to Admin in the top-right selector to view the Admin dashboard.</div>
+          </div>
+        )
+      case 'settings':
+        if (role === 'superadmin') {
+          return (
+            <div className="max-w-5xl mx-auto space-y-6">
+              <h2 className="text-3xl font-bold">System Settings</h2>
+              <SystemSettings />
+            </div>
+          )
+        }
+        return (
+          <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
+            <div className="text-lg font-semibold mb-2">System admin required</div>
+            <div className="text-sm text-gray-600">Use Dev Login to elevate to System Admin for testing.</div>
           </div>
         )
       default:

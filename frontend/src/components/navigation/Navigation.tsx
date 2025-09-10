@@ -5,8 +5,8 @@ import { useAppSelector, useAppDispatch } from '../../lib/hooks'
 import { setRole, setSuperAdmin } from '../../lib/features/auth/demoAuthSlice'
 
 interface NavigationProps {
-  activeTab: 'main' | 'admin' | 'dnc-checker' | 'requests'
-  onTabChange: (tab: 'main' | 'admin' | 'dnc-checker' | 'requests') => void
+  activeTab: 'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'
+  onTabChange: (tab: 'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings') => void
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
@@ -67,8 +67,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
               )}
               {isSuperAdmin && (
                 <Button
-                  variant={'ghost'}
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-system-settings'))}
+                  variant={activeTab === 'settings' ? 'default' : 'ghost'}
+                  onClick={() => onTabChange('settings')}
                   className="flex items-center space-x-2"
                 >
                   <Settings className="h-4 w-4" />

@@ -17,17 +17,13 @@ export const SystemSettings: React.FC = () => {
   const { role, organizationId, userId } = useAppSelector((s) => s.demoAuth)
   const isSuperAdmin = role === 'superadmin'
 
-  const [open, setOpen] = useState(false)
+  const [open] = useState(true)
   const [services, setServices] = useState<ServiceRow[]>([])
   const [loading, setLoading] = useState(false)
   const [testPhone, setTestPhone] = useState('5551234567')
   const [testLog, setTestLog] = useState<string>('')
 
-  useEffect(() => {
-    const handler = () => setOpen(true)
-    window.addEventListener('open-system-settings' as any, handler)
-    return () => window.removeEventListener('open-system-settings' as any, handler)
-  }, [])
+  // Always open in page mode
 
   useEffect(() => {
     if (!open || !isSuperAdmin) return
@@ -73,12 +69,6 @@ export const SystemSettings: React.FC = () => {
   if (!isSuperAdmin) return null
 
   return open ? (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-      <div className="bg-white rounded shadow-lg w-full max-w-3xl p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-lg font-semibold">System Settings</div>
-          <button className="text-sm text-gray-600" onClick={() => setOpen(false)}>Close</button>
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Card>
             <CardHeader><CardTitle>Providers</CardTitle></CardHeader>
@@ -112,8 +102,6 @@ export const SystemSettings: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
   ) : null
 }
 
