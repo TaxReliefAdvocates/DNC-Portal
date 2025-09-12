@@ -14,7 +14,6 @@ import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
 import { SystemSettings } from './components/admin/SystemSettings'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
-import { Login } from './components/auth/Login'
 import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib/features/phoneNumbers/phoneNumbersSlice'
 import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
 import { addNotification } from './lib/features/ui/uiSlice'
@@ -40,8 +39,8 @@ const AppContent: React.FC = () => {
   const dispatch = useAppDispatch()
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
   const role = useAppSelector((s) => s.demoAuth.role)
-  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings' | 'login'>('main')
-  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('none')
+  const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'>('main')
+  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('crm')
   const [systemsNumbers] = useState<string[]>([])
   const [precheckResults] = useState<any | null>(null)
   const [precheckSelected, setPrecheckSelected] = useState<{ phone: string, cases: any[] } | null>(null)
@@ -339,8 +338,6 @@ const AppContent: React.FC = () => {
             <div className="text-sm text-gray-600">Use Dev Login to elevate to System Admin for testing.</div>
           </div>
         )
-      case 'login':
-        return <Login onLoggedIn={()=> setActiveTab('main')} />
       default:
         return null
     }
@@ -348,7 +345,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Navigation activeTab={activeTab as any} onTabChange={setActiveTab as any} />
+      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="container mx-auto px-4 py-8">
         {renderTabContent()}
         <motion.footer
