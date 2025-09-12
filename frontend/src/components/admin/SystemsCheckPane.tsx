@@ -142,6 +142,20 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                 )}
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center justify-between border rounded p-2">
+                    <div className="font-medium">DNC (Federal)</div>
+                    <div className="flex items-center gap-2">
+                      {providers.dnc ? (
+                        providers.dnc.listed ? (
+                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                        ) : (
+                          <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not on DNC</span>
+                        )
+                      ) : (
+                        <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Checking…</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border rounded p-2">
                     <div className="font-medium">RingCentral</div>
                     <div className="flex items-center gap-2">
                       {cell(providers.ringcentral?.listed)}

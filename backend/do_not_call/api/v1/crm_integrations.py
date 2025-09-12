@@ -16,6 +16,7 @@ from ...core.crm_clients.ringcentral import RingCentralClient
 from ...core.crm_clients.convoso import ConvosoClient
 from ...core.crm_clients.ytel import YtelClient
 from ...core.tps_api import TPSApiClient
+from ...core.dnc_service import dnc_service
 from ...core.database import get_db
 from sqlalchemy.orm import Session
 from ...core.models import SystemSetting
@@ -522,6 +523,18 @@ async def systems_check(phone_number: str):
 
     # Genesys - not implemented; placeholder
     results["genesys"] = {"listed": None, "note": "not implemented"}
+
+    # Federal/National DNC check via DNC service
+    try:
+        dnc = await dnc_service.check_federal_dnc(phone_number)
+        results["dnc"] = {
+            "listed": bool(dnc.get("is_dnc")),
+            "status": dnc.get("status"),
+            "source": dnc.get("dnc_source"),
+            "notes": dnc.get("notes"),
+        }
+    except Exception as e:
+        results["dnc"] = {"error": str(e)}
 
     return {"phone_number": phone_number, "providers": results}
 
