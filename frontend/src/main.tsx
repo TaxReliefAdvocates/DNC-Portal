@@ -31,6 +31,14 @@ const msal = new PublicClientApplication({
   }
 }
 
+;(window as any).__msalLogout = async () => {
+  try {
+    await msal.logoutPopup()
+  } catch {
+    await msal.logoutRedirect()
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MsalProvider instance={msal}>
