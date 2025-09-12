@@ -13,9 +13,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   const { role } = useAppSelector((s) => s.demoAuth)
   const dispatch = useAppDispatch()
   const isAdmin = role === 'admin' || role === 'owner'
-  const isSuperAdmin = role === 'superadmin'
-  const [userLabel, setUserLabel] = useState<string>('')
+  const isSuperAdminComputed = (r: string) => r === 'superadmin'
   const [resolvedRole, setResolvedRole] = useState<string>('')
+  const isSuperAdmin = isSuperAdminComputed(role) || isSuperAdminComputed(resolvedRole)
+  const [userLabel, setUserLabel] = useState<string>('')
 
   useEffect(() => {
     try {
@@ -29,6 +30,10 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
         if (resp.ok) {
           const j = await resp.json()
           setResolvedRole(j.role)
+          // Initialize store role to actual backend role so superadmin can simulate
+          if (j.role && j.role !== role) {
+            dispatch(setRole(j.role as any))
+          }
         }
       } catch {}
     })()
@@ -132,7 +137,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                     const acct = msal?.getAllAccounts?.()[0]
                     if (acct) setUserLabel(acct.name || acct.username || '')
                     const me = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`)
-                    if (me.ok) { const j = await me.json(); setResolvedRole(j.role) }
+                    if (me.ok) { const j = await me.json(); setResolvedRole(j.role); if (j.role) dispatch(setRole(j.role as any)) }
                   } else if (hasAccount && msalLogout) {
                     await msalLogout()
                     setUserLabel('')
