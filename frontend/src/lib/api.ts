@@ -31,9 +31,21 @@ function getDemoHeaders(): Record<string, string> {
 
 // Helper function for API calls
 export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+  // Attach bearer token from MSAL if available (window.__msalAcquireToken optional)
+  let authHeaders: Record<string, string> = {}
+  try {
+    const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
+    const scope = import.meta.env.VITE_ENTRA_SCOPE as string | undefined
+    if (acquire && scope) {
+      const token = await acquire([scope])
+      if (token) authHeaders['Authorization'] = `Bearer ${token}`
+    }
+  } catch {}
+
   const response = await fetch(endpoint, {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
       ...getDemoHeaders(),
       ...(options.headers || {}),
     },

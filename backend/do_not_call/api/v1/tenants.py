@@ -18,6 +18,16 @@ from passlib.context import CryptContext
 
 router = APIRouter()
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Auth utilities
+@router.get("/auth/me")
+def auth_me(principal: Principal = Depends(get_principal)):
+    """Return the resolved principal from Entra token or dev headers."""
+    return {
+        "user_id": principal.user_id,
+        "organization_id": principal.organization_id,
+        "role": principal.role,
+    }
 # Dev login (temporary)
 @router.post("/auth/login")
 def dev_login(payload: dict):
