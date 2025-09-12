@@ -41,7 +41,7 @@ const AppContent: React.FC = () => {
   const role = useAppSelector((s) => s.demoAuth.role)
   const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'>('main')
   const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('crm')
-  const [systemsNumbers] = useState<string[]>([])
+  const [systemsNumbers, setSystemsNumbers] = useState<string[]>([])
   const [precheckResults] = useState<any | null>(null)
   const [precheckSelected, setPrecheckSelected] = useState<{ phone: string, cases: any[] } | null>(null)
   const [precheckLoading] = useState<boolean>(false)
@@ -60,44 +60,11 @@ const AppContent: React.FC = () => {
   }, [dispatch])
 
   const handlePhoneNumbersSubmit = async (numbers: string[], notes?: string) => {
-    // Admin/Owner: run systems lookup and show actionable table (no auto-push)
+    // Admin/Owner: run systems lookup and show actionable table, then let user "Push all"
     if (role === 'admin' || role === 'owner') {
-      try {
-        // 1) Persist numbers in backend (tracked in Supabase)
-        const bulkResp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/phone-numbers/bulk`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_numbers: numbers, notes })
-        })
-        if (!bulkResp.ok) throw new Error('Failed to save phone numbers')
-        const bulk = await bulkResp.json()
-        const phoneRows = (bulk?.phone_numbers || []) as Array<{ id: number; phone_number: string }>
-
-        // 2) Trigger CRM removal across providers for each phone
-        const providers: Array<'logics'|'genesys'|'ringcentral'|'convoso'|'ytel'> = ['logics','genesys','ringcentral','convoso','ytel']
-        const kicks: Promise<unknown>[] = []
-        for (const row of phoneRows) {
-          for (const crm of providers) {
-            kicks.push(
-              fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/remove-number`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone_number_id: row.id, crm_system: crm })
-              })
-            )
-          }
-        }
-        const results = await Promise.allSettled(kicks)
-        const ok = results.filter(r => r.status === 'fulfilled').length
-        const fail = results.length - ok
-
-        // 3) Show real status dashboard and refresh stats
-        setRightPane('crm')
-        dispatch(fetchCRMStatuses())
-        dispatch(addNotification({ type: fail ? 'warning' : 'success', message: `Started ${ok} CRM tasks${fail?`, ${fail} failed to start`:''}`, duration: 5000 }))
-      } catch (e) {
-        dispatch(addNotification({ type: 'error', message: e instanceof Error ? e.message : 'Submit failed', duration: 5000 }))
-      }
+      setSystemsNumbers(numbers)
+      setRightPane('systems')
+      dispatch(addNotification({ type: 'info', message: 'Checking systems… Use "Put on DNC List (all remaining)" to push.', duration: 5000 }))
       return
     }
     // Member fallback: keep previous flow (if ever enabled)
