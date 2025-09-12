@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
     ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
     ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
+    # Microsoft Graph (app-only for role assignment)
+    GRAPH_CLIENT_ID: Optional[str] = None
+    GRAPH_CLIENT_SECRET: Optional[str] = None
+    GRAPH_TENANT_ID: Optional[str] = None  # defaults to ENTRA_TENANT_ID if not set
+    ENTRA_API_APP_ID: Optional[str] = None  # The API app's Application (client) ID
     
     # Processing
     BATCH_SIZE: int = 100

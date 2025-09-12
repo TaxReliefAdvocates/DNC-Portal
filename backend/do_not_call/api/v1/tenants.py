@@ -15,9 +15,33 @@ from ...core.models import (
     SystemSetting, IntegrationTestResult,
 )
 from passlib.context import CryptContext
+from ...core.graph import GraphClient
+from ...config import settings
 
 router = APIRouter()
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Superadmin: Assign/remove Entra app roles
+@router.post("/admin/entra/assign-role")
+async def entra_assign_role(payload: dict, principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    user_oid = str(payload.get("user_object_id"))
+    app_id = settings.ENTRA_API_APP_ID or settings.RINGCENTRAL_CLIENT_ID or ""
+    app_role_id = str(payload.get("app_role_id"))
+    if not user_oid or not app_id or not app_role_id:
+        raise HTTPException(status_code=400, detail="user_object_id, app_role_id required")
+    client = GraphClient()
+    return await client.assign_app_role(user_oid, app_id, app_role_id)
+
+@router.post("/admin/entra/remove-role")
+async def entra_remove_role(payload: dict, principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    user_oid = str(payload.get("user_object_id"))
+    assignment_id = str(payload.get("assignment_id"))
+    if not user_oid or not assignment_id:
+        raise HTTPException(status_code=400, detail="user_object_id, assignment_id required")
+    client = GraphClient()
+    await client.remove_app_role(assignment_id, user_oid)
+    return {"removed": True}
 
 # Auth utilities
 @router.get("/auth/me")

@@ -2,11 +2,12 @@ from typing import Optional
 from fastapi import Header, HTTPException, status
 from jose import jwt
 from jose.exceptions import JWTError
-import httpx
 from functools import lru_cache
 from ..config import settings
 from .database import get_db
 from .models import User, OrgUser, Organization
+from typing import Dict, Any
+import httpx
 
 
 class Principal:
