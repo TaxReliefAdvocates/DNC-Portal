@@ -1,185 +1,176 @@
-from typing import Dict, Any, Optional
-from loguru import logger
-from .base import BaseCRMClient
-import httpx
-from ...config import settings
-from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List
+import os
 import base64
-from ...core.utils import normalize_phone_to_e164_digits
+from datetime import datetime, timedelta
+import httpx
+from loguru import logger
 
 
-class RingCentralClient(BaseCRMClient):
-    """Ring Central communication platform client"""
-    
+class RingCentralService:
+    """Concrete RingCentral service for auth, discovery, and DNC operations."""
+
     def __init__(self):
-        self.system_name = "ringcentral"
-        self.base_url = settings.RINGCENTRAL_BASE_URL.rstrip("/")
-        self._access_token: Optional[str] = settings.RINGCENTRAL_ACCESS_TOKEN
-        self._token_expiry: Optional[datetime] = None
-        self._account_id: Optional[str] = None
-        self._extension_id: Optional[str] = None
+        self.client_id: Optional[str] = os.getenv("RINGCENTRAL_CLIENT_ID")
+        self.client_secret: Optional[str] = os.getenv("RINGCENTRAL_CLIENT_SECRET")
+        self.jwt_token: Optional[str] = os.getenv("RINGCENTRAL_JWT_TOKEN")
+        self.base_url: str = os.getenv("RINGCENTRAL_BASE_URL", "https://platform.ringcentral.com").rstrip("/")
+        self.access_token: Optional[str] = None
+        self.account_id: Optional[str] = None
+        self.extension_id: Optional[str] = None
+        self.token_expires_at: Optional[datetime] = None
 
-    async def _ensure_token(self) -> None:
-        if self._access_token and self._token_expiry and datetime.utcnow() < self._token_expiry:
-            return
-        auth = base64.b64encode(f"{settings.RINGCENTRAL_CLIENT_ID}:{settings.RINGCENTRAL_CLIENT_SECRET}".encode()).decode()
-        data = {
-            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            "assertion": settings.RINGCENTRAL_JWT_TOKEN or "",
+    def _format_e164(self, phone_number: str) -> str:
+        digits = ''.join(ch for ch in phone_number if ch.isdigit())
+        if digits.startswith('1') and len(digits) == 11:
+            return f"+{digits}"
+        if len(digits) == 10:
+            return f"+1{digits}"
+        if phone_number.startswith('+'):
+            return phone_number
+        raise ValueError("Invalid phone number format")
+
+    async def authenticate(self) -> bool:
+        """Get access token using JWT assertion."""
+        if not self.client_id or not self.client_secret or not self.jwt_token:
+            logger.error("RingCentral credentials are not fully configured")
+            return False
+
+        auth_b64 = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode("ascii")).decode("ascii")
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': f'Basic {auth_b64}'
         }
-        headers = {"Authorization": f"Basic {auth}", "Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            'assertion': self.jwt_token
+        }
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(f"{self.base_url}/restapi/oauth/token", data=data, headers=headers)
-            if resp.status_code != 200:
-                raise Exception(f"RingCentral auth failed {resp.status_code}: {resp.text}")
-            payload = resp.json()
-            self._access_token = payload.get("access_token")
-            expires_in = int(payload.get("expires_in", 3600))
-            self._token_expiry = datetime.utcnow() + timedelta(seconds=max(60, expires_in - 60))
+            resp = await client.post(f"{self.base_url}/restapi/oauth/token", headers=headers, data=data)
+            if resp.status_code == 200:
+                token_data = resp.json()
+                self.access_token = token_data.get('access_token')
+                expires_in = int(token_data.get('expires_in', 3600))
+                # refresh 60s early
+                self.token_expires_at = datetime.now() + timedelta(seconds=max(60, expires_in - 60))
+                return True
+            logger.error(f"RingCentral auth failed {resp.status_code}: {resp.text}")
+        return False
 
-    async def _ensure_account_and_extension(self) -> None:
-        await self._ensure_token()
-        headers = {"Authorization": f"Bearer {self._access_token}", "Accept": "application/json"}
+    async def _ensure_token_valid(self) -> None:
+        if self.access_token and self.token_expires_at and datetime.now() < self.token_expires_at:
+            return
+        ok = await self.authenticate()
+        if not ok:
+            raise Exception("Authentication failed")
+
+    async def discover_account_info(self) -> tuple[str, str]:
+        """Discover account and extension IDs using ~ endpoints."""
+        await self._ensure_token_valid()
+        headers = {'Authorization': f'Bearer {self.access_token}'}
         async with httpx.AsyncClient(timeout=30) as client:
-            # Account discovery
-            if not self._account_id or self._account_id == "~":
-                r1 = await client.get(f"{self.base_url}/restapi/v1.0/account/~", headers=headers)
-                if r1.status_code != 200:
-                    raise Exception(f"Account discovery failed: {r1.text}")
-                self._account_id = (r1.json() or {}).get("id") or "~"
-            # Extension discovery
-            if not self._extension_id or self._extension_id == "~":
-                r2 = await client.get(f"{self.base_url}/restapi/v1.0/account/~/extension/~", headers=headers)
-                if r2.status_code != 200:
-                    raise Exception(f"Extension discovery failed: {r2.text}")
-                self._extension_id = (r2.json() or {}).get("id") or "~"
+            a = await client.get(f"{self.base_url}/restapi/v1.0/account/~", headers=headers)
+            if a.status_code != 200:
+                raise Exception(f"Account discovery failed: {a.text}")
+            self.account_id = str((a.json() or {}).get('id'))
+            e = await client.get(f"{self.base_url}/restapi/v1.0/account/~/extension/~", headers=headers)
+            if e.status_code != 200:
+                raise Exception(f"Extension discovery failed: {e.text}")
+            self.extension_id = str((e.json() or {}).get('id'))
+        return self.account_id, self.extension_id
+
+    async def _ensure_context(self) -> None:
+        if not self.access_token or not self.token_expires_at or datetime.now() >= self.token_expires_at:
+            await self.authenticate()
+        if not self.account_id or not self.extension_id:
+            await self.discover_account_info()
+
+    async def add_blocked_number(self, phone_number: str, label: str = "API Block") -> Dict[str, Any]:
+        await self._ensure_context()
+        formatted_phone = self._format_e164(phone_number)
+        headers = {'Authorization': f'Bearer {self.access_token}', 'Content-Type': 'application/json'}
+        data = {"phoneNumber": formatted_phone, "label": label, "status": "Blocked"}
+        url = f"{self.base_url}/restapi/v1.0/account/{self.account_id}/extension/{self.extension_id}/caller-blocking/phone-numbers"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, headers=headers, json=data)
+            if resp.status_code not in (200, 201):
+                raise Exception(f"Add blocked failed {resp.status_code}: {resp.text}")
+            return resp.json() if resp.headers.get('content-type','').startswith('application/json') else {"text": resp.text}
+
+    async def list_blocked_numbers(self) -> List[Dict[str, Any]]:
+        await self._ensure_context()
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        url = f"{self.base_url}/restapi/v1.0/account/{self.account_id}/extension/{self.extension_id}/caller-blocking/phone-numbers"
+        params = {"status": "Blocked", "page": 1, "perPage": 100}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                raise Exception(f"List blocked failed {resp.status_code}: {resp.text}")
+            data = resp.json()
+            return data.get('records', data.get('phoneNumbers', []))
+
+    async def search_blocked_number(self, phone_number: str) -> Dict[str, Any]:
+        await self._ensure_context()
+        formatted_phone = self._format_e164(phone_number)
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        url = f"{self.base_url}/restapi/v1.0/account/{self.account_id}/extension/{self.extension_id}/caller-blocking/phone-numbers"
+        params = {"status": "Blocked", "phoneNumber": formatted_phone, "page": 1, "perPage": 100}
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                raise Exception(f"Search failed {resp.status_code}: {resp.text}")
+            data = resp.json()
+            records = data.get('records', data.get('phoneNumbers', []))
+            found = next((r for r in records if r.get('phoneNumber') == formatted_phone), None)
+            return {"found": bool(found), "record": found, "raw": data}
+
+    async def remove_blocked_number(self, phone_number: str) -> bool:
+        await self._ensure_context()
+        formatted_phone = self._format_e164(phone_number)
+        # find id
+        result = await self.search_blocked_number(formatted_phone)
+        record = result.get('record')
+        if not record:
+            return False
+        blocked_id = record.get('id')
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        url = f"{self.base_url}/restapi/v1.0/account/{self.account_id}/extension/{self.extension_id}/caller-blocking/phone-numbers/{blocked_id}"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.delete(url, headers=headers)
+            return resp.status_code in (200, 204)
+
+    # Compatibility methods used elsewhere in the app
+    async def remove_phone_number(self, phone_number: str) -> Dict[str, Any]:
+        """For consistency with other clients: add to RingCentral blocked list."""
+        payload = await self.add_blocked_number(phone_number, label="API Block")
+        formatted = self._format_e164(phone_number)
+        return {
+            "success": True,
+            "phone_number": formatted,
+            "crm_system": "ringcentral",
+            "status": "blocked",
+            "response": payload,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    async def check_status(self, phone_number: str) -> Dict[str, Any]:
+        res = await self.search_blocked_number(phone_number)
+        formatted = self._format_e164(phone_number)
+        return {
+            "phone_number": formatted,
+            "crm_system": "ringcentral",
+            "status": "blocked" if res.get("found") else "not_blocked",
+            "last_updated": datetime.now().isoformat(),
+            "raw": res.get("raw"),
+        }
 
     async def auth_status(self) -> Dict[str, Any]:
         try:
-            await self._ensure_account_and_extension()
+            await self._ensure_context()
             return {
                 "authenticated": True,
-                "account_id": self._account_id,
-                "extension_id": self._extension_id,
-                "token_expires_at": self._token_expiry.isoformat() if self._token_expiry else None,
+                "account_id": self.account_id,
+                "extension_id": self.extension_id,
+                "token_expires_at": self.token_expires_at.isoformat() if self.token_expires_at else None,
             }
         except Exception as e:
             return {"authenticated": False, "error": str(e)}
-        
-    async def remove_phone_number(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Remove a phone number from Ring Central platform
-        
-        Args:
-            phone_number: Phone number to remove
-            
-        Returns:
-            Dict containing the result of the removal operation
-        """
-        try:
-            # Validate and format number
-            digits = normalize_phone_to_e164_digits(phone_number)
-            if not digits:
-                raise Exception("Invalid phone number format")
-            await self._ensure_account_and_extension()
-            logger.info(f"Adding phone number +1{digits} to RingCentral blocked list")
-            url = f"{self.base_url}/restapi/v1.0/account/{self._account_id}/extension/{self._extension_id}/caller-blocking/phone-numbers"
-            headers = {
-                "Authorization": f"Bearer {self._access_token}",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
-            payload = { "phoneNumber": f"+1{digits}", "status": "Blocked" }
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(url, headers=headers, json=payload)
-                ok = resp.status_code in (200, 201)
-                data = resp.json() if resp.headers.get('content-type','').startswith('application/json') else {"text": resp.text}
-                if not ok:
-                    raise Exception(f"RingCentral error {resp.status_code}: {data}")
-                return {
-                    "success": True,
-                    "phone_number": f"+1{digits}",
-                    "crm_system": "ringcentral",
-                    "status": "blocked",
-                    "response": data,
-                    "timestamp": datetime.now().isoformat(),
-                }
-        except Exception as e:
-            logger.error(f"Failed to block {phone_number} on RingCentral: {e}")
-            raise Exception(f"RingCentral block failed: {str(e)}")
-    
-    async def check_status(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Check the status of a phone number in Ring Central
-        
-        Args:
-            phone_number: Phone number to check
-            
-        Returns:
-            Dict containing the current status
-        """
-        try:
-            digits = normalize_phone_to_e164_digits(phone_number)
-            if not digits:
-                raise Exception("Invalid phone number format")
-            await self._ensure_account_and_extension()
-            logger.info(f"Listing blocked numbers to check status for +1{digits}")
-            url = f"{self.base_url}/restapi/v1.0/account/{self._account_id}/extension/{self._extension_id}/caller-blocking/phone-numbers"
-            headers = {
-                "Authorization": f"Bearer {self._access_token}",
-                "Accept": "application/json",
-            }
-            params = { "page": 1, "perPage": 100, "status": "Blocked", "phoneNumber": f"+1{digits}" }
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(url, headers=headers, params=params)
-                if resp.status_code != 200:
-                    raise Exception(f"RingCentral list error {resp.status_code}: {resp.text}")
-                data = resp.json()
-                items = data.get('records') or data.get('phoneNumbers') or []
-                blocked = any((item.get('phoneNumber') or item.get('blockedNumber')) == f"+1{digits}" for item in items)
-                return {
-                    "phone_number": f"+1{digits}",
-                    "crm_system": "ringcentral",
-                    "status": "blocked" if blocked else "not_blocked",
-                    "last_updated": datetime.now().isoformat(),
-                    "raw": data,
-                }
-        except Exception as e:
-            logger.error(f"Failed to check status of {phone_number} in RingCentral: {e}")
-            raise Exception(f"RingCentral status check failed: {str(e)}")
-    
-    async def get_removal_history(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Get removal history for a phone number in Ring Central
-        
-        Args:
-            phone_number: Phone number to get history for
-            
-        Returns:
-            Dict containing removal history
-        """
-        try:
-            logger.info(f"Getting removal history for {phone_number} in Ring Central")
-            
-            # TODO: Implement actual Ring Central API call here
-            # This is a placeholder implementation
-            
-            result = {
-                "phone_number": phone_number,
-                "crm_system": "ringcentral",
-                "history": [
-                    {
-                        "action": "removal_requested",
-                        "timestamp": datetime.now().isoformat(),
-                        "status": "completed",
-                        "user": "system"
-                    }
-                ],
-                "total_actions": 1
-            }
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Failed to get removal history for {phone_number} in Ring Central: {e}")
-            raise Exception(f"Ring Central history retrieval failed: {str(e)}")

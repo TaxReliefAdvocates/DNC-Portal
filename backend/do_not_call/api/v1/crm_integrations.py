@@ -12,7 +12,7 @@ from ...core.models import (
 from ...core.crm_clients.base import BaseCRMClient
 from ...core.crm_clients.logics import LogicsClient
 from ...core.crm_clients.genesys import GenesysClient
-from ...core.crm_clients.ringcentral import RingCentralClient
+from ...core.crm_clients.ringcentral import RingCentralService
 from ...core.crm_clients.convoso import ConvosoClient
 from ...core.crm_clients.ytel import YtelClient
 from ...core.tps_api import TPSApiClient
@@ -28,7 +28,7 @@ async def ringcentral_list_blocked():
     """List blocked numbers on RingCentral (first page)."""
     from ...core.config import settings
     import httpx
-    client = RingCentralClient()
+    client = RingCentralService()
     # Ensure token/account/extension via auth_status
     st = await client.auth_status()
     if not st.get("authenticated"):
@@ -52,7 +52,7 @@ async def ringcentral_block_number(phone_number: str, label: str = "API Block", 
     if not _provider_enabled(db, "ringcentral"):
         raise HTTPException(status_code=403, detail="RingCentral integration disabled")
     """Add a phone number to RingCentral blocked list."""
-    client = RingCentralClient()
+    client = RingCentralService()
     result = await client.remove_phone_number(phone_number)
     return result
 
@@ -71,7 +71,7 @@ def get_crm_client(crm_system: str) -> BaseCRMClient:
     elif crm_system == "genesys":
         return GenesysClient()
     elif crm_system == "ringcentral":
-        return RingCentralClient()
+        return RingCentralService()
     elif crm_system == "convoso":
         return ConvosoClient()
     elif crm_system == "ytel":
@@ -390,7 +390,7 @@ async def ringcentral_delete_blocked(blocked_id: str):
 
 @router.get("/ringcentral/auth/status")
 async def ringcentral_auth_status():
-    client = RingCentralClient()
+    client = RingCentralService()
     return await client.auth_status()
 
 @router.put("/ringcentral/blocked/{blocked_id}")
@@ -485,7 +485,7 @@ async def systems_check(phone_number: str):
 
     # RingCentral
     try:
-        rc_client = RingCentralClient()
+        rc_client = RingCentralService()
         rc = await rc_client.check_status(phone_number)
         results["ringcentral"] = {"listed": (rc.get("status") == "blocked"), "raw": rc}
     except Exception as e:
