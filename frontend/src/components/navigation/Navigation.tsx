@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '../ui/button'
 import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '../../lib/hooks'
-import { setRole, setSuperAdmin } from '../../lib/features/auth/demoAuthSlice'
+import { setRole } from '../../lib/features/auth/demoAuthSlice'
 
 interface NavigationProps {
   activeTab: 'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'
@@ -101,7 +101,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                   try {
                     const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username:'admin', password:'admin' }) })
                     if (resp.ok) {
-                      dispatch(setSuperAdmin())
+                      dispatch(setRole('admin' as any))
                     } else {
                       alert('Dev login failed')
                     }
