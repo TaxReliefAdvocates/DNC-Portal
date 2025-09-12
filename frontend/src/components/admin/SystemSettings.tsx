@@ -23,10 +23,12 @@ export const SystemSettings: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('')
   const [newUserName, setNewUserName] = useState('')
   const [superAdminIds, setSuperAdminIds] = useState<Record<number, boolean>>({})
-  const [roleById, setRoleById] = useState<Record<number, string>>({})
   const [loading, setLoading] = useState(false)
   const [testPhone, setTestPhone] = useState('5551234567')
   const [testLog, setTestLog] = useState<string>('')
+  const [rcLog, setRcLog] = useState<string>('')
+  const [rcStatus, setRcStatus] = useState<any | null>(null)
+  const [rcBusy, setRcBusy] = useState(false)
 
   // Always open in page mode
 
@@ -38,15 +40,7 @@ export const SystemSettings: React.FC = () => {
         if (resp.ok) setServices(await resp.json())
         // fetch users (minimal: reuse tenants GET /users)
         const u = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users`)
-        if (u.ok) {
-          const arr = await u.json()
-          setUsers(arr)
-          const sa: Record<number, boolean> = {}
-          const roles: Record<number, string> = {}
-          arr.forEach((x: any)=> { sa[x.id] = !!x.is_super_admin; roles[x.id] = x.role || 'member' })
-          setSuperAdminIds(sa)
-          setRoleById(roles)
-        }
+        if (u.ok) setUsers(await u.json())
       } catch {}
     })()
   }, [open, isSuperAdmin])
@@ -80,6 +74,48 @@ export const SystemSettings: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const rcAuthStatus = async () => {
+    setRcBusy(true)
+    setRcLog('')
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/auth/status`)
+      const data = await resp.json()
+      setRcStatus(data)
+      setRcLog(JSON.stringify(data, null, 2))
+    } catch (e) {
+      setRcLog(`Error: ${(e as Error).message}`)
+    } finally { setRcBusy(false) }
+  }
+
+  const rcListBlocked = async () => {
+    setRcBusy(true)
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/list`)
+      const data = await resp.json()
+      setRcLog(JSON.stringify(data, null, 2))
+    } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
+  }
+
+  const rcSearch = async () => {
+    setRcBusy(true)
+    try {
+      const pn = encodeURIComponent(testPhone)
+      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/search/${pn}`)
+      const data = await resp.json()
+      setRcLog(JSON.stringify(data, null, 2))
+    } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
+  }
+
+  const rcAdd = async () => {
+    setRcBusy(true)
+    try {
+      const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
+      const resp = await fetch(url, { method: 'POST' })
+      const data = await resp.json()
+      setRcLog(JSON.stringify(data, null, 2))
+    } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
   }
 
   if (!isSuperAdmin) return null
@@ -118,8 +154,24 @@ export const SystemSettings: React.FC = () => {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader><CardTitle>RingCentral Auth & DNC</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-2">
+                <Input value={testPhone} onChange={(e)=>setTestPhone(e.target.value)} placeholder="Phone to add/search" />
+              </div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                <Button size="sm" variant="outline" onClick={rcAuthStatus} disabled={rcBusy}>Check Auth</Button>
+                <Button size="sm" variant="outline" onClick={rcListBlocked} disabled={rcBusy}>List Blocked</Button>
+                <Button size="sm" variant="outline" onClick={rcSearch} disabled={rcBusy}>Search Blocked</Button>
+                <Button size="sm" variant="default" onClick={rcAdd} disabled={rcBusy}>Add to DNC</Button>
+              </div>
+              <pre className="text-xs bg-gray-50 border rounded p-2 max-h-48 overflow-auto whitespace-pre-wrap">{rcLog || 'Use the buttons above to interact with RingCentral.'}</pre>
+            </CardContent>
+          </Card>
+
           <Card className="md:col-span-2">
-            <CardHeader><CardTitle>Users & Roles (minimal)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Users & Roles (minimal)</CardHeader></CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex gap-2">
@@ -145,27 +197,10 @@ export const SystemSettings: React.FC = () => {
                         <div className="font-medium">{u.email}</div>
                         <div className="text-gray-600">{u.name || '—'}</div>
                       </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <select className="border rounded px-2 py-1" value={roleById[u.id] || 'member'} onChange={(e)=> setRoleById({ ...roleById, [u.id]: e.target.value })}>
-                          <option value="member">User</option>
-                          <option value="admin">Admin</option>
-                          <option value="owner">Owner</option>
-                        </select>
-                        <label className="flex items-center gap-2 text-sm">
-                          <span>System Admin</span>
-                          <input type="checkbox" checked={!!superAdminIds[u.id]} onChange={(e)=> setSuperAdminIds({ ...superAdminIds, [u.id]: e.target.checked })} />
-                        </label>
-                        <Button size="sm" variant="outline" onClick={async ()=>{
-                          try {
-                            const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users/${u.id}`, {
-                              method:'PUT',
-                              headers: getHeaders(role, organizationId, userId),
-                              body: JSON.stringify({ role: roleById[u.id], is_super_admin: !!superAdminIds[u.id] })
-                            })
-                            if (!resp.ok) throw new Error('Save failed')
-                          } catch {}
-                        }}>Save</Button>
-                      </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <span>System Admin</span>
+                        <input type="checkbox" checked={!!superAdminIds[u.id]} onChange={(e)=> setSuperAdminIds({ ...superAdminIds, [u.id]: e.target.checked })} />
+                      </label>
                     </div>
                   ))}
                 </div>
