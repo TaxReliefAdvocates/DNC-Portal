@@ -57,34 +57,11 @@ async def ringcentral_block_number(phone_number: str, label: str = "API Block", 
     return result
 
 @router.get("/ringcentral/dnc/search/{phone_number}")
-async def ringcentral_search_blocked(phone_number: str, per_page: int = 100, max_pages: int = 50):
-    """Search RingCentral blocked list for a phone number by paging until found or exhausted."""
-    from ...core.config import settings
-    import httpx
-    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
-    page = 1
-    found = None
-    while page <= max_pages:
-        url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"
-        params = {"page": page, "perPage": per_page, "status": "Blocked"}
-        async with httpx.AsyncClient(timeout=30) as client_http:
-            resp = await client_http.get(url, headers=headers, params=params)
-            if resp.status_code != 200:
-                raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            data = resp.json()
-            items = data.get('records') or data.get('phoneNumbers') or []
-            for item in items:
-                pn = item.get('phoneNumber') or item.get('blockedNumber')
-                if pn == phone_number:
-                    found = item
-                    break
-            if found:
-                break
-            # Stop if fewer than requested were returned (no more pages)
-            if len(items) < per_page:
-                break
-            page += 1
-    return {"found": bool(found), "record": found, "pages_checked": page}
+async def ringcentral_search_blocked(phone_number: str):
+    """Search RingCentral blocked list for a phone number using JWT-auth client."""
+    client = RingCentralClient()
+    status = await client.check_status(phone_number)
+    return status
 
 
 def get_crm_client(crm_system: str) -> BaseCRMClient:
@@ -508,8 +485,9 @@ async def systems_check(phone_number: str):
 
     # RingCentral
     try:
-        rc = await ringcentral_search_blocked(phone_number)
-        results["ringcentral"] = {"listed": bool(rc.get("found")), "raw": rc}
+        rc_client = RingCentralClient()
+        rc = await rc_client.check_status(phone_number)
+        results["ringcentral"] = {"listed": (rc.get("status") == "blocked"), "raw": rc}
     except Exception as e:
         results["ringcentral"] = {"error": str(e)}
 

@@ -69,7 +69,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
     setPushing(`${provider}:${phone}`)
     try {
       if (provider === 'ringcentral') {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'convoso') {
         await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'ytel') {
