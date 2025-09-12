@@ -171,7 +171,7 @@ export const SystemSettings: React.FC = () => {
           </Card>
 
           <Card className="md:col-span-2">
-            <CardHeader><CardTitle>Users & Roles (minimal)</CardHeader></CardHeader>
+            <CardHeader><CardTitle>Users & Roles (minimal)</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="flex gap-2">
