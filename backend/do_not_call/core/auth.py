@@ -69,9 +69,10 @@ async def get_principal(
                 user_id = user.id
             roles = claims.get("roles") or claims.get("groups") or []
             if isinstance(roles, list) and roles:
-                # Prefer owner/admin if present
                 lowered = {str(r).lower() for r in roles}
-                if "owner" in lowered:
+                if "superadmin" in lowered:
+                    role = "superadmin"
+                elif "owner" in lowered:
                     role = "owner"
                 elif "admin" in lowered:
                     role = "admin"

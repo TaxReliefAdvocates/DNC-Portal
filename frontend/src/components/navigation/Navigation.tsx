@@ -93,27 +93,27 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                 <option value="superadmin">System Admin</option>
               </select>
             </div>
-            {!isSuperAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async ()=>{
-                  try {
-                    const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username:'admin', password:'admin' }) })
-                    if (resp.ok) {
-                      dispatch(setRole('admin' as any))
-                    } else {
-                      alert('Dev login failed')
-                    }
-                  } catch {
-                    alert('Dev login failed')
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async ()=>{
+                const scope = import.meta.env.VITE_ENTRA_SCOPE
+                try {
+                  const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+                  if (acquire) {
+                    await acquire([scope])
+                    alert('Signed in successfully')
+                  } else {
+                    alert('Auth not initialized')
                   }
-                }}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Dev Login
-              </Button>
-            )}
+                } catch (e) {
+                  alert('Login failed')
+                }
+              }}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Sign In
+            </Button>
           </div>
         </div>
       </div>

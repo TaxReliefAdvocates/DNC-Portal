@@ -13,6 +13,7 @@ import { UserRequestHistory } from './components/admin/UserRequestHistory'
 import { DNCChecker } from './components/dnc-checker/DNCChecker'
 import { Navigation } from './components/navigation/Navigation'
 import { SystemSettings } from './components/admin/SystemSettings'
+import { Login } from './components/admin/Login'
 import { useAppDispatch, useAppSelector } from './lib/hooks'
 import { addBulkPhoneNumbers, fetchPhoneNumbers, resetLoadingState } from './lib/features/phoneNumbers/phoneNumbersSlice'
 import { fetchCRMStatuses, initDemoStats, setCRMStats } from './lib/features/crmStatus/crmStatusSlice'
@@ -299,12 +300,7 @@ const AppContent: React.FC = () => {
             </div>
           )
         }
-        return (
-          <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
-            <div className="text-lg font-semibold mb-2">System admin required</div>
-            <div className="text-sm text-gray-600">Use Dev Login to elevate to System Admin for testing.</div>
-          </div>
-        )
+        return <Login />
       default:
         return null
     }
