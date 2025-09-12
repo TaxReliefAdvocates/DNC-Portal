@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     RINGCENTRAL_API_KEY: Optional[str] = None
     RINGCENTRAL_BASE_URL: str = "https://platform.ringcentral.com"
     RINGCENTRAL_ACCESS_TOKEN: Optional[str] = None
+    RINGCENTRAL_JWT_TOKEN: Optional[str] = None
     RINGCENTRAL_ACCOUNT_ID: str = "~"  # use ~ for current
     RINGCENTRAL_EXTENSION_ID: str = "~"  # use ~ for current
     # OAuth app credentials
@@ -105,12 +106,6 @@ class Settings(BaseSettings):
     ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
     ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
     ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
-
-    # Dataverse (Dynamics 365) API
-    DATAVERSE_BASE_URL: Optional[str] = None  # e.g. https://org.crm.dynamics.com
-    DATAVERSE_TENANT_ID: Optional[str] = None
-    DATAVERSE_CLIENT_ID: Optional[str] = None
-    DATAVERSE_CLIENT_SECRET: Optional[str] = None
     
     # Processing
     BATCH_SIZE: int = 100

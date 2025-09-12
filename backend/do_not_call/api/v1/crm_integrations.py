@@ -17,20 +17,24 @@ from ...core.crm_clients.convoso import ConvosoClient
 from ...core.crm_clients.ytel import YtelClient
 from ...core.tps_api import TPSApiClient
 from ...core.dnc_service import dnc_service
+from ...core.utils import normalize_phone_to_e164_digits
 from ...core.database import get_db
 from sqlalchemy.orm import Session
 from ...core.models import SystemSetting
 
 router = APIRouter()
-@router.get("/ringcentral/blocked")
+@router.get("/ringcentral/dnc/list")
 async def ringcentral_list_blocked():
     """List blocked numbers on RingCentral (first page)."""
-    client = RingCentralClient()
-    # Reuse check_status list method without filter; return records
     from ...core.config import settings
     import httpx
-    url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"
-    headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
+    client = RingCentralClient()
+    # Ensure token/account/extension via auth_status
+    st = await client.auth_status()
+    if not st.get("authenticated"):
+        raise HTTPException(status_code=400, detail=st.get("error") or "Auth failed")
+    url = f"{client.base_url}/restapi/v1.0/account/{st['account_id']}/extension/{st['extension_id']}/caller-blocking/phone-numbers"
+    headers = {"Authorization": f"Bearer {client._access_token}", "Accept": "application/json"}
     params = {"page": 1, "perPage": 100, "status": "Blocked"}
     async with httpx.AsyncClient(timeout=30) as client_http:
         resp = await client_http.get(url, headers=headers, params=params)
@@ -43,8 +47,8 @@ def _provider_enabled(db: Session, key: str) -> bool:
     return True if row is None else bool(row.enabled)
 
 
-@router.post("/ringcentral/block")
-async def ringcentral_block_number(phone_number: str, db: Session = Depends(get_db)):
+@router.post("/ringcentral/dnc/add")
+async def ringcentral_block_number(phone_number: str, label: str = "API Block", db: Session = Depends(get_db)):
     if not _provider_enabled(db, "ringcentral"):
         raise HTTPException(status_code=403, detail="RingCentral integration disabled")
     """Add a phone number to RingCentral blocked list."""
@@ -52,7 +56,7 @@ async def ringcentral_block_number(phone_number: str, db: Session = Depends(get_
     result = await client.remove_phone_number(phone_number)
     return result
 
-@router.get("/ringcentral/blocked/search")
+@router.get("/ringcentral/dnc/search/{phone_number}")
 async def ringcentral_search_blocked(phone_number: str, per_page: int = 100, max_pages: int = 50):
     """Search RingCentral blocked list for a phone number by paging until found or exhausted."""
     from ...core.config import settings
@@ -394,7 +398,7 @@ async def get_supported_crm_systems():
 
 
 # RingCentral helpers
-@router.delete("/ringcentral/blocked/{blocked_id}")
+@router.delete("/ringcentral/dnc/remove/{blocked_id}")
 async def ringcentral_delete_blocked(blocked_id: str):
     from ...core.config import settings
     import httpx
@@ -405,6 +409,12 @@ async def ringcentral_delete_blocked(blocked_id: str):
         if resp.status_code not in (200, 204):
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return {"success": True}
+
+
+@router.get("/ringcentral/auth/status")
+async def ringcentral_auth_status():
+    client = RingCentralClient()
+    return await client.auth_status()
 
 @router.put("/ringcentral/blocked/{blocked_id}")
 async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status: str = "Blocked", label: str | None = None):
