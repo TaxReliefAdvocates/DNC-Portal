@@ -1,10 +1,16 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '../ui/button'
 
 export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const scope = import.meta.env.VITE_ENTRA_SCOPE
+
+  useEffect(() => {
+    if (location.pathname !== '/login') {
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [])
 
   const signIn = async () => {
     setError(null)
@@ -13,6 +19,10 @@ export const Login: React.FC = () => {
       const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
       if (!acquire) throw new Error('Auth not initialized')
       await acquire([scope])
+      // On success, return to root
+      if (location.pathname !== '/') {
+        window.history.replaceState({}, '', '/')
+      }
     } catch (e:any) {
       setError(e?.message || 'Login failed')
     } finally {
