@@ -15,6 +15,9 @@ const msal = new PublicClientApplication({
   cache: { cacheLocation: 'localStorage' }
 })
 
+// Expose instance for auth checks and logout
+;(window as any).__msalInstance = msal
+
 // Expose a minimal token getter for api.ts to use
 ;(window as any).__msalAcquireToken = async (scopes: string[]) => {
   try {

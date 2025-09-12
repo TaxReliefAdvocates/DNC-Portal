@@ -128,8 +128,10 @@ const AppContent: React.FC = () => {
   const isTwoPane = rightPane !== 'none'
 
   const renderTabContent = () => {
-    // Hard gate: require sign-in for the entire app
-    if (!(window as any).__msalAcquireToken) {
+    // Hard gate: require sign-in for the entire app and default to /login
+    const msal = (window as any).__msalInstance
+    const accounts = msal?.getAllAccounts?.() || []
+    if (accounts.length === 0) {
       return <Login />
     }
     switch (activeTab) {
