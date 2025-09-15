@@ -69,14 +69,21 @@ async def get_principal(
                     db.refresh(user)
                 user_id = user.id
             roles = claims.get("roles") or claims.get("groups") or []
+            # Map Azure App Role values/names to internal roles.
+            # Supports value-based (e.g., all, approve_requests, task.write) and display-name variants (e.g., "Super Admin").
             if isinstance(roles, list) and roles:
                 lowered = {str(r).lower() for r in roles}
-                if "superadmin" in lowered:
+                # Also check normalized variants without spaces/punctuation
+                normalized = {"".join(ch for ch in s if ch.isalnum()) for s in lowered}
+
+                if ({"superadmin", "all"} & lowered) or ("superadmin" in normalized):
                     role = "superadmin"
-                elif "owner" in lowered:
+                elif ("owner" in lowered) or ("owner" in normalized):
                     role = "owner"
-                elif "admin" in lowered:
+                elif ({"admin", "approve_requests"} & lowered) or ("admin" in normalized):
                     role = "admin"
+                elif ({"user", "task.write"} & lowered) or ("user" in normalized):
+                    role = "member"
                 else:
                     role = "member"
         except JWTError:

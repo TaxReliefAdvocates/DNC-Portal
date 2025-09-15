@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import httpx
 from typing import Optional
-from .config import settings
+from ..config import settings
 
 
 class GraphClient:
@@ -65,5 +65,6 @@ class GraphClient:
                 headers=headers,
             )
             r.raise_for_status()
+
 
 

@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-export type DemoRole = 'owner' | 'admin' | 'member'
+export type DemoRole = 'owner' | 'admin' | 'member' | 'superadmin'
 
 export interface DemoAuthState {
   organizationId: number
@@ -11,7 +11,7 @@ export interface DemoAuthState {
 const initialState: DemoAuthState = {
   organizationId: 1,
   userId: 1,
-  role: 'admin',
+  role: 'member',
 }
 
 const demoAuthSlice = createSlice({
@@ -27,10 +27,15 @@ const demoAuthSlice = createSlice({
     setUser(state, action: PayloadAction<number>) {
       state.userId = action.payload
     },
+    setSuperAdmin(state) {
+      state.role = 'superadmin'
+      state.userId = 1
+      state.organizationId = 1
+    }
   },
 })
 
-export const { setRole, setOrganization, setUser } = demoAuthSlice.actions
+export const { setRole, setOrganization, setUser, setSuperAdmin } = demoAuthSlice.actions
 export default demoAuthSlice.reducer
 
 

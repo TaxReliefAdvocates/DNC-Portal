@@ -61,8 +61,8 @@ const AppContent: React.FC = () => {
   }, [dispatch])
 
   const handlePhoneNumbersSubmit = async (numbers: string[], notes?: string) => {
-    // Admin/Owner: run systems lookup and show actionable table, then let user "Push all"
-    if (role === 'admin' || role === 'owner') {
+    // Admin or Super Admin: run systems lookup and show actionable table, then let user "Push all"
+    if (role === 'admin' || role === 'superadmin') {
       setSystemsNumbers(numbers)
       setRightPane('systems')
       dispatch(addNotification({ type: 'info', message: 'Checking systems… Use "Put on DNC List (all remaining)" to push.', duration: 5000 }))
@@ -274,7 +274,7 @@ const AppContent: React.FC = () => {
       case 'dnc-checker':
         return <DNCChecker />
       case 'requests':
-        if (role === 'admin' || role === 'owner') {
+        if (role === 'admin' || role === 'superadmin') {
           return (
             <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
               <div className="text-lg font-semibold mb-2">No personal requests for admins</div>
@@ -290,7 +290,7 @@ const AppContent: React.FC = () => {
         )
       
       case 'admin':
-        if (role === 'admin' || role === 'owner') return <AdminDashboard />
+        if (role === 'admin' || role === 'superadmin') return <AdminDashboard />
         return (
           <div className="max-w-xl mx-auto p-6 mt-10 bg-white border rounded">
             <div className="text-lg font-semibold mb-2">Admin access required</div>

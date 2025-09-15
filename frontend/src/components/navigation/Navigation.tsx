@@ -10,12 +10,16 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
-  const { role } = useAppSelector((s) => s.demoAuth)
+  const { role, organizationId, userId } = useAppSelector((s) => s.demoAuth)
   const dispatch = useAppDispatch()
-  const isAdmin = role === 'admin' || role === 'owner'
+  const isAdminComputed = (r: string) => r === 'admin' || r === 'superadmin'
   const isSuperAdminComputed = (r: string) => r === 'superadmin'
-  const [resolvedRole, setResolvedRole] = useState<string>('')
-  const isSuperAdmin = isSuperAdminComputed(role) || isSuperAdminComputed(resolvedRole)
+  const [resolvedRole, setResolvedRole] = useState<string>('')            // role from backend
+  const [baseRole, setBaseRole] = useState<string>('')                    // immutable base role (from backend) for visibility
+  const [overrideRole, setOverrideRole] = useState<string | null>(null)   // superadmin simulation
+  const effectiveRole = overrideRole || resolvedRole || role
+  const isSuperAdmin = isSuperAdminComputed(effectiveRole)
+  const isAdmin = isAdminComputed(effectiveRole)
   const [userLabel, setUserLabel] = useState<string>('')
 
   useEffect(() => {
@@ -26,18 +30,45 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     } catch {}
     ;(async()=>{
       try {
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers: { 'Content-Type': 'application/json' } })
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+        const scope = import.meta.env.VITE_ENTRA_SCOPE
+        if (acquire && scope) {
+          const token = await acquire([scope])
+          if (token) {
+            // Derive role from token immediately so UI reflects correct role even if API call fails
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))
+              const rawRoles: string[] = Array.isArray(payload.roles) ? payload.roles.map((r: any)=>String(r).toLowerCase()) : []
+              const normalized = new Set(rawRoles.map((s)=>s.replace(/[^a-z0-9]/g,'')))
+              let derived = 'member'
+              if (rawRoles.includes('all') || rawRoles.includes('superadmin') || normalized.has('superadmin')) {
+                derived = 'superadmin'
+              } else if (rawRoles.includes('owner') || normalized.has('owner')) {
+                derived = 'owner'
+              } else if (rawRoles.includes('approve_requests') || rawRoles.includes('admin') || normalized.has('admin')) {
+                derived = 'admin'
+              }
+              setResolvedRole(derived)
+              if (!baseRole) setBaseRole(derived)
+              if (!overrideRole && derived && derived !== role) dispatch(setRole(derived as any))
+            } catch {}
+            headers['Authorization'] = `Bearer ${token}`
+          }
+        }
+        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers })
         if (resp.ok) {
           const j = await resp.json()
           setResolvedRole(j.role)
+          if (!baseRole) setBaseRole(j.role)
           // Initialize store role to actual backend role so superadmin can simulate
-          if (j.role && j.role !== role) {
+          if (!overrideRole && j.role && j.role !== role) {
             dispatch(setRole(j.role as any))
           }
         }
       } catch {}
     })()
-  }, [])
+  }, [role, organizationId, userId, overrideRole, baseRole])
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -103,23 +134,25 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center gap-2 text-sm text-gray-700">
-              <span>Role:</span>
-              <select
-                value={role}
-                onChange={(e) => dispatch(setRole(e.target.value as any))}
-                className="border rounded px-2 py-1"
-                disabled={!isSuperAdmin}
-              >
-                <option value="member">User</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
-                <option value="superadmin">System Admin</option>
-              </select>
-            </div>
+            {/* Hide role switcher for non-superadmin to prevent bypassing auth */}
+            {(isSuperAdminComputed(baseRole || resolvedRole || role)) && (
+              <div className="flex items-center gap-2 text-sm text-gray-700">
+                <span>Role:</span>
+                <select
+                  value={effectiveRole}
+                  onChange={(e) => { const v = e.target.value as any; setOverrideRole(v); dispatch(setRole(v)); }}
+                  className="border rounded px-2 py-1"
+                >
+                  {/* Match the three roles used in Azure and the backend */}
+                  <option value="member">User</option>
+                  <option value="admin">Admin</option>
+                  <option value="superadmin">Super Admin</option>
+                </select>
+              </div>
+            )}
             <div className="hidden sm:flex items-center text-sm text-gray-700 mr-2">
               {userLabel && <span className="mr-2 truncate max-w-[220px]" title={userLabel}>{userLabel}</span>}
-              {resolvedRole && <span className="px-2 py-0.5 border rounded bg-gray-50">{resolvedRole}</span>}
+              <span className="px-2 py-0.5 border rounded bg-gray-50">{effectiveRole}</span>
             </div>
             <Button
               variant="outline"
@@ -136,7 +169,15 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                     // refresh identity display
                     const acct = msal?.getAllAccounts?.()[0]
                     if (acct) setUserLabel(acct.name || acct.username || '')
-                    const me = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`)
+                    const headers: Record<string, string> = { 'X-Role': String(role), 'X-Org-Id': String(organizationId), 'X-User-Id': String(userId) }
+                    try {
+                      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+                      if (acquire && scope) {
+                        const token = await acquire([scope])
+                        if (token) headers['Authorization'] = `Bearer ${token}`
+                      }
+                    } catch {}
+                    const me = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers })
                     if (me.ok) { const j = await me.json(); setResolvedRole(j.role); if (j.role) dispatch(setRole(j.role as any)) }
                   } else if (hasAccount && msalLogout) {
                     await msalLogout()
