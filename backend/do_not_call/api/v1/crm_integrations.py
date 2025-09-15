@@ -417,24 +417,24 @@ async def convoso_dnc_insert(phone_number: str, db: Session = Depends(get_db)):
     client = ConvosoClient()
     return await client.remove_phone_number(phone_number)
 
-@router.get("/convoso/dnc/search")
+@router.get("/convoso/dnc/search/{phone_number}")
 async def convoso_dnc_search(phone_number: str):
     client = ConvosoClient()
     return await client.check_status(phone_number)
 
-@router.post("/convoso/dnc/delete")
+@router.delete("/convoso/dnc/delete/{phone_number}")
 async def convoso_dnc_delete(phone_number: str, db: Session = Depends(get_db)):
     if not _provider_enabled(db, "convoso"):
         raise HTTPException(status_code=403, detail="Convoso integration disabled")
-    from ...core.config import settings
-    import httpx
-    url = f"{settings.CONVOSO_BASE_URL}/v1/dnc/delete"
-    params = { 'auth_token': settings.CONVOSO_AUTH_TOKEN or '', 'phone_number': phone_number, 'phone_code': '1', 'campaign_id': 0 }
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(url, params=params)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=resp.status_code, detail=resp.text)
-        return resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+    client = ConvosoClient()
+    return await client.delete_phone_number(phone_number)
+
+@router.get("/convoso/dnc/check/{phone_number}")
+async def convoso_dnc_check(phone_number: str):
+    client = ConvosoClient()
+    res = await client.check_status(phone_number)
+    # Simple boolean
+    return { 'success': True, 'listed': res.get('status') == 'listed' }
 
 
 # Ytel modern v4 helpers

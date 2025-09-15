@@ -42,7 +42,6 @@ class Settings(BaseSettings):
     RINGCENTRAL_API_KEY: Optional[str] = None
     RINGCENTRAL_BASE_URL: str = "https://platform.ringcentral.com"
     RINGCENTRAL_ACCESS_TOKEN: Optional[str] = None
-    RINGCENTRAL_JWT_TOKEN: Optional[str] = None
     RINGCENTRAL_ACCOUNT_ID: str = "~"  # use ~ for current
     RINGCENTRAL_EXTENSION_ID: str = "~"  # use ~ for current
     # OAuth app credentials
@@ -53,6 +52,7 @@ class Settings(BaseSettings):
     CONVOSO_API_KEY: Optional[str] = None
     CONVOSO_BASE_URL: str = "https://api.convoso.com"
     CONVOSO_AUTH_TOKEN: Optional[str] = None
+    CONVOSO_COOKIE: str = "APIUBUNTUBACKEND=apiapp127"
     
     YTEL_API_KEY: Optional[str] = None
     YTEL_BASE_URL: str = "https://api.ytel.com"
@@ -106,11 +106,6 @@ class Settings(BaseSettings):
     ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
     ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
     ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
-    # Microsoft Graph (app-only for role assignment)
-    GRAPH_CLIENT_ID: Optional[str] = None
-    GRAPH_CLIENT_SECRET: Optional[str] = None
-    GRAPH_TENANT_ID: Optional[str] = None  # defaults to ENTRA_TENANT_ID if not set
-    ENTRA_API_APP_ID: Optional[str] = None  # The API app's Application (client) ID
     
     # Processing
     BATCH_SIZE: int = 100
