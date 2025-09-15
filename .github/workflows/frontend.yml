@@ -27,6 +27,10 @@ jobs:
         working-directory: frontend
         run: pnpm install
 
+      - name: Ensure MSAL packages present
+        working-directory: frontend
+        run: pnpm add @azure/msal-browser @azure/msal-react
+
       - name: Build
         working-directory: frontend
         env:

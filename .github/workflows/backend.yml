@@ -24,13 +24,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Poetry
-        run: pip install poetry
+      - name: Install uv (faster installer)
+        run: pip install uv
 
-      - name: Export requirements.txt from Poetry
+      - name: Create requirements.txt from pyproject
         working-directory: backend
         run: |
-          poetry export -f requirements.txt --without-hashes -o requirements.txt
+          uv pip compile pyproject.toml -o requirements.txt
 
       - name: Azure Login
         uses: azure/login@v2
