@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5174",
     ]
     # Allow Azure Static Web Apps by default; can override via env ALLOWED_ORIGIN_REGEX
-    ALLOWED_ORIGIN_REGEX: Optional[str] = r"https://.*\\.azurestaticapps\\.net$"
+    ALLOWED_ORIGIN_REGEX: Optional[str] = r"https://.*\.azurestaticapps\.net$"
     
     # Security
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
