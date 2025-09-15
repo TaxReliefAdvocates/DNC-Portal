@@ -27,7 +27,6 @@ export const SystemSettings: React.FC = () => {
   const [testPhone, setTestPhone] = useState('5551234567')
   const [testLog, setTestLog] = useState<string>('')
   const [rcLog, setRcLog] = useState<string>('')
-  const [rcStatus, setRcStatus] = useState<any | null>(null)
   const [rcBusy, setRcBusy] = useState(false)
 
   // Always open in page mode
@@ -82,7 +81,6 @@ export const SystemSettings: React.FC = () => {
     try {
       const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/auth/status`)
       const data = await resp.json()
-      setRcStatus(data)
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) {
       setRcLog(`Error: ${(e as Error).message}`)
