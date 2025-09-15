@@ -15,40 +15,48 @@ const msal = new PublicClientApplication({
   cache: { cacheLocation: 'localStorage' }
 })
 
-// Expose instance for auth checks and logout
-;(window as any).__msalInstance = msal
-
-// Expose a minimal token getter for api.ts to use
-;(window as any).__msalAcquireToken = async (scopes: string[]) => {
+;(async () => {
   try {
-    const accounts = msal.getAllAccounts()
-    if (accounts.length === 0) {
-      await msal.loginPopup({ scopes })
+    await msal.initialize()
+  } catch (e) {
+    console.error('MSAL initialize failed:', e)
+  }
+
+  // Expose instance for auth checks and logout ONLY after initialize
+  ;(window as any).__msalInstance = msal
+
+  // Expose a minimal token getter for api.ts to use
+  ;(window as any).__msalAcquireToken = async (scopes: string[]) => {
+    try {
+      const accounts = msal.getAllAccounts()
+      if (accounts.length === 0) {
+        await msal.loginPopup({ scopes })
+      }
+      const req: SilentRequest = { account: msal.getAllAccounts()[0], scopes }
+      const res = await msal.acquireTokenSilent(req)
+      return res.accessToken
+    } catch {
+      const res = await msal.loginPopup({ scopes })
+      return res.accessToken
     }
-    const req: SilentRequest = { account: msal.getAllAccounts()[0], scopes }
-    const res = await msal.acquireTokenSilent(req)
-    return res.accessToken
-  } catch {
-    const res = await msal.loginPopup({ scopes })
-    return res.accessToken
   }
-}
 
-;(window as any).__msalLogout = async () => {
-  try {
-    await msal.logoutPopup()
-  } catch {
-    await msal.logoutRedirect()
+  ;(window as any).__msalLogout = async () => {
+    try {
+      await msal.logoutPopup()
+    } catch {
+      await msal.logoutRedirect()
+    }
   }
-}
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <MsalProvider instance={msal}>
-      <App />
-    </MsalProvider>
-  </React.StrictMode>,
-)
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <MsalProvider instance={msal}>
+        <App />
+      </MsalProvider>
+    </React.StrictMode>,
+  )
+})()
 
 
 
