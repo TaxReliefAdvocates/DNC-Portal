@@ -5,6 +5,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { AdminRequestDetail } from './AdminRequestDetail'
+import { useAppSelector } from '../../lib/hooks'
 
 type RequestRow = {
   id: number
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId }) => {
+  const role = useAppSelector((s)=>s.demoAuth.role)
   const [rows, setRows] = useState<RequestRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +37,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [hasMore, setHasMore] = useState(false)
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [decisionNotes, setDecisionNotes] = useState('')
+  const [userMap, setUserMap] = useState<Record<number,{id:number,email:string,name?:string}>>({})
 
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null)
 
@@ -42,7 +45,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     'Content-Type': 'application/json',
     'X-Org-Id': String(organizationId),
     'X-User-Id': String(adminUserId),
-    'X-Role': 'owner',
+    'X-Role': role === 'superadmin' ? 'superadmin' : 'admin',
   }
 
   const fetchPending = async (append=false) => {
@@ -71,6 +74,20 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     fetchPending(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
+
+  // Load users for name/email lookup
+  useEffect(() => {
+    (async()=>{
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users`)
+        if (!resp.ok) return
+        const list: Array<{id:number,email:string,name?:string}> = await resp.json()
+        const m: Record<number,{id:number,email:string,name?:string}> = {}
+        list.forEach(u=>{ m[u.id]=u })
+        setUserMap(m)
+      } catch {}
+    })()
+  }, [])
 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
@@ -140,8 +157,8 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
             </select>
           </div>
           <div>
-            <Label className="text-xs">Requester ID</Label>
-            <Input value={requester} onChange={(e)=>setRequester(e.target.value)} placeholder="e.g. 42" />
+            <Label className="text-xs">Requester</Label>
+            <Input value={requester} onChange={(e)=>setRequester(e.target.value)} placeholder="name or email" />
           </div>
           <div className="md:col-span-2">
             <Label className="text-xs">Search phone</Label>
@@ -163,14 +180,23 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
         ) : (
           <div className="space-y-2">
             {rows
-              .filter(r => (!query || r.phone_e164.includes(query)) && (!channel || r.channel===channel) && (!requester || String(r.requested_by_user_id)===requester))
+              .filter(r => {
+                if (query && !r.phone_e164.includes(query)) return false
+                if (channel && r.channel!==channel) return false
+                if (requester) {
+                  const u = userMap[r.requested_by_user_id]
+                  const hay = `${u?.name||''} ${u?.email||''}`.toLowerCase()
+                  if (!hay.includes(requester.toLowerCase())) return false
+                }
+                return true
+              })
               .map(r => (
               <div key={r.id} className="flex items-center justify-between p-2 border rounded">
                 <div className="flex items-center gap-2">
                   <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
                   <div className="text-sm">
                     <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
-                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by #{r.requested_by_user_id}</div>
+                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {userMap[r.requested_by_user_id]?.name || 'User'}{userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : ''}</div>
                   </div>
                 </div>
                 <div className="flex gap-2">

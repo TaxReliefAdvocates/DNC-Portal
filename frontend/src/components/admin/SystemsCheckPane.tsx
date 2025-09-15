@@ -68,6 +68,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const push = async (provider: 'ringcentral'|'convoso'|'ytel'|'logics', phone: string) => {
     setPushing(`${provider}:${phone}`)
     try {
+      // record attempt start
+      try {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'pending', attempt_no: 1 })
+        })
+      } catch {}
       if (provider === 'ringcentral') {
         await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'convoso') {
@@ -88,6 +96,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         per: { ...p.per, [provider]: { ...p.per[provider], completed: p.per[provider].completed + 1 } },
         logs: [...p.logs, `${provider} ✓ ${phone}`].slice(-200)
       }))
+      try {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'success', attempt_no: 1 })
+        })
+      } catch {}
     } catch (e) {
       setProgress((p)=>({
         ...p,
@@ -95,6 +110,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         per: { ...p.per, [provider]: { ...p.per[provider], failed: p.per[provider].failed + 1 } },
         logs: [...p.logs, `${provider} ✗ ${phone} ${(e as Error)?.message || ''}`].slice(-200)
       }))
+      try {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'failed', error_message: (e as Error)?.message || 'failed', attempt_no: 1 })
+        })
+      } catch {}
     } finally { setPushing(null) }
   }
 
@@ -231,7 +253,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
               await push(t.provider, t.phone)
             }
           } finally {
-            setTimeout(()=> setShowModal(false), 500)
+            // keep modal open until explicit close
             onAutomationComplete?.(progress.total)
           }
         }}

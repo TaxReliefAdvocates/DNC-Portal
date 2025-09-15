@@ -12,13 +12,69 @@ from ...core.models import (
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
     CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord,
-    SystemSetting, IntegrationTestResult,
+    SystemSetting, IntegrationTestResult, PropagationAttempt,
 )
 from passlib.context import CryptContext
 from ...core.graph import GraphClient
 from ...config import settings
 
 router = APIRouter()
+# Track provider propagation attempts
+@router.post("/propagation/attempt")
+def record_propagation_attempt(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin", "superadmin")(principal)
+    try:
+        attempt = PropagationAttempt(
+            organization_id=int(payload.get("organization_id") or principal.organization_id or 1),
+            job_item_id=payload.get("job_item_id"),
+            phone_e164=str(payload.get("phone_e164")),
+            service_key=str(payload.get("service_key")),
+            attempt_no=int(payload.get("attempt_no", 1)),
+            status=str(payload.get("status", "pending")),
+            request_payload=payload.get("request_payload"),
+            response_payload=payload.get("response_payload"),
+            error_message=payload.get("error_message"),
+        )
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+        return {
+            "id": attempt.id,
+            "organization_id": attempt.organization_id,
+            "phone_e164": attempt.phone_e164,
+            "service_key": attempt.service_key,
+            "status": attempt.status,
+            "attempt_no": attempt.attempt_no,
+            "started_at": attempt.started_at.isoformat(),
+            "finished_at": attempt.finished_at.isoformat() if attempt.finished_at else None,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to record attempt: {e}")
+
+@router.get("/propagation/attempts/{organization_id}")
+def list_propagation_attempts(organization_id: int, cursor: int | None = None, limit: int = 100, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin", "superadmin")(principal)
+    q = db.query(PropagationAttempt).filter(PropagationAttempt.organization_id == organization_id)
+    if cursor:
+        q = q.filter(PropagationAttempt.id < cursor)
+    rows = q.order_by(PropagationAttempt.id.desc()).limit(min(500, max(1, limit))).all()
+    return [
+        {
+            "id": r.id,
+            "organization_id": r.organization_id,
+            "job_item_id": r.job_item_id,
+            "phone_e164": r.phone_e164,
+            "service_key": r.service_key,
+            "status": r.status,
+            "attempt_no": r.attempt_no,
+            "error_message": r.error_message,
+            "started_at": r.started_at.isoformat(),
+            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+        }
+        for r in rows
+    ]
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Superadmin: Assign/remove Entra app roles
 @router.post("/admin/entra/assign-role")
