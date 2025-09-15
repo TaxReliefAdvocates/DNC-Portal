@@ -11,6 +11,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      AZURE_SWA_TOKEN: ${{ secrets.AZURE_SWA_TOKEN }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,9 +53,9 @@ jobs:
 
       - name: Upload to Azure Static Web Apps (token)
         uses: Azure/static-web-apps-deploy@v1
-        if: ${{ secrets.AZURE_SWA_TOKEN != '' }}
+        if: ${{ env.AZURE_SWA_TOKEN != '' }}
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
+          azure_static_web_apps_api_token: ${{ env.AZURE_SWA_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: frontend
@@ -60,12 +63,12 @@ jobs:
 
       - name: Azure Login (fallback)
         uses: azure/login@v2
-        if: ${{ secrets.AZURE_SWA_TOKEN == '' }}
+        if: ${{ env.AZURE_SWA_TOKEN == '' }}
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Upload via Azure CLI (fallback)
-        if: ${{ secrets.AZURE_SWA_TOKEN == '' }}
+        if: ${{ env.AZURE_SWA_TOKEN == '' }}
         run: |
           az --version
           az extension add --name staticwebapp || true
