@@ -1,0 +1,48 @@
+name: Deploy Frontend (Azure Static Web Apps)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm i -g pnpm@9
+
+      - name: Install deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: https://tra-api-backend.azurewebsites.net
+          VITE_ENTRA_TENANT_ID: 185fc38c-2c1b-4307-a164-24a4072e83e1
+          VITE_ENTRA_SPA_CLIENT_ID: a2a6c2c2-cb10-411e-a354-da61bfa4a3b2
+          VITE_ENTRA_SCOPE: api://a2a6c2c2-cb10-411e-a354-da61bfa4a3b2/access_as_user
+        run: pnpm run build
+
+      - name: Upload to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend
+          output_location: dist
+
+

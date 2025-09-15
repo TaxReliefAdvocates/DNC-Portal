@@ -1,0 +1,56 @@
+name: Deploy Backend (Azure App Service)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch: {}
+
+env:
+  AZURE_WEBAPP_NAME: tra-api-backend
+  AZURE_RG: TRA-DevOps
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Export requirements.txt from Poetry
+        working-directory: backend
+        run: |
+          poetry export -f requirements.txt --without-hashes -o requirements.txt
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure build during deployment is enabled
+        run: |
+          az webapp config appsettings set \
+            --resource-group "$AZURE_RG" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: backend
+
+      - name: Restart Web App
+        run: az webapp restart --resource-group "$AZURE_RG" --name "$AZURE_WEBAPP_NAME"
+
+
