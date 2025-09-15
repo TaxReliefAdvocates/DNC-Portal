@@ -40,13 +40,39 @@ jobs:
           VITE_ENTRA_SCOPE: api://a2a6c2c2-cb10-411e-a354-da61bfa4a3b2/access_as_user
         run: pnpm run build
 
-      - name: Upload to Azure Static Web Apps
+      - name: Check SWA token presence
+        run: |
+          if [ -z "${{ secrets.AZURE_SWA_TOKEN }}" ]; then
+            echo "AZURE_SWA_TOKEN is NOT set; will use Azure CLI fallback";
+          else
+            echo "AZURE_SWA_TOKEN is set; will use SWA deploy action";
+          fi
+
+      - name: Upload to Azure Static Web Apps (token)
         uses: Azure/static-web-apps-deploy@v1
+        if: ${{ secrets.AZURE_SWA_TOKEN != '' }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: frontend
           output_location: dist
+
+      - name: Azure Login (fallback)
+        uses: azure/login@v2
+        if: ${{ secrets.AZURE_SWA_TOKEN == '' }}
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upload via Azure CLI (fallback)
+        if: ${{ secrets.AZURE_SWA_TOKEN == '' }}
+        run: |
+          az --version
+          az extension add --name staticwebapp || true
+          az staticwebapp upload \
+            --name 'tra-frontend-app' \
+            --resource-group 'TRA-DevOps' \
+            --app-location 'frontend' \
+            --output-location 'dist'
 
 
