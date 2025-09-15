@@ -27,6 +27,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
     ]
+    # Allow Azure Static Web Apps by default; can override via env ALLOWED_ORIGIN_REGEX
+    ALLOWED_ORIGIN_REGEX: Optional[str] = r"https://.*\\.azurestaticapps\\.net$"
     
     # Security
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
@@ -106,6 +108,11 @@ class Settings(BaseSettings):
     ENTRA_ISSUER: Optional[str] = None    # Optional explicit issuer override
     ENTRA_JWKS_URL: Optional[str] = None  # Optional explicit JWKS URL
     ENTRA_REQUIRE_SIGNATURE: bool = False # Enable signature validation in production
+    # Graph / App roles management
+    GRAPH_TENANT_ID: Optional[str] = None
+    GRAPH_CLIENT_ID: Optional[str] = None
+    GRAPH_CLIENT_SECRET: Optional[str] = None
+    ENTRA_API_APP_ID: Optional[str] = None  # App (client) ID of the API whose appRoles we manage
     
     # Processing
     BATCH_SIZE: int = 100

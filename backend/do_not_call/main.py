@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status
+from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
@@ -90,6 +91,7 @@ async def add_correlation_id(request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origin_regex=settings.ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -169,9 +171,9 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        # minimal DB roundtrip
+        # minimal DB roundtrip (SQLAlchemy 2.0 requires text())
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         return {"status": "healthy"}
     except Exception:
