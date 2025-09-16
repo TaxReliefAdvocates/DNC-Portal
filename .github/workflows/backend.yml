@@ -74,7 +74,9 @@ jobs:
             --settings \
               ALLOWED_ORIGINS=https://agreeable-glacier-01746f61e.2.azurestaticapps.net \
               RELOAD=false \
-              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+              PYTHONPATH=/home/site/wwwroot \
+              WEBSITES_PORT=8000
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
