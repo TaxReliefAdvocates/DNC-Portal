@@ -2,14 +2,21 @@ import asyncio
 from typing import Dict, Optional
 from loguru import logger
 
-from playwright.async_api import async_playwright
-
 
 FREEDNCLIST_URL = "https://freednclist.com/"
 
 
 async def fetch_freednclist_cookies() -> Dict[str, str]:
-    """Use Playwright to open freednclist.com and return cookies as a dict."""
+    """Use Playwright to open freednclist.com and return cookies as a dict.
+    If Playwright is not available (e.g., in restricted Azure environments),
+    return an empty dict gracefully so the app can still start.
+    """
+    try:
+        from playwright.async_api import async_playwright  # type: ignore
+    except Exception as e:
+        logger.warning(f"Playwright unavailable; skipping cookie fetch. Reason: {e}")
+        return {}
+
     logger.info("Fetching FreeDNCList cookies via Playwright...")
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
