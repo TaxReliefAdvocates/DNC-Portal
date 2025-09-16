@@ -17,6 +17,7 @@ from ...core.models import (
 from passlib.context import CryptContext
 from ...core.graph import GraphClient
 from ...config import settings
+from sqlalchemy import inspect, text
 
 router = APIRouter()
 # Track provider propagation attempts
@@ -99,6 +100,33 @@ async def entra_remove_role(payload: dict, principal: Principal = Depends(get_pr
     await client.remove_app_role(assignment_id, user_oid)
     return {"removed": True}
 
+@router.get("/admin/entra/app-roles")
+async def entra_list_app_roles(principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    app_id = settings.ENTRA_API_APP_ID or settings.GRAPH_CLIENT_ID or settings.ENTRA_AUDIENCE or ""
+    if not app_id:
+        raise HTTPException(status_code=400, detail="ENTRA_API_APP_ID not configured")
+    client = GraphClient()
+    return await client.list_app_roles(app_id)
+
+@router.put("/admin/entra/app-roles/{application_object_id}")
+async def entra_update_app_roles(application_object_id: str, payload: dict, principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    app_roles = payload.get("appRoles")
+    if not isinstance(app_roles, list):
+        raise HTTPException(status_code=400, detail="appRoles array required")
+    client = GraphClient()
+    return await client.update_app_roles(application_object_id, app_roles)
+
+@router.get("/admin/entra/user-assignments/{user_object_id}")
+async def entra_user_assignments(user_object_id: str, principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    app_id = settings.ENTRA_API_APP_ID or settings.GRAPH_CLIENT_ID or settings.ENTRA_AUDIENCE or ""
+    if not app_id:
+        raise HTTPException(status_code=400, detail="ENTRA_API_APP_ID not configured")
+    client = GraphClient()
+    return await client.list_user_role_assignments(user_object_id, app_id)
+
 # Auth utilities
 @router.get("/auth/me")
 def auth_me(principal: Principal = Depends(get_principal)):
@@ -108,6 +136,45 @@ def auth_me(principal: Principal = Depends(get_principal)):
         "organization_id": principal.organization_id,
         "role": principal.role,
     }
+
+# DB schema + health (superadmin)
+@router.get("/admin/db/schema")
+def db_schema(include_counts: bool = False, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("superadmin")(principal)
+    insp = inspect(db.bind)
+    report: list[dict] = []
+    for tbl in sorted(insp.get_table_names()):
+        t: dict = {"table": tbl, "columns": [], "pk": [], "fks": [], "indexes": []}
+        for c in insp.get_columns(tbl):
+            t["columns"].append({
+                "name": c["name"],
+                "type": str(c.get("type")),
+                "nullable": c.get("nullable"),
+                "default": c.get("default"),
+            })
+        pk = insp.get_pk_constraint(tbl)
+        if pk:
+            t["pk"] = pk.get("constrained_columns") or []
+        for fk in insp.get_foreign_keys(tbl):
+            t["fks"].append({
+                "columns": fk.get("constrained_columns", []),
+                "referred_table": fk.get("referred_table"),
+                "referred_columns": fk.get("referred_columns", []),
+            })
+        for ix in insp.get_indexes(tbl):
+            t["indexes"].append({
+                "name": ix.get("name"),
+                "columns": ix.get("column_names", []),
+                "unique": ix.get("unique"),
+            })
+        if include_counts:
+            try:
+                cnt = db.execute(text(f"SELECT COUNT(*) FROM {tbl}")).scalar()  # type: ignore
+            except Exception:
+                cnt = None
+            t["row_count"] = cnt
+        report.append(t)
+    return {"database_url": str(getattr(settings, 'DATABASE_URL', '')), "tables": report}
 # Dev login (temporary)
 @router.post("/auth/login")
 def dev_login(payload: dict):

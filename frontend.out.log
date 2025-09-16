@@ -1,20 +1,11 @@
-./start_dev.sh: line 82: 28975 Killed: 9               pnpm dev
 
 > do-not-call-frontend@0.0.0 dev /Users/lindseystevens/DNC Portal/frontend
 > vite
 
 
-  VITE v5.4.19  ready in 147 ms
+  VITE v5.4.19  ready in 73 ms
 
   ➜  Local:   http://localhost:5173/
-  ➜  Network: http://192.168.86.118:5173/
-5:29:07 PM [vite] hmr update /src/components/admin/AdminSystemsCheck.tsx, /src/index.css
-5:29:15 PM [vite] hmr update /src/components/admin/AdminSystemsCheck.tsx, /src/index.css
-5:29:15 PM [vite] hmr update /src/components/admin/AdminSystemsCheck.tsx, /src/index.css
-5:31:14 PM [vite] hmr update /src/components/admin/SystemsCheckPane.tsx, /src/index.css
-5:31:23 PM [vite] hmr update /src/components/admin/SystemsCheckPane.tsx, /src/index.css
-5:51:40 PM [vite] hmr update /src/components/dnc-checker/DNCChecker.tsx, /src/index.css
-5:52:31 PM [vite] hmr update /src/components/dnc-checker/DNCChecker.tsx, /src/index.css
-5:52:52 PM [vite] hmr update /src/components/dnc-checker/DNCChecker.tsx, /src/index.css
-5:53:20 PM [vite] hmr update /src/components/dnc-checker/DNCChecker.tsx, /src/index.css
-5:53:28 PM [vite] hmr update /src/components/dnc-checker/DNCChecker.tsx, /src/index.css
+  ➜  Network: http://10.10.9.212:5173/
+3:22:59 PM [vite] hmr update /src/components/admin/SystemSettings.tsx, /src/index.css
+3:23:18 PM [vite] hmr update /src/components/admin/SystemSettings.tsx, /src/index.css

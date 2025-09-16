@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import random
 import typer
 from typing import Optional
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 
 from .config import settings
 from .core.database import create_tables, get_db, Base, engine
@@ -24,7 +24,6 @@ from .core.models import (
     DNCRequest,
 )
 from passlib.context import CryptContext
-from .core.retriever import dataverse_fetch_entity_records
 
 
 app = typer.Typer(help="DNC Portal backend CLI")
@@ -82,6 +81,50 @@ def reset() -> None:
     Base.metadata.drop_all(bind=engine)
     create_tables()
     typer.secho("Tables reset", fg=typer.colors.GREEN)
+
+
+@app.command("schema-report")
+def schema_report(include_counts: bool = typer.Option(False, help="Include row counts (may be slow)")) -> None:
+    """Print a comprehensive schema report: tables, columns, PK/FK, indexes, and counts."""
+    insp = inspect(engine)
+    out_lines: list[str] = []
+    try:
+        for tbl in sorted(insp.get_table_names()):
+            out_lines.append(f"\n== Table: {tbl} ==")
+            # Columns
+            cols = insp.get_columns(tbl)
+            for c in cols:
+                typ = str(c.get("type"))
+                nullable = c.get("nullable")
+                default = c.get("default")
+                out_lines.append(f"  - {c['name']}: {typ}, nullable={nullable}, default={default}")
+            # PK
+            pk = insp.get_pk_constraint(tbl)
+            if pk and pk.get("constrained_columns"):
+                out_lines.append(f"  PK: {', '.join(pk['constrained_columns'])}")
+            # FKs
+            fks = insp.get_foreign_keys(tbl)
+            for fk in fks:
+                cols = ", ".join(fk.get("constrained_columns", []))
+                ref = f"{fk.get('referred_table')}({', '.join(fk.get('referred_columns', []))})"
+                out_lines.append(f"  FK: ({cols}) -> {ref}")
+            # Indexes
+            indexes = insp.get_indexes(tbl)
+            for ix in indexes:
+                out_lines.append(f"  IDX: {ix.get('name')} cols={', '.join(ix.get('column_names', []) )} unique={ix.get('unique')}")
+            # Count
+            if include_counts:
+                try:
+                    with engine.connect() as conn:
+                        res = conn.execute(text(f"SELECT COUNT(*) FROM {tbl}"))
+                        cnt = res.scalar_one()
+                        out_lines.append(f"  ROWS: {cnt}")
+                except Exception as ce:
+                    out_lines.append(f"  ROWS: error: {ce}")
+        typer.echo("\n".join(out_lines))
+    except Exception as exc:
+        typer.secho(f"Schema inspection failed: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
 
 @app.command("seed")
@@ -181,47 +224,6 @@ def seed(org_name: str = "Test Org", org_slug: str = "test-org") -> None:
     finally:
         db.close()
 
-
-@app.command("import-dataverse-users")
-def import_dataverse_users(entity_logical_name: str = typer.Option("cr2a0_sql_user", help="Dataverse entity logical name"),
-                           email_field: str = typer.Option("cr2a0_email", help="Field containing email"),
-                           name_field: str = typer.Option("cr2a0_fullname", help="Field containing display name"),
-                           role_field: str = typer.Option("cr2a0_role", help="Optional role field (admin/owner/member)")) -> None:
-    """Import users from a Dataverse entity into the users table (upsert by email)."""
-    import anyio
-    async def _run():
-        rows = await dataverse_fetch_entity_records(entity_logical_name, select=[email_field, name_field, role_field])
-        added = 0
-        updated = 0
-        db = next(get_db())
-        try:
-            for r in rows:
-                email = (r.get(email_field) or "").strip()
-                if not email:
-                    continue
-                name = (r.get(name_field) or "").strip() or None
-                role = str(r.get(role_field) or "member").lower()
-                if role not in {"owner","admin","member"}:
-                    role = "member"
-                user = db.query(User).filter(User.email == email).first()
-                if user:
-                    changed = False
-                    if name and user.name != name:
-                        user.name = name
-                        changed = True
-                    if user.role != role:
-                        user.role = role
-                        changed = True
-                    if changed:
-                        updated += 1
-                else:
-                    db.add(User(email=email, name=name, role=role))
-                    added += 1
-            db.commit()
-        finally:
-            db.close()
-        typer.secho(f"Imported {len(rows)} records • added={added} updated={updated}", fg=typer.colors.GREEN)
-    anyio.run(_run)
 
 if __name__ == "__main__":
     app()

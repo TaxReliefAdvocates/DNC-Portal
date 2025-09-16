@@ -18,6 +18,56 @@ class GraphClient:
     async def _acquire_token(self) -> str:
         if self.token:
             return self.token
+
+    async def _get_api_service_principal_id(self, app_id: str) -> str:
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                f"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{app_id}'",
+                headers=headers,
+            )
+            r.raise_for_status()
+            val = r.json().get("value", [])
+            if not val:
+                raise RuntimeError("API service principal not found for given appId")
+            return val[0]["id"]
+
+    async def list_app_roles(self, app_id: str) -> dict:
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                f"https://graph.microsoft.com/v1.0/applications?$filter=appId eq '{app_id}'",
+                headers=headers,
+            )
+            r.raise_for_status()
+            app = (r.json().get("value") or [{}])[0]
+            return {"id": app.get("id"), "appId": app.get("appId"), "appRoles": app.get("appRoles", [])}
+
+    async def update_app_roles(self, application_object_id: str, app_roles: list[dict]) -> dict:
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.patch(
+                f"https://graph.microsoft.com/v1.0/applications/{application_object_id}",
+                headers=headers,
+                json={"appRoles": app_roles},
+            )
+            r.raise_for_status()
+            return r.json() if r.text else {"updated": True}
+
+    async def list_user_role_assignments(self, user_object_id: str, app_id: str) -> dict:
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        sp_id = await self._get_api_service_principal_id(app_id)
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                f"https://graph.microsoft.com/v1.0/users/{user_object_id}/appRoleAssignments?$filter=resourceId eq '{sp_id}'",
+                headers=headers,
+            )
+            r.raise_for_status()
+            return r.json()
         data = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
