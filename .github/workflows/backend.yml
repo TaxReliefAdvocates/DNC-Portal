@@ -64,7 +64,7 @@ jobs:
           az webapp config set \
             --resource-group "$AZURE_RG" \
             --name "$AZURE_WEBAPP_NAME" \
-            --startup-file "bash backend/startup.sh"
+            --startup-file "bash startup.sh"
 
       - name: Configure CORS/App Settings for SWA origin
         run: |
