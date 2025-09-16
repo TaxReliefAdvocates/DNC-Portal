@@ -2,7 +2,11 @@
 TPS2 Database Service
 Connects to the TPS2 SQL Server database to retrieve phone numbers for DNC checking
 """
-import pyodbc
+try:
+    import pyodbc  # type: ignore
+except Exception as _e:  # pragma: no cover
+    pyodbc = None  # type: ignore
+    _pyodbc_import_error = _e
 import asyncio
 from typing import List, Dict, Any, Optional
 from loguru import logger
@@ -66,6 +70,8 @@ class TPSDatabaseService:
 
     def _execute_cases_by_phone_query(self, phone_number: str) -> List[Dict[str, Any]]:
         """Execute SQL to fetch cases matching a phone across possible fields."""
+        if pyodbc is None:  # type: ignore
+            raise Exception(f"pyodbc not available in this environment: {_pyodbc_import_error}")
         try:
             sql_query = f"""
             WITH Matches AS (
@@ -150,7 +156,7 @@ class TPSDatabaseService:
 
                 return results
 
-        except pyodbc.Error as e:
+        except pyodbc.Error as e:  # type: ignore
             logger.error(f"Database error: {e}")
             raise Exception(f"Database query failed: {str(e)}")
         except Exception as e:
@@ -160,6 +166,8 @@ class TPSDatabaseService:
     def _execute_query(self, limit: int) -> List[Dict[str, Any]]:
         """Execute the SQL query to get phone numbers"""
         try:
+            if pyodbc is None:  # type: ignore
+                raise Exception(f"pyodbc not available in this environment: {_pyodbc_import_error}")
             # Build the SQL query with TOP limit
             sql_query = f"""
             SELECT DISTINCT TOP ({limit})
@@ -285,7 +293,7 @@ class TPSDatabaseService:
                 logger.info(f"Retrieved {len(results)} phone numbers from TPS2 database")
                 return results
                 
-        except pyodbc.Error as e:
+        except pyodbc.Error as e:  # type: ignore
             logger.error(f"Database error: {e}")
             raise Exception(f"Database connection failed: {str(e)}")
         except Exception as e:
@@ -305,6 +313,8 @@ class TPSDatabaseService:
     def _test_connection_sync(self) -> bool:
         """Synchronous connection test"""
         try:
+            if pyodbc is None:  # type: ignore
+                raise Exception(f"pyodbc not available in this environment: {_pyodbc_import_error}")
             with pyodbc.connect(self.connection_string) as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT 1")
