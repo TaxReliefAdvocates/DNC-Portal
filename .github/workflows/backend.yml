@@ -32,6 +32,13 @@ jobs:
         run: |
           uv pip compile pyproject.toml -o requirements.txt
 
+      - name: Remove optional/heavy deps for Azure build
+        working-directory: backend
+        run: |
+          mv requirements.txt requirements.full.txt
+          grep -Ev '^(pyodbc|playwright)==|^playwright-core==' requirements.full.txt > requirements.txt
+          echo "Final requirements:" && cat requirements.txt
+
       - name: Azure Login
         uses: azure/login@v2
         with:
