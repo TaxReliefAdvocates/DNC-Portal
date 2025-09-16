@@ -44,6 +44,14 @@ jobs:
             --name "$AZURE_WEBAPP_NAME" \
             --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
+      - name: Configure startup command (Gunicorn/Uvicorn)
+        run: |
+          # Use PORT provided by App Service at runtime
+          az webapp config set \
+            --resource-group "$AZURE_RG" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --startup-file "gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:\${PORT} do_not_call.main:app"
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
