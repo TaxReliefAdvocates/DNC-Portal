@@ -37,6 +37,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Ensure Python 3.12 runtime on App Service
+        run: |
+          az webapp config set \
+            --resource-group "$AZURE_RG" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --linux-fx-version "PYTHON|3.12"
+
       - name: Ensure build during deployment is enabled
         run: |
           az webapp config appsettings set \
@@ -50,14 +57,17 @@ jobs:
           az webapp config set \
             --resource-group "$AZURE_RG" \
             --name "$AZURE_WEBAPP_NAME" \
-            --startup-file "python -m uvicorn do_not_call.main:app --host 0.0.0.0 --port \${PORT}"
+            --startup-file "python -m uvicorn do_not_call.main:app --host 0.0.0.0 --port \${PORT} --log-level info"
 
       - name: Configure CORS/App Settings for SWA origin
         run: |
           az webapp config appsettings set \
             --resource-group "$AZURE_RG" \
             --name "$AZURE_WEBAPP_NAME" \
-            --settings ALLOWED_ORIGINS=https://agreeable-glacier-01746f61e.2.azurestaticapps.net
+            --settings \
+              ALLOWED_ORIGINS=https://agreeable-glacier-01746f61e.2.azurestaticapps.net \
+              RELOAD=false \
+              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
