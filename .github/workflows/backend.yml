@@ -50,7 +50,14 @@ jobs:
           az webapp config set \
             --resource-group "$AZURE_RG" \
             --name "$AZURE_WEBAPP_NAME" \
-            --startup-file "gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:\${PORT} do_not_call.main:app"
+            --startup-file "python -m uvicorn do_not_call.main:app --host 0.0.0.0 --port \${PORT}"
+
+      - name: Configure CORS/App Settings for SWA origin
+        run: |
+          az webapp config appsettings set \
+            --resource-group "$AZURE_RG" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --settings ALLOWED_ORIGINS=https://agreeable-glacier-01746f61e.2.azurestaticapps.net
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
