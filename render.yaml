@@ -37,7 +37,7 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  - type: static
+  - type: static_site
     name: dnc-frontend
     rootDir: frontend
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
