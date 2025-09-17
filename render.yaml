@@ -37,7 +37,7 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  - type: static_site
+  - type: static
     name: dnc-frontend
     rootDir: frontend
     buildCommand: pnpm install --frozen-lockfile && pnpm build
