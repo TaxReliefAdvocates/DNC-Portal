@@ -38,7 +38,8 @@ export const addBulkPhoneNumbers = createAsyncThunk(
 export const fetchPhoneNumbers = createAsyncThunk(
   'phoneNumbers/fetchAll',
   async (): Promise<PhoneNumber[]> => {
-    return apiCall(API_ENDPOINTS.PHONE_NUMBERS)
+    // Avoid redirect (307) by requesting the trailing-slash collection URL directly
+    return apiCall(`${API_ENDPOINTS.PHONE_NUMBERS}/`)
   }
 )
 

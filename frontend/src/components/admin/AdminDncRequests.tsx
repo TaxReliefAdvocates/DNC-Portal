@@ -55,7 +55,8 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     try {
       const params = new URLSearchParams()
       if (status) params.set('status', status)
-      if (cursor) params.set('cursor', String(cursor))
+      // Only include cursor when we are appending; a fresh reload should start from the beginning
+      if (append && cursor) params.set('cursor', String(cursor))
       params.set('limit','50')
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers })
       if (!resp.ok) throw new Error('Failed to load requests')

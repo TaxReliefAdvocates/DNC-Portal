@@ -41,6 +41,8 @@ def main():
         reload=reload,
         log_level=log_level,
         access_log=True,
+        proxy_headers=True,
+        forwarded_allow_ips='*',
     )
 
 
