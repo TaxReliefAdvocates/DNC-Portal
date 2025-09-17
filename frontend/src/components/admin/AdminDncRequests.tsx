@@ -57,7 +57,6 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
       if (status) params.set('status', status)
       if (cursor) params.set('cursor', String(cursor))
       params.set('limit','50')
-      const { API_BASE_URL } = await import('../../lib/api')
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers })
       if (!resp.ok) throw new Error('Failed to load requests')
       const newRows: RequestRow[] = await resp.json()
@@ -81,7 +80,6 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   useEffect(() => {
     (async()=>{
       try {
-        const { API_BASE_URL } = await import('../../lib/api')
         const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
         if (!resp.ok) return
         const list: Array<{id:number,email:string,name?:string}> = await resp.json()
@@ -94,7 +92,6 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
-      const { API_BASE_URL } = await import('../../lib/api')
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
         { method: 'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Action failed')
@@ -111,7 +108,6 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const bulk = async (action: 'approve'|'deny') => {
     if (selectedIds.length===0) return
     try {
-      const { API_BASE_URL } = await import('../../lib/api')
       const url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/bulk/${action}`
       const resp = await fetch(url, { method:'POST', headers, body: JSON.stringify({ ids: selectedIds, reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Bulk action failed')
