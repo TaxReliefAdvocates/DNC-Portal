@@ -13,11 +13,11 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: PORT
-        value: 8000
+        value: "8000"
       - key: HOST
         value: 0.0.0.0
       - key: RELOAD
-        value: false
+        value: "false"
       - key: DATABASE_URL
         fromSecret: AZURE_POSTGRES_URL
       - key: UPLOADS_DIR
@@ -29,7 +29,7 @@ services:
       - key: ENTRA_AUDIENCE
         fromSecret: ENTRA_AUDIENCE
       - key: ENTRA_REQUIRE_SIGNATURE
-        value: true
+        value: "true"
       - key: ALLOWED_ORIGIN_REGEX
         value: ".*"
     disk:
@@ -40,9 +40,11 @@ services:
   - type: static
     name: dnc-frontend
     rootDir: frontend
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
     staticPublishPath: dist
     envVars:
+      - key: NODE_VERSION
+        value: "20"
       - key: VITE_API_BASE_URL
         fromService:
           type: web
