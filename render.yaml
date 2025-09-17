@@ -19,7 +19,7 @@ services:
       - key: RELOAD
         value: "false"
       - key: DATABASE_URL
-        value: "postgresql+psycopg2://traadmin%40dnc:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
+        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
       - key: UPLOADS_DIR
         value: /data/uploads
       - key: LOG_LEVEL
