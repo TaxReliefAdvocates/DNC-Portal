@@ -22,7 +22,8 @@ def main():
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
     reload = os.getenv("RELOAD", "true").lower() == "true"
-    log_level = os.getenv("LOG_LEVEL", "info")
+    # Normalize log level to what uvicorn expects (lowercase)
+    log_level = os.getenv("LOG_LEVEL", "info").strip().lower()
     
     print(f"Starting Do Not Call List Manager API...")
     print(f"Host: {host}")

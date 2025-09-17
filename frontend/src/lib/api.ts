@@ -1,8 +1,10 @@
 // API Configuration
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
-// If the app is served over HTTPS, upgrade http:// API base to https:// to avoid mixed content
-export const API_BASE_URL = (typeof window !== 'undefined' && window.location?.protocol === 'https:' && RAW_API_BASE_URL.startsWith('http://'))
-  ? ('https://' + RAW_API_BASE_URL.slice('http://'.length))
+// In production builds served over HTTPS, force https base and disallow localhost fallback
+const isHttpsPage = typeof window !== 'undefined' && window.location?.protocol === 'https:'
+const isProd = import.meta.env.PROD
+export const API_BASE_URL = (isProd && isHttpsPage)
+  ? RAW_API_BASE_URL.replace(/^http:\/\//, 'https://')
   : RAW_API_BASE_URL
 
 // API endpoints

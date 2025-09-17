@@ -90,17 +90,28 @@ async def get_principal(
             # Fall back to headers if jwt parsing fails
             pass
 
+    # In production, do not trust header fallbacks without a valid Bearer token
+    if settings.DEBUG or (not settings.ENTRA_REQUIRE_SIGNATURE and not authorization):
+        allow_header_fallback = True
+    else:
+        # If we required signature or any Authorization was provided, prefer token exclusively
+        allow_header_fallback = authorization is None
+
     # Fallback / override from headers
-    if x_user_id:
+    if allow_header_fallback and x_user_id:
         try:
             user_id = int(x_user_id)
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid X-User-Id")
-    if x_org_id:
+    if allow_header_fallback and x_org_id:
         try:
             org_id = int(x_org_id)
         except ValueError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid X-Org-Id")
+
+    # If production and we had Authorization but failed to parse/validate, force member with no overrides
+    if authorization and not allow_header_fallback and user_id is None and org_id is None:
+        return Principal(user_id=None, organization_id=None, role=role)
 
     return Principal(user_id=user_id, organization_id=org_id, role=role)
 
