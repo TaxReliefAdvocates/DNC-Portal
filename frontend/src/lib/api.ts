@@ -1,5 +1,9 @@
 // API Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+// If the app is served over HTTPS, upgrade http:// API base to https:// to avoid mixed content
+export const API_BASE_URL = (typeof window !== 'undefined' && window.location?.protocol === 'https:' && RAW_API_BASE_URL.startsWith('http://'))
+  ? ('https://' + RAW_API_BASE_URL.slice('http://'.length))
+  : RAW_API_BASE_URL
 
 // API endpoints
 export const API_ENDPOINTS = {
