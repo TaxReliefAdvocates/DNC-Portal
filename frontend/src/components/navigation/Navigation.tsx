@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/button'
 import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '../../lib/hooks'
@@ -17,10 +17,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
   const [resolvedRole, setResolvedRole] = useState<string>('')            // role from backend
   const [baseRole, setBaseRole] = useState<string>('')                    // immutable base role (from backend) for visibility
   const [overrideRole, setOverrideRole] = useState<string | null>(null)   // superadmin simulation
-  const effectiveRole = overrideRole || resolvedRole || role
+  const effectiveRole = overrideRole || baseRole || resolvedRole || role
   const isSuperAdmin = isSuperAdminComputed(effectiveRole)
   const isAdmin = isAdminComputed(effectiveRole)
   const [userLabel, setUserLabel] = useState<string>('')
+  const initializedRef = useRef<boolean>(false)
 
   useEffect(() => {
     try {
@@ -29,46 +30,54 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
       if (acct) setUserLabel(acct.name || acct.username || '')
     } catch {}
     ;(async()=>{
+      if (initializedRef.current) return
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
         const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
         const scope = import.meta.env.VITE_ENTRA_SCOPE
+        let token = ''
         if (acquire && scope) {
-          const token = await acquire([scope])
+          token = await acquire([scope])
           if (token) {
-            // Derive role from token immediately so UI reflects correct role even if API call fails
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))
-              const rawRoles: string[] = Array.isArray(payload.roles) ? payload.roles.map((r: any)=>String(r).toLowerCase()) : []
-              const normalized = new Set(rawRoles.map((s)=>s.replace(/[^a-z0-9]/g,'')))
-              let derived = 'member'
-              if (rawRoles.includes('all') || rawRoles.includes('superadmin') || normalized.has('superadmin')) {
-                derived = 'superadmin'
-              } else if (rawRoles.includes('owner') || normalized.has('owner')) {
-                derived = 'owner'
-              } else if (rawRoles.includes('approve_requests') || rawRoles.includes('admin') || normalized.has('admin')) {
-                derived = 'admin'
-              }
-              setResolvedRole(derived)
-              if (!baseRole) setBaseRole(derived)
-              if (!overrideRole && derived && derived !== role) dispatch(setRole(derived as any))
-            } catch {}
             headers['Authorization'] = `Bearer ${token}`
           }
         }
+        // Prefer backend-declared role
         const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers })
         if (resp.ok) {
           const j = await resp.json()
-          setResolvedRole(j.role)
-          if (!baseRole) setBaseRole(j.role)
-          // Initialize store role to actual backend role so superadmin can simulate
-          if (!overrideRole && j.role && j.role !== role) {
-            dispatch(setRole(j.role as any))
+          const backendRole = String(j.role || '').toLowerCase()
+          if (backendRole) {
+            setResolvedRole(backendRole)
+            if (!baseRole) setBaseRole(backendRole)
+            if (backendRole !== role) { dispatch(setRole(backendRole as any)) }
+            initializedRef.current = true
+            return
           }
         }
+        // Fallback: derive from token once
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))
+            const rawRoles: string[] = Array.isArray(payload.roles) ? payload.roles.map((r: any)=>String(r).toLowerCase()) : []
+            const normalized = new Set(rawRoles.map((s)=>s.replace(/[^a-z0-9]/g,'')))
+            let derived = 'member'
+            if (rawRoles.includes('all') || rawRoles.includes('superadmin') || normalized.has('superadmin')) {
+              derived = 'superadmin'
+            } else if (rawRoles.includes('owner') || normalized.has('owner')) {
+              derived = 'owner'
+            } else if (rawRoles.includes('approve_requests') || rawRoles.includes('admin') || normalized.has('admin')) {
+              derived = 'admin'
+            }
+            setResolvedRole(derived)
+            if (!baseRole) setBaseRole(derived)
+            if (derived !== role) { dispatch(setRole(derived as any)) }
+          } catch {}
+        }
       } catch {}
+      initializedRef.current = true
     })()
-  }, [role, organizationId, userId, overrideRole, baseRole])
+  }, [])
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -134,8 +143,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Hide role switcher for non-superadmin to prevent bypassing auth */}
-            {(isSuperAdminComputed(baseRole || resolvedRole || role)) && (
+            {/* Only show role switcher if backend/base role is superadmin */}
+            {baseRole === 'superadmin' && (
               <div className="flex items-center gap-2 text-sm text-gray-700">
                 <span>Role:</span>
                 <select
