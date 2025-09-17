@@ -37,7 +37,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
       if (resp.ok) {
         const data = await resp.json()
         setResults((r)=>({ ...r, [phone]: data }))
@@ -70,23 +71,28 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
     try {
       // record attempt start
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+        const { API_BASE_URL } = await import('../../lib/api')
+        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'pending', attempt_no: 1 })
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        const { API_BASE_URL } = await import('../../lib/api')
+        await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'convoso') {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        const { API_BASE_URL } = await import('../../lib/api')
+        await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'ytel') {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        const { API_BASE_URL } = await import('../../lib/api')
+        await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
+          const { API_BASE_URL } = await import('../../lib/api')
+          await fetch(`${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
         }
       }
       await runCheck(phone)
@@ -97,7 +103,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         logs: [...p.logs, `${provider} ✓ ${phone}`].slice(-200)
       }))
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+        const { API_BASE_URL } = await import('../../lib/api')
+        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'success', attempt_no: 1 })
@@ -122,7 +129,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })

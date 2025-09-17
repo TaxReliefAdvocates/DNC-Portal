@@ -35,10 +35,12 @@ export const SystemSettings: React.FC = () => {
     if (!open || !isSuperAdmin) return
     ;(async () => {
       try {
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/system/services`, { headers: getHeaders(role, organizationId, userId) })
+        const { API_BASE_URL } = await import('../../lib/api')
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services`, { headers: getHeaders(role, organizationId, userId) })
         if (resp.ok) setServices(await resp.json())
         // fetch users (minimal: reuse tenants GET /users)
-        const u = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users`)
+        const { API_BASE_URL } = await import('../../lib/api')
+        const u = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
         if (u.ok) setUsers(await u.json())
       } catch {}
     })()
@@ -46,7 +48,8 @@ export const SystemSettings: React.FC = () => {
 
   const toggle = async (key: string, enabled: boolean) => {
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/system/services/${key}`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services/${key}`, {
         method: 'PUT',
         headers: getHeaders(role, organizationId, userId),
         body: JSON.stringify({ enabled }),
@@ -61,7 +64,8 @@ export const SystemSettings: React.FC = () => {
     setLoading(true)
     setTestLog('')
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/system/test/${key}`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/test/${key}`, {
         method: 'POST',
         headers: getHeaders(role, organizationId, userId),
         body: JSON.stringify({ phone_e164: testPhone }),
@@ -79,7 +83,8 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     setRcLog('')
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/auth/status`)
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/auth/status`)
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) {
@@ -90,7 +95,8 @@ export const SystemSettings: React.FC = () => {
   const rcListBlocked = async () => {
     setRcBusy(true)
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/list`)
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/list`)
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -100,7 +106,8 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     try {
       const pn = encodeURIComponent(testPhone)
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/search/${pn}`)
+      const { API_BASE_URL } = await import('../../lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/search/${pn}`)
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -109,7 +116,8 @@ export const SystemSettings: React.FC = () => {
   const rcAdd = async () => {
     setRcBusy(true)
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
+      const { API_BASE_URL } = await import('../../lib/api')
+      const url = `${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
       const resp = await fetch(url, { method: 'POST' })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
@@ -178,7 +186,8 @@ export const SystemSettings: React.FC = () => {
                   <Button
                     onClick={async ()=>{
                       try {
-                        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/users`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: newUserEmail, name: newUserName }) })
+                        const { API_BASE_URL } = await import('../../lib/api')
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: newUserEmail, name: newUserName }) })
                         if (resp.ok) {
                           const u = await resp.json()
                           setUsers([u, ...users])

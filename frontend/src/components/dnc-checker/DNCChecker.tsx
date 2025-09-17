@@ -86,7 +86,8 @@ export const DNCChecker: React.FC = () => {
 
       setProcessingStatus('Processing CSV with DNC checking...')
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/process`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const response = await fetch(`${API_BASE_URL}/api/dnc/process`, {
         method: 'POST',
         body: formData,
       })
@@ -101,7 +102,7 @@ export const DNCChecker: React.FC = () => {
       setProcessingStatus('Downloading processed results...')
 
       // Step 2: Download the processed CSV file
-      const downloadUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc${result.file}`
+      const downloadUrl = `${API_BASE_URL}/api/dnc${result.file}`
       console.log('Downloading from:', downloadUrl)
       const csvResponse = await fetch(downloadUrl)
       
@@ -177,7 +178,8 @@ export const DNCChecker: React.FC = () => {
     setSingleResult(null)
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_number`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const response = await fetch(`${API_BASE_URL}/api/dnc/check_number`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +223,8 @@ export const DNCChecker: React.FC = () => {
         throw new Error('Maximum 1000 phone numbers per batch')
       }
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_batch`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const response = await fetch(`${API_BASE_URL}/api/dnc/check_batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +252,8 @@ export const DNCChecker: React.FC = () => {
     setError(null)
     setTpsCasesResults(null)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const response = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone_number: tpsPhone.trim() })
@@ -283,7 +287,8 @@ export const DNCChecker: React.FC = () => {
   const runAutomation = async () => {
     if (!selectedNumber) return
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/run_automation`, {
+      const { API_BASE_URL } = await import('../../lib/api')
+      const response = await fetch(`${API_BASE_URL}/api/dnc/run_automation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone_number: selectedNumber })

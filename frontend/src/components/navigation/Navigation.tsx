@@ -43,7 +43,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           }
         }
         // Prefer backend-declared role
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers })
+        const { API_BASE_URL } = await import('../../lib/api')
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
         if (resp.ok) {
           const j = await resp.json()
           const backendRole = String(j.role || '').toLowerCase()
@@ -186,7 +187,8 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                         if (token) headers['Authorization'] = `Bearer ${token}`
                       }
                     } catch {}
-                    const me = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/auth/me`, { headers })
+                    const { API_BASE_URL } = await import('../../lib/api')
+                    const me = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
                     if (me.ok) { const j = await me.json(); setResolvedRole(j.role); if (j.role) dispatch(setRole(j.role as any)) }
                   } else if (hasAccount && msalLogout) {
                     await msalLogout()

@@ -103,7 +103,8 @@ const AppContent: React.FC = () => {
   const openPrecheckDetails = async (phone: string) => {
     try {
       setPrecheckSelected({ phone, cases: [] })
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+      const { API_BASE_URL } = await import('./lib/api')
+      const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })
