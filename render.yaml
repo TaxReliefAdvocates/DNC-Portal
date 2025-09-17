@@ -19,7 +19,7 @@ services:
       - key: RELOAD
         value: "false"
       - key: DATABASE_URL
-        value: "postgresql+psycopg2://<USER>:<PASSWORD>@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
+        value: "postgresql+psycopg2://traadmin%40dnc:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
       - key: UPLOADS_DIR
         value: /data/uploads
       - key: LOG_LEVEL
@@ -48,7 +48,7 @@ services:
       - key: NODE_VERSION
         value: "20"
       - key: VITE_API_BASE_URL
-        value: "https://REPLACE_WITH_BACKEND_URL"
+        value: "https://dnc-backend-bb96.onrender.com"
       - key: VITE_ENTRA_SPA_CLIENT_ID
         value: "a2a6c2c2-cb10-411e-a354-da61bfa4a3b2"
       - key: VITE_ENTRA_TENANT_ID
