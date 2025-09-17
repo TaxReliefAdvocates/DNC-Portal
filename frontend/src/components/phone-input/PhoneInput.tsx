@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
 import { cn, validatePhoneNumber, normalizePhoneNumber } from '@/lib/utils'
+import { API_BASE_URL } from '@/lib/api'
 import { useAppSelector } from '@/lib/hooks'
 
 interface PhoneInputFormData {
@@ -100,7 +101,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
         return
       }
       for (const channel of selectedChannels) {
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${orgId}`,
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: reqUserId }) })
         if (!resp.ok) throw new Error('Failed to submit DNC request')
       }

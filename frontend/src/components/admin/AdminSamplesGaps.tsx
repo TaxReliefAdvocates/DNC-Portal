@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { API_BASE_URL } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -15,7 +16,7 @@ export const AdminSamplesGaps: React.FC<Props> = ({ organizationId, adminUserId 
 
   const load = async () => {
     setLoading(true)
-    const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-samples/${organizationId}?only_gaps=true&limit=200`, { headers })
+    const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-samples/${organizationId}?only_gaps=true&limit=200`, { headers })
     const json = await resp.json()
     setRows(json)
     setLoading(false)
@@ -26,7 +27,7 @@ export const AdminSamplesGaps: React.FC<Props> = ({ organizationId, adminUserId 
 
   const bulkAdd = async () => {
     if (ids.length===0) return
-    await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-samples/${organizationId}/bulk_add_to_dnc`, {
+    await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-samples/${organizationId}/bulk_add_to_dnc`, {
       method:'POST', headers, body: JSON.stringify({ ids })
     })
     setSelected({})

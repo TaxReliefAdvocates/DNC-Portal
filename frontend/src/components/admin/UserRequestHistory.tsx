@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/lib/api'
 import React, { useEffect, useState } from 'react'
 import { Label } from '../ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
@@ -35,7 +36,7 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
         if (status) params.set('status', status)
         if (cursor) params.set('cursor', String(cursor))
         params.set('limit','50')
-        const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/user/${userId}?${params.toString()}`, { headers })
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${userId}?${params.toString()}`, { headers })
         const newRows: Row[] = await resp.json()
         setRows(append ? [...rows, ...newRows] : newRows)
         setHasMore(newRows.length===50)
@@ -96,7 +97,7 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
               <div className="text-center pt-2">
                 <button className="px-3 py-1 border rounded" onClick={()=>{
                   const runMore = async ()=>{
-                    const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/user/${userId}?cursor=${cursor||''}&limit=50`, { headers })
+                    const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${userId}?cursor=${cursor||''}&limit=50`, { headers })
                     const more: Row[] = await resp.json()
                     setRows([...rows, ...more])
                     setHasMore(more.length===50)

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/lib/api'
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
@@ -29,9 +30,9 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
       setLoading(true)
       setError(null)
       try {
-        const pre = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/check_batch`, { method:'POST', headers, body: JSON.stringify({ phone_numbers: [request.phone_e164] }) })
+        const pre = await fetch(`${API_BASE_URL}/api/dnc/check_batch`, { method:'POST', headers, body: JSON.stringify({ phone_numbers: [request.phone_e164] }) })
         if (pre.ok) setPrecheck(await pre.json())
-        const c = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, { method:'POST', headers, body: JSON.stringify({ phone_number: request.phone_e164 }) })
+        const c = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, { method:'POST', headers, body: JSON.stringify({ phone_number: request.phone_e164 }) })
         if (c.ok) {
           const cj = await c.json()
           setCases(Array.isArray(cj.cases) ? cj.cases : [])
@@ -48,7 +49,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
 
   const act = async (action: 'approve'|'deny') => {
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/dnc-requests/${request.id}/${action}`, { method:'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes }) })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/${action}`, { method:'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes }) })
       if (!resp.ok) throw new Error('Action failed')
       onBack()
     } catch (e) {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { API_BASE_URL } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
@@ -40,7 +41,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     setError(null)
     setResult(null)
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
       if (!resp.ok) throw new Error('Failed systems check')
       const data = await resp.json()
       setResult(data)
@@ -65,7 +66,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ringcentral')
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -74,7 +75,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('convoso')
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -83,7 +84,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ytel')
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -94,7 +95,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!firstCaseId) return
     setPushing('logics')
     try {
-      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
+      await fetch(`${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -111,7 +112,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
 
   const recheckLogics = async (pn: string) => {
     try {
-      const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/dnc/cases_by_phone`, {
+      const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: pn })

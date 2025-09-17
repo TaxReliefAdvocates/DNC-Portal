@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { API_BASE_URL } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -44,7 +45,7 @@ export const AdminLitigation: React.FC<Props> = ({ organizationId, adminUserId }
     if (q) params.set('q', q)
     if (cursor) params.set('cursor', String(cursor))
     params.set('limit','50')
-    const resp = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/litigations/${organizationId}?${params.toString()}`, { headers })
+    const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/litigations/${organizationId}?${params.toString()}`, { headers })
     const newRows: Row[] = await resp.json()
     setRows(append ? [...rows, ...newRows] : newRows)
     setHasMore(newRows.length===50)
@@ -56,7 +57,7 @@ export const AdminLitigation: React.FC<Props> = ({ organizationId, adminUserId }
 
   const add = async () => {
     if (!phone || !company) return
-    await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/litigations/${organizationId}`, {
+    await fetch(`${API_BASE_URL}/api/v1/tenants/litigations/${organizationId}`, {
       method:'POST', headers, body: JSON.stringify({ phone_e164: phone, company, case_number: caseNumber, notes })
     })
     setPhone(''); setCompany(''); setCaseNumber(''); setNotes('')

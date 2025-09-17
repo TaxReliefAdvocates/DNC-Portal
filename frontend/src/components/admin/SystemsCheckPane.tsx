@@ -112,7 +112,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         logs: [...p.logs, `${provider} ✗ ${phone} ${(e as Error)?.message || ''}`].slice(-200)
       }))
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/v1/tenants/propagation/attempt`, {
+        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'failed', error_message: (e as Error)?.message || 'failed', attempt_no: 1 })
