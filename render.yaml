@@ -49,7 +49,7 @@ services:
         fromService:
           type: web
           name: dnc-backend
-          envVarKey: RENDER_EXTERNAL_URL
+          property: url
       - key: VITE_ENTRA_SPA_CLIENT_ID
         fromSecret: ENTRA_SPA_CLIENT_ID
       - key: VITE_ENTRA_TENANT_ID
