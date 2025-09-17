@@ -41,12 +41,13 @@ async def get_principal(
                 # Validate signature using JWKS
                 jwks_url = settings.ENTRA_JWKS_URL or f"https://login.microsoftonline.com/{settings.ENTRA_TENANT_ID}/discovery/v2.0/keys"
                 jwks = await _fetch_jwks(jwks_url)
+                # Accept Azure AD v1 or v2 issuer formats; enforce audience, skip issuer check
                 claims = jwt.decode(
                     token,
                     jwks,
                     algorithms=["RS256"],
                     audience=settings.ENTRA_AUDIENCE,
-                    issuer=settings.ENTRA_ISSUER or f"https://login.microsoftonline.com/{settings.ENTRA_TENANT_ID}/v2.0"
+                    options={"verify_iss": False}
                 )
             else:
                 # Parse only
