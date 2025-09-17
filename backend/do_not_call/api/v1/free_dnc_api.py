@@ -23,9 +23,9 @@ from do_not_call.config import settings
 
 router = APIRouter()
 
-# Create uploads directory if it doesn't exist
-UPLOADS_DIR = Path("uploads")
-UPLOADS_DIR.mkdir(exist_ok=True)
+# Create uploads directory (configurable via env UPLOADS_DIR) if it doesn't exist
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", "uploads"))
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename to prevent path traversal attacks"""

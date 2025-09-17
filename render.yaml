@@ -1,0 +1,56 @@
+# Render Blueprint for DNC Portal
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: dnc-backend
+    env: docker
+    plan: starter
+    rootDir: backend
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
+      - key: RELOAD
+        value: false
+      - key: DATABASE_URL
+        fromSecret: AZURE_POSTGRES_URL
+      - key: UPLOADS_DIR
+        value: /data/uploads
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ENTRA_TENANT_ID
+        fromSecret: ENTRA_TENANT_ID
+      - key: ENTRA_AUDIENCE
+        fromSecret: ENTRA_AUDIENCE
+      - key: ENTRA_REQUIRE_SIGNATURE
+        value: true
+      - key: ALLOWED_ORIGIN_REGEX
+        value: ".*"
+    disk:
+      name: dnc-data
+      mountPath: /data
+      sizeGB: 1
+
+  - type: static_site
+    name: dnc-frontend
+    rootDir: frontend
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: dnc-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_ENTRA_SPA_CLIENT_ID
+        fromSecret: ENTRA_SPA_CLIENT_ID
+      - key: VITE_ENTRA_TENANT_ID
+        fromSecret: ENTRA_TENANT_ID
+      - key: VITE_ENTRA_SCOPE
+        fromSecret: ENTRA_SCOPE
