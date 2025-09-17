@@ -23,7 +23,7 @@ services:
       - key: UPLOADS_DIR
         value: /data/uploads
       - key: LOG_LEVEL
-        value: INFO
+        value: info
       - key: ENTRA_TENANT_ID
         value: "185fc38c-2c1b-4307-a164-24a4072e83e1"
       - key: ENTRA_AUDIENCE
