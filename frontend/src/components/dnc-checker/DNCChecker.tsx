@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import { API_BASE_URL } from '../../lib/api'
 import { motion } from 'framer-motion'
 import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { Button } from '../ui/button'

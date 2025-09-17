@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { API_BASE_URL } from './lib/api'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import { Toaster } from 'sonner'
@@ -103,7 +104,6 @@ const AppContent: React.FC = () => {
   const openPrecheckDetails = async (phone: string) => {
     try {
       setPrecheckSelected({ phone, cases: [] })
-      const { API_BASE_URL } = await import('./lib/api')
       const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },

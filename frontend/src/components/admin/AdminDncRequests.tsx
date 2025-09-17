@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { API_BASE_URL } from '../../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'

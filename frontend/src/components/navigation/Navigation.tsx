@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { API_BASE_URL } from '../../lib/api'
 import { Button } from '../ui/button'
 import { Home, BarChart3, Settings, Phone, FileText } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '../../lib/hooks'
@@ -43,7 +44,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           }
         }
         // Prefer backend-declared role
-        const { API_BASE_URL } = await import('../../lib/api')
         const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
         if (resp.ok) {
           const j = await resp.json()
@@ -187,7 +187,6 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
                         if (token) headers['Authorization'] = `Bearer ${token}`
                       }
                     } catch {}
-                    const { API_BASE_URL } = await import('../../lib/api')
                     const me = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
                     if (me.ok) { const j = await me.json(); setResolvedRole(j.role); if (j.role) dispatch(setRole(j.role as any)) }
                   } else if (hasAccount && msalLogout) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { API_BASE_URL } from '../../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -37,7 +38,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
-      const { API_BASE_URL } = await import('../../lib/api')
       const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
       if (resp.ok) {
         const data = await resp.json()
@@ -71,7 +71,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
     try {
       // record attempt start
       try {
-        const { API_BASE_URL } = await import('../../lib/api')
         await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
@@ -79,19 +78,15 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        const { API_BASE_URL } = await import('../../lib/api')
         await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'convoso') {
-        const { API_BASE_URL } = await import('../../lib/api')
         await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'ytel') {
-        const { API_BASE_URL } = await import('../../lib/api')
         await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          const { API_BASE_URL } = await import('../../lib/api')
           await fetch(`${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
         }
       }
@@ -103,7 +98,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         logs: [...p.logs, `${provider} ✓ ${phone}`].slice(-200)
       }))
       try {
-        const { API_BASE_URL } = await import('../../lib/api')
         await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
@@ -129,7 +123,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const { API_BASE_URL } = await import('../../lib/api')
       const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
