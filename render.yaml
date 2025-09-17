@@ -37,11 +37,13 @@ services:
       mountPath: /data
       sizeGB: 1
 
-  - type: static_site
+  - type: web
     name: dnc-frontend
+    env: node
     rootDir: frontend
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
-    staticPublishPath: dist
+    startCommand: npx serve -s dist -l $PORT
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: "20"
