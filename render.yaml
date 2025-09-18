@@ -32,6 +32,13 @@ services:
         value: "true"
       - key: ALLOWED_ORIGIN_REGEX
         value: ".*"
+      # Optional AAD token auth (leave unset for password auth)
+      - key: AZURE_DB_TENANT_ID
+        value: ""
+      - key: AZURE_DB_CLIENT_ID
+        value: ""
+      - key: AZURE_DB_CLIENT_SECRET
+        value: ""
       # RingCentral OAuth (populate in Render UI)
       - key: RINGCENTRAL_CLIENT_ID
         value: ""

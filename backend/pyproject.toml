@@ -28,6 +28,7 @@ aiohttp = "^3.9.0"
 pyodbc = "^5.0.1"
 playwright = "^1.47.0"
 typer = "^0.12.3"
+msal = "^1.28.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

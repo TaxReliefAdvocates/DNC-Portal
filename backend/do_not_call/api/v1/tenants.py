@@ -772,6 +772,27 @@ def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_us
     anyio.run(_run)
 
 
+# Admin: backfill propagation attempts for already-approved requests
+@router.post("/propagation/backfill/{organization_id}")
+def backfill_propagation(organization_id: int, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin", "superadmin")(principal)
+    from ...core.models import DNCRequest, PropagationAttempt
+    # Find approved requests in this org without any attempts yet
+    reqs = db.query(DNCRequest).filter(DNCRequest.organization_id == organization_id, DNCRequest.status == "approved").order_by(DNCRequest.id.desc()).limit(min(200, max(1, limit))).all()
+    created = 0
+    for r in reqs:
+        exists = db.query(PropagationAttempt.id).filter(PropagationAttempt.organization_id == organization_id, PropagationAttempt.phone_e164 == r.phone_e164).first()
+        if exists:
+            continue
+        try:
+            _propagate_approved_entry(organization_id, r.phone_e164, principal.user_id)
+            created += 1
+        except Exception:
+            continue
+    return {"queued": created}
+
+
 @router.post("/dnc-requests/{request_id}/deny")
 def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_role("owner", "admin", "superadmin")(principal)
