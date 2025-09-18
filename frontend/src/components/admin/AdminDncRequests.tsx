@@ -42,11 +42,24 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
 
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null)
 
-  const headers = {
+  const baseHeaders = {
     'Content-Type': 'application/json',
     'X-Org-Id': String(organizationId),
     'X-User-Id': String(adminUserId),
     'X-Role': role === 'superadmin' ? 'superadmin' : 'admin',
+  }
+
+  const withAuth = async (headers: Record<string,string>) => {
+    const out = { ...headers }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) out['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return out
   }
 
   const fetchPending = async (append=false) => {
@@ -58,7 +71,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
       // Only include cursor when we are appending; a fresh reload should start from the beginning
       if (append && cursor) params.set('cursor', String(cursor))
       params.set('limit','50')
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers: await withAuth(baseHeaders) })
       if (!resp.ok) throw new Error('Failed to load requests')
       const newRows: RequestRow[] = await resp.json()
       setRows(append ? [...rows, ...newRows] : newRows)
@@ -81,7 +94,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   useEffect(() => {
     (async()=>{
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
         if (!resp.ok) return
         const list: Array<{id:number,email:string,name?:string}> = await resp.json()
         const m: Record<number,{id:number,email:string,name?:string}> = {}
@@ -94,7 +107,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
-        { method: 'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
+        { method: 'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Action failed')
       await fetchPending(false)
       toast.success(action === 'approve' ? 'Request approved' : 'Request denied')
@@ -110,7 +123,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     if (selectedIds.length===0) return
     try {
       const url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/bulk/${action}`
-      const resp = await fetch(url, { method:'POST', headers, body: JSON.stringify({ ids: selectedIds, reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
+      const resp = await fetch(url, { method:'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ ids: selectedIds, reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Bulk action failed')
       setSelected({})
       await fetchPending(false)

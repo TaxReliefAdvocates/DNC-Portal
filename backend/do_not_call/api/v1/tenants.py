@@ -659,7 +659,7 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 @router.post("/dnc-requests/{request_id}/approve")
 def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     req = db.query(DNCRequest).get(request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -687,7 +687,7 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
 
 @router.post("/dnc-requests/{request_id}/deny")
 def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     req = db.query(DNCRequest).get(request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
