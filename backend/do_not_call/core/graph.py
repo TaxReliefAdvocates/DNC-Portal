@@ -18,6 +18,25 @@ class GraphClient:
     async def _acquire_token(self) -> str:
         if self.token:
             return self.token
+        # Client credentials flow against v2.0 endpoint
+        data = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "grant_type": "client_credentials",
+            "scope": self.scope,
+        }
+        url = f"https://login.microsoftonline.com/{self.tenant}/oauth2/v2.0/token"
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(url, data=data)
+            r.raise_for_status()
+            self.token = r.json()["access_token"]
+            return self.token
+
+    def _normalize_app_id(self, app_id: str) -> str:
+        # Accept either GUID or api://GUID; Graph needs the GUID
+        if app_id and app_id.startswith("api://"):
+            return app_id.split("api://", 1)[1]
+        return app_id
 
     async def _get_api_service_principal_id(self, app_id: str) -> str:
         token = await self._acquire_token()
@@ -38,7 +57,7 @@ class GraphClient:
         headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(
-                f"https://graph.microsoft.com/v1.0/applications?$filter=appId eq '{app_id}'",
+                f"https://graph.microsoft.com/v1.0/applications?$filter=appId eq '{self._normalize_app_id(app_id)}'",
                 headers=headers,
             )
             r.raise_for_status()
@@ -60,7 +79,7 @@ class GraphClient:
     async def list_user_role_assignments(self, user_object_id: str, app_id: str) -> dict:
         token = await self._acquire_token()
         headers = {"Authorization": f"Bearer {token}"}
-        sp_id = await self._get_api_service_principal_id(app_id)
+        sp_id = await self._get_api_service_principal_id(self._normalize_app_id(app_id))
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(
                 f"https://graph.microsoft.com/v1.0/users/{user_object_id}/appRoleAssignments?$filter=resourceId eq '{sp_id}'",
@@ -68,18 +87,31 @@ class GraphClient:
             )
             r.raise_for_status()
             return r.json()
-        data = {
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "grant_type": "client_credentials",
-            "scope": self.scope,
-        }
-        url = f"https://login.microsoftonline.com/{self.tenant}/oauth2/v2.0/token"
+
+    async def list_app_role_assignments(self, app_id: str) -> dict:
+        """List all app role assignments for the API application's service principal."""
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}"}
+        sp_id = await self._get_api_service_principal_id(self._normalize_app_id(app_id))
+        url = f"https://graph.microsoft.com/v1.0/servicePrincipals/{sp_id}/appRoleAssignedTo"
+        async with httpx.AsyncClient(timeout=30) as client:
+            all_values = []
+            next_url = url
+            while next_url:
+                r = await client.get(next_url, headers=headers)
+                r.raise_for_status()
+                data = r.json()
+                all_values.extend(data.get("value", []))
+                next_url = data.get("@odata.nextLink")
+            return {"value": all_values}
+
+    async def get_user(self, user_object_id: str) -> dict:
+        token = await self._acquire_token()
+        headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(url, data=data)
+            r = await client.get(f"https://graph.microsoft.com/v1.0/users/{user_object_id}", headers=headers)
             r.raise_for_status()
-            self.token = r.json()["access_token"]
-            return self.token
+            return r.json()
 
     async def assign_app_role(self, user_object_id: str, app_id: str, app_role_id: str) -> dict:
         token = await self._acquire_token()
@@ -87,7 +119,7 @@ class GraphClient:
         # Get the service principal for the API app
         async with httpx.AsyncClient(timeout=30) as client:
             sp = await client.get(
-                f"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{app_id}'",
+                f"https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '{self._normalize_app_id(app_id)}'",
                 headers=headers,
             )
             sp.raise_for_status()

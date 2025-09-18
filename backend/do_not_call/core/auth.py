@@ -87,6 +87,46 @@ async def get_principal(
                     role = "member"
                 else:
                     role = "member"
+
+            # Sync DB user role flags with Entra-derived role (best-effort)
+            try:
+                if user_id is not None:
+                    db = next(get_db())
+                    user = db.query(User).get(int(user_id))
+                    if user:
+                        desired_role = "owner" if role == "owner" else ("admin" if role == "admin" else ("member" if role == "member" else user.role or "member"))
+                        is_super = (role == "superadmin")
+                        changed = False
+                        if user.role != desired_role:
+                            user.role = desired_role
+                            changed = True
+                        if getattr(user, "is_super_admin", False) != is_super:
+                            user.is_super_admin = is_super
+                            changed = True
+                        if changed:
+                            db.commit()
+            except Exception:
+                pass
+
+            # Resolve organization_id
+            try:
+                # Admin/superadmin may explicitly target an org via header
+                if x_org_id and role in {"admin", "superadmin", "owner"}:
+                    org_id = int(x_org_id)
+                elif user_id is not None:
+                    db = next(get_db())
+                    link = db.query(OrgUser).filter_by(user_id=int(user_id)).first()
+                    if link:
+                        org_id = link.organization_id
+                    else:
+                        # Auto-associate to default org if exists
+                        org1 = db.query(Organization).filter_by(id=getattr(settings, "DEFAULT_ORG_ID", 1)).first()
+                        if org1:
+                            db.add(OrgUser(organization_id=org1.id, user_id=int(user_id), role=(role or "member")))
+                            db.commit()
+                            org_id = org1.id
+            except Exception:
+                pass
         except JWTError:
             # Fall back to headers if jwt parsing fails
             pass
@@ -141,6 +181,10 @@ def require_role(*allowed: str):
 
 
 def require_org_access(principal: Principal, organization_id: int):
+    # Admin and Superadmin bypass org scoping per product requirement
+    role = getattr(principal, "role", "").lower()
+    if role in {"admin", "superadmin"}:
+        return True
     if principal.organization_id is None or principal.organization_id != organization_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Org access denied")
     return True

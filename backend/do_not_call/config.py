@@ -113,6 +113,8 @@ class Settings(BaseSettings):
     GRAPH_CLIENT_ID: Optional[str] = None
     GRAPH_CLIENT_SECRET: Optional[str] = None
     ENTRA_API_APP_ID: Optional[str] = None  # App (client) ID of the API whose appRoles we manage
+    # Org defaults
+    DEFAULT_ORG_ID: int = 1
     
     # Processing
     BATCH_SIZE: int = 100

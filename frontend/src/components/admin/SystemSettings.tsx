@@ -29,6 +29,8 @@ export const SystemSettings: React.FC = () => {
   const [testLog, setTestLog] = useState<string>('')
   const [rcLog, setRcLog] = useState<string>('')
   const [rcBusy, setRcBusy] = useState(false)
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
 
   // Always open in page mode
 
@@ -56,6 +58,38 @@ export const SystemSettings: React.FC = () => {
         setServices((rows) => rows.map((r) => (r.key === key ? { ...r, enabled } : r)))
       }
     } catch {}
+  }
+
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = getHeaders(role, organizationId, userId)
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) headers['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return headers
+  }
+
+  const syncEntraUsers = async () => {
+    setSyncBusy(true)
+    setSyncMsg('')
+    try {
+      const headers = await acquireAuthHeaders()
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/admin/entra/sync-users`, { method: 'POST', headers })
+      const data = await resp.json().catch(()=>({}))
+      if (resp.ok) {
+        setSyncMsg(`Synced: upserted ${data.upserted ?? 0}, linked ${data.linked ?? 0}`)
+      } else {
+        setSyncMsg(`Error: ${data.detail || resp.status}`)
+      }
+    } catch (e) {
+      setSyncMsg(`Error: ${(e as Error).message}`)
+    } finally {
+      setSyncBusy(false)
+    }
   }
 
   const testProvider = async (key: string) => {
@@ -150,6 +184,19 @@ export const SystemSettings: React.FC = () => {
                 ))}
               </div>
               <pre className="text-xs bg-gray-50 border rounded p-2 max-h-48 overflow-auto whitespace-pre-wrap">{testLog || 'Run a test to see response here.'}</pre>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Directory Sync (Entra → DB)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={syncEntraUsers} disabled={syncBusy}>
+                  {syncBusy ? 'Syncing…' : 'Sync Entra users'}
+                </Button>
+                {syncMsg && <span className="text-sm text-gray-600">{syncMsg}</span>}
+              </div>
+              <div className="text-xs text-gray-500 mt-2">Requires Graph app permissions and superadmin role.</div>
             </CardContent>
           </Card>
 

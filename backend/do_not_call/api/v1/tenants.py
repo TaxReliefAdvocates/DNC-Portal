@@ -127,6 +127,74 @@ async def entra_user_assignments(user_object_id: str, principal: Principal = Dep
     client = GraphClient()
     return await client.list_user_role_assignments(user_object_id, app_id)
 
+# Superadmin: one-click sync users/roles from Entra app role assignments
+@router.post("/admin/entra/sync-users")
+async def entra_sync_users(principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
+    require_role("superadmin")(principal)
+    app_id = settings.ENTRA_API_APP_ID or settings.GRAPH_CLIENT_ID or settings.ENTRA_AUDIENCE or ""
+    if not app_id:
+        raise HTTPException(status_code=400, detail="ENTRA_API_APP_ID not configured")
+    client = GraphClient()
+    assignments = await client.list_app_role_assignments(app_id)
+    value = assignments.get("value", [])
+    upserted = 0
+    linked = 0
+    default_org_id = getattr(settings, "DEFAULT_ORG_ID", 1)
+    for a in value:
+        try:
+            principal_id = a.get("principalId")  # user OID
+            app_role_id = a.get("appRoleId")
+            # Fetch user basics
+            u = await client.get_user(principal_id)
+            email = u.get("mail") or u.get("userPrincipalName") or u.get("onPremisesUserPrincipalName")
+            name = u.get("displayName") or email
+            # Role name is not returned here; we map by appRoleId → displayName via app roles list
+        except Exception:
+            continue
+        # Lazy fetch app roles map once
+        if not hasattr(entra_sync_users, "_role_map"):
+            roles_resp = await client.list_app_roles(app_id)
+            role_map = {r.get("id"): (r.get("displayName") or r.get("value") or "User") for r in roles_resp.get("appRoles", [])}
+            setattr(entra_sync_users, "_role_map", role_map)
+        role_name = getattr(entra_sync_users, "_role_map", {}).get(app_role_id, "User")
+        internal_role = "member"
+        is_super = False
+        rn = (role_name or "").strip().lower().replace(" ", "")
+        if rn in {"superadmin", "superadministrator"}:
+            internal_role = "owner"  # keep DB role high but we also set super flag
+            is_super = True
+        elif rn in {"admin", "administrator"}:
+            internal_role = "admin"
+        elif rn in {"owner"}:
+            internal_role = "owner"
+        else:
+            internal_role = "member"
+        # Upsert user
+        user = db.query(User).filter((User.oid == str(principal_id)) | (User.email == str(email))).first()
+        if not user:
+            user = User(oid=str(principal_id), email=str(email), name=name, role=internal_role, is_super_admin=is_super)
+            db.add(user)
+            db.flush()
+            upserted += 1
+        else:
+            changed = False
+            if user.role != internal_role:
+                user.role = internal_role
+                changed = True
+            if getattr(user, "is_super_admin", False) != is_super:
+                user.is_super_admin = is_super
+                changed = True
+            if changed:
+                upserted += 1
+        # Ensure org link
+        if default_org_id:
+            link = db.query(OrgUser).filter_by(user_id=user.id, organization_id=default_org_id).first()
+            if not link:
+                db.add(OrgUser(organization_id=default_org_id, user_id=user.id, role=user.role or "member"))
+                linked += 1
+    db.commit()
+    return {"upserted": upserted, "linked": linked, "assignments": len(value)}
+
 # Auth utilities
 @router.get("/auth/me")
 def auth_me(principal: Principal = Depends(get_principal)):
@@ -343,7 +411,7 @@ def update_user(user_id: int, payload: dict, db: Session = Depends(get_db), prin
 @router.post("/org-services", response_model=OrgServiceResponse)
 def create_org_service(payload: OrgServiceCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, payload.organization_id)
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     svc = OrgService(
         organization_id=payload.organization_id,
         service_key=payload.service_key,
@@ -408,7 +476,7 @@ def list_jobs(organization_id: int, db: Session = Depends(get_db)):
 # Bulk approve/deny
 @router.post("/dnc-requests/bulk/approve")
 def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
     reviewer = int(payload.get("reviewed_by_user_id", 0))
     updated = 0
@@ -436,7 +504,7 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
 
 @router.post("/dnc-requests/bulk/deny")
 def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
     reviewer = int(payload.get("reviewed_by_user_id", 0))
     updated = 0
@@ -498,7 +566,7 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
 @router.post("/dnc-samples/{organization_id}/bulk_add_to_dnc")
 def bulk_add_samples_to_dnc(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     ids: list[int] = payload.get("ids", [])
     created = 0
     for sid in ids:
@@ -527,7 +595,7 @@ def bulk_add_samples_to_dnc(organization_id: int, payload: dict, db: Session = D
 @router.post("/sms-stop/ingest/{organization_id}")
 def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     items: list[SMSOptOut] = []
     from datetime import datetime
     # Preload org DNC for quick lookups
@@ -638,7 +706,7 @@ def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_d
 @router.get("/dnc-requests/org/{organization_id}")
 def list_requests_by_org(organization_id: int, status: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     q = db.query(DNCRequest).filter(DNCRequest.organization_id == organization_id)
     if status:
         q = q.filter(DNCRequest.status == status)
@@ -648,6 +716,29 @@ def list_requests_by_org(organization_id: int, status: str | None = None, cursor
     rows = q.all()
     return [{
         "id": r.id,
+        "phone_e164": r.phone_e164,
+        "status": r.status,
+        "reason": r.reason,
+        "channel": r.channel,
+        "requested_by_user_id": r.requested_by_user_id,
+        "reviewed_by_user_id": r.reviewed_by_user_id,
+        "created_at": r.created_at.isoformat(),
+        "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+    } for r in rows]
+
+# Global admin listing that ignores org (uses Entra role only)
+@router.get("/dnc-requests/admin/all")
+def list_requests_all_admin(status: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    require_role("owner", "admin", "superadmin")(principal)
+    q = db.query(DNCRequest)
+    if status:
+        q = q.filter(DNCRequest.status == status)
+    if cursor:
+        q = q.filter(DNCRequest.id < cursor)
+    rows = q.order_by(DNCRequest.id.desc()).limit(min(200, max(1, limit))).all()
+    return [{
+        "id": r.id,
+        "organization_id": r.organization_id,
         "phone_e164": r.phone_e164,
         "status": r.status,
         "reason": r.reason,
@@ -687,7 +778,7 @@ def list_requests_by_user(user_id: int, status: str | None = None, cursor: int |
 @router.post("/litigations/{organization_id}")
 def add_litigation(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
-    require_role("owner", "admin")(principal)
+    require_role("owner", "admin", "superadmin")(principal)
     record = LitigationRecord(
         organization_id=organization_id,
         phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
