@@ -49,7 +49,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
 
   const act = async (action: 'approve'|'deny') => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/${action}`, { method:'POST', headers, body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes }) })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/${action}`, { method:'POST', headers, body: JSON.stringify({ notes }) })
       if (!resp.ok) throw new Error('Action failed')
       onBack()
     } catch (e) {

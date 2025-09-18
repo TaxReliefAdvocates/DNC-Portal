@@ -101,8 +101,11 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
         return
       }
       for (const channel of selectedChannels) {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ phone_e164: phone, reason, channel, requested_by_user_id: reqUserId }) })
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${organizationId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify({ phone_e164: phone, reason, channel })
+        })
         if (!resp.ok) throw new Error('Failed to submit DNC request')
       }
       setSuccess('DNC request submitted for review')

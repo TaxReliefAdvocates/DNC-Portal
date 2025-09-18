@@ -107,7 +107,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
-        { method: 'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
+        { method: 'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Action failed')
       await fetchPending(false)
       toast.success(action === 'approve' ? 'Request approved' : 'Request denied')
@@ -123,7 +123,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     if (selectedIds.length===0) return
     try {
       const url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/bulk/${action}`
-      const resp = await fetch(url, { method:'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ ids: selectedIds, reviewed_by_user_id: adminUserId, notes: decisionNotes }) })
+      const resp = await fetch(url, { method:'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ ids: selectedIds, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Bulk action failed')
       setSelected({})
       await fetchPending(false)

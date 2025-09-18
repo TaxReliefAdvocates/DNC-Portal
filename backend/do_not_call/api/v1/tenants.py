@@ -435,7 +435,9 @@ def list_org_services(organization_id: int, db: Session = Depends(get_db)):
 @router.post("/dnc-entries", response_model=DNCEntryResponse)
 def create_dnc_entry(payload: DNCEntryCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, payload.organization_id)
-    entry = DNCEntry(**payload.model_dump())
+    data = payload.model_dump()
+    data["created_by_user_id"] = getattr(principal, "user_id", None)
+    entry = DNCEntry(**data)
     db.add(entry)
     db.commit()
     db.refresh(entry)
@@ -451,7 +453,9 @@ def list_dnc_entries(organization_id: int, db: Session = Depends(get_db)):
 @router.post("/jobs", response_model=RemovalJobResponse)
 def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, payload.organization_id)
-    job = RemovalJob(**payload.model_dump())
+    data = payload.model_dump()
+    data["submitted_by_user_id"] = getattr(principal, "user_id", None)
+    job = RemovalJob(**data)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -648,7 +652,7 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
         phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
         reason=payload.get("reason"),
         channel=payload.get("channel"),
-        requested_by_user_id=int(payload.get("requested_by_user_id")),
+        requested_by_user_id=int(getattr(principal, "user_id", 0) or 0),
         status="pending",
     )
     db.add(req)
