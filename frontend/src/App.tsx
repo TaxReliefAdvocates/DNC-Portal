@@ -286,7 +286,7 @@ const AppContent: React.FC = () => {
         return (
           <div>
             <motion.h2 initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} className="text-2xl font-semibold mb-4">Your DNC Requests</motion.h2>
-            <UserRequestHistory userId={1} />
+            <UserRequestHistory userId={0} />
           </div>
         )
       

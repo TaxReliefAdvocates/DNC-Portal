@@ -14,9 +14,7 @@ type Row = {
   decided_at?: string | null
 }
 
-interface Props {
-  userId: number
-}
+interface Props { userId: number }
 
 export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
   const [rows, setRows] = useState<Row[]>([])
@@ -25,18 +23,43 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
   const [channel, setChannel] = useState('')
   const [cursor, setCursor] = useState<number | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [meId, setMeId] = useState<number | null>(null)
 
-  const headers = { 'X-User-Id': String(userId), 'X-Role': 'member' }
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) h['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return h
+  }
 
   useEffect(() => {
     const run = async (append=false) => {
       setLoading(true)
       try {
+        // Resolve current user id from backend if not known
+        if (!meId) {
+          try {
+            const headers = await acquireAuthHeaders()
+            const meResp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
+            if (meResp.ok) {
+              const me = await meResp.json()
+              if (me?.user_id) setMeId(Number(me.user_id))
+            }
+          } catch {}
+        }
         const params = new URLSearchParams()
         if (status) params.set('status', status)
         if (cursor) params.set('cursor', String(cursor))
         params.set('limit','50')
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${userId}?${params.toString()}`, { headers })
+        const headers = await acquireAuthHeaders()
+        const targetUserId = meId || userId
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${targetUserId}?${params.toString()}`, { headers })
         const newRows: Row[] = await resp.json()
         setRows(append ? [...rows, ...newRows] : newRows)
         setHasMore(newRows.length===50)
@@ -97,7 +120,9 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
               <div className="text-center pt-2">
                 <button className="px-3 py-1 border rounded" onClick={()=>{
                   const runMore = async ()=>{
-                    const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${userId}?cursor=${cursor||''}&limit=50`, { headers })
+                    const headers = await acquireAuthHeaders()
+                    const targetUserId = meId || userId
+                    const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${targetUserId}?cursor=${cursor||''}&limit=50`, { headers })
                     const more: Row[] = await resp.json()
                     setRows([...rows, ...more])
                     setHasMore(more.length===50)
