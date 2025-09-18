@@ -478,7 +478,7 @@ def list_jobs(organization_id: int, db: Session = Depends(get_db)):
 def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
-    reviewer = int(payload.get("reviewed_by_user_id", 0))
+    reviewer = int(getattr(principal, "user_id", 0) or 0)
     updated = 0
     from datetime import datetime
     for rid in ids:
@@ -506,7 +506,7 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
 def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
-    reviewer = int(payload.get("reviewed_by_user_id", 0))
+    reviewer = int(getattr(principal, "user_id", 0) or 0)
     updated = 0
     from datetime import datetime
     for rid in ids:
@@ -666,7 +666,7 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
     if req.status != "pending":
         raise HTTPException(status_code=400, detail="Request already decided")
     req.status = "approved"
-    req.reviewed_by_user_id = int(payload.get("reviewed_by_user_id"))
+    req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
     req.decision_notes = payload.get("notes")
     from datetime import datetime
     req.decided_at = datetime.utcnow()
@@ -694,7 +694,7 @@ def deny_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_d
     if req.status != "pending":
         raise HTTPException(status_code=400, detail="Request already decided")
     req.status = "denied"
-    req.reviewed_by_user_id = int(payload.get("reviewed_by_user_id"))
+    req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
     req.decision_notes = payload.get("notes")
     from datetime import datetime
     req.decided_at = datetime.utcnow()
