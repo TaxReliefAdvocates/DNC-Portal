@@ -95,15 +95,23 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
       }
       // Basic UX polish: choose channels/reason
       const reason = (document.getElementById('dnc_reason') as HTMLInputElement)?.value || 'user request'
-      const headers = { 'X-Org-Id': String(orgId), 'X-User-Id': String(reqUserId), 'X-Role': String(role || 'member') }
+      const headers: Record<string, string> = { 'X-Org-Id': String(orgId), 'X-User-Id': String(reqUserId), 'X-Role': String(role || 'member'), 'Content-Type': 'application/json' }
+      try {
+        const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+        const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+        if (acquire && scope) {
+          const token = await acquire([scope])
+          if (token) headers['Authorization'] = `Bearer ${token}`
+        }
+      } catch {}
       if (!selectedChannels.length) {
         setError('Select at least one channel (Call, SMS, Email)')
         return
       }
       for (const channel of selectedChannels) {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${organizationId}`, {
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...headers },
+          headers,
           body: JSON.stringify({ phone_e164: phone, reason, channel })
         })
         if (!resp.ok) throw new Error('Failed to submit DNC request')
