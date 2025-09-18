@@ -155,7 +155,10 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
         body: JSON.stringify({ phone_number: pn })
       })
       if (!resp.ok) return
-      const data = await resp.json()
+      const text = await resp.text()
+      let data: any = text
+      try { data = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, logics_lookup: { provider: 'logics_lookup', ok: true, status: 200, body: data, at: new Date().toISOString() } }))
       setResult((prev)=>{
         if (!prev) return prev
         const cases = Array.isArray(data.cases) ? data.cases : []
@@ -167,6 +170,45 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
           }
         }
       })
+    } catch {}
+  }
+
+  const lookupRingCentral = async (pn?: string) => {
+    const num = (pn || phone || '').trim()
+    if (!num) return
+    try {
+      const url = `${API_BASE_URL}/api/v1/crm/crm/ringcentral/dnc/search/${encodeURIComponent(num)}`
+      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, ringcentral_lookup: { provider: 'ringcentral_lookup', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
+    } catch {}
+  }
+
+  const lookupConvoso = async (pn?: string) => {
+    const num = (pn || phone || '').trim()
+    if (!num) return
+    try {
+      const url = `${API_BASE_URL}/api/v1/crm/crm/convoso/dnc/search/${encodeURIComponent(num)}`
+      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, convoso_lookup: { provider: 'convoso_lookup', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
+    } catch {}
+  }
+
+  const lookupYtel = async (pn?: string) => {
+    const num = (pn || phone || '').trim()
+    if (!num) return
+    try {
+      const url = `${API_BASE_URL}/api/v1/crm/crm/ytel/dnc/check/${encodeURIComponent(num)}`
+      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, ytel_lookup: { provider: 'ytel_lookup', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
     } catch {}
   }
 
@@ -261,9 +303,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                 <div className="font-medium">RingCentral</div>
                 <div className="flex items-center gap-2">
                   {cell(providers.ringcentral?.listed)}
+                  <Button size="sm" variant="outline" onClick={()=>lookupRingCentral(result.phone_number)}>Lookup</Button>
                   {!providers.ringcentral?.listed && <Button size="sm" variant="outline" onClick={pushRingCentral} disabled={pushing==='ringcentral'}>Push</Button>}
                 </div>
               </div>
+              {responses.ringcentral_lookup && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Lookup Response ({responses.ringcentral_lookup.status}) • {new Date(responses.ringcentral_lookup.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.ringcentral_lookup.body === 'string' ? responses.ringcentral_lookup.body : JSON.stringify(responses.ringcentral_lookup.body, null, 2)}</pre>
+                </div>
+              )}
               {responses.ringcentral && (
                 <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
                   <div className="mb-1">Response ({responses.ringcentral.status}) • {new Date(responses.ringcentral.at).toLocaleTimeString()}</div>
@@ -274,9 +323,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                 <div className="font-medium">Convoso</div>
                 <div className="flex items-center gap-2">
                   {cell(providers.convoso?.listed)}
+                  <Button size="sm" variant="outline" onClick={()=>lookupConvoso(result.phone_number)}>Lookup</Button>
                   {!providers.convoso?.listed && <Button size="sm" variant="outline" onClick={pushConvoso} disabled={pushing==='convoso'}>Push</Button>}
                 </div>
               </div>
+              {responses.convoso_lookup && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Lookup Response ({responses.convoso_lookup.status}) • {new Date(responses.convoso_lookup.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.convoso_lookup.body === 'string' ? responses.convoso_lookup.body : JSON.stringify(responses.convoso_lookup.body, null, 2)}</pre>
+                </div>
+              )}
               {responses.convoso && (
                 <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
                   <div className="mb-1">Response ({responses.convoso.status}) • {new Date(responses.convoso.at).toLocaleTimeString()}</div>
@@ -300,9 +356,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                       <span className="text-xs text-gray-600">{providers.logics.count} case(s)</span>
                     )}
                   </div>
+                  <Button size="sm" variant="outline" onClick={()=>recheckLogics(result.phone_number)}>Lookup</Button>
                   {providers.logics?.cases?.[0]?.CaseID && <Button size="sm" variant="outline" onClick={pushLogics} disabled={pushing==='logics'}>Push</Button>}
                 </div>
               </div>
+              {responses.logics_lookup && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Lookup Response ({responses.logics_lookup.status}) • {new Date(responses.logics_lookup.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.logics_lookup.body === 'string' ? responses.logics_lookup.body : JSON.stringify(responses.logics_lookup.body, null, 2)}</pre>
+                </div>
+              )}
               {responses.logics && (
                 <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
                   <div className="mb-1">Response ({responses.logics.status}) • {new Date(responses.logics.at).toLocaleTimeString()}</div>
@@ -312,10 +375,17 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
               <div className="flex items-center justify-between border rounded p-2">
                 <div className="font-medium">Ytel</div>
                 <div className="flex items-center gap-2">
-                  {cell(providers.ytel?.listed, 'read N/A')}
+                  {cell(providers.ytel?.listed)}
+                  <Button size="sm" variant="outline" onClick={()=>lookupYtel(result.phone_number)}>Lookup</Button>
                   <Button size="sm" variant="outline" onClick={pushYtel} disabled={pushing==='ytel'}>Push</Button>
                 </div>
               </div>
+              {responses.ytel_lookup && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Lookup Response ({responses.ytel_lookup.status}) • {new Date(responses.ytel_lookup.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.ytel_lookup.body === 'string' ? responses.ytel_lookup.body : JSON.stringify(responses.ytel_lookup.body, null, 2)}</pre>
+                </div>
+              )}
               {responses.ytel && (
                 <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
                   <div className="mb-1">Response ({responses.ytel.status}) • {new Date(responses.ytel.at).toLocaleTimeString()}</div>
