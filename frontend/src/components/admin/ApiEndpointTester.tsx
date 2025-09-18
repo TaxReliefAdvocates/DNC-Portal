@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
 import { API_BASE_URL } from '@/lib/api'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
@@ -12,40 +11,15 @@ type Endpoint = {
   name: string
   url: string
   method: Method
-  tenantType: string
+  tags: string[]
   description?: string
+  requestBodyExample?: any
   headers?: Record<string, string>
-  body?: string
   prereqs?: Endpoint[]
-  authRequired?: boolean
 }
 
 type StepResult = { title: string; ok: boolean; status: number; ms: number; body: any }
 type TestResult = { id: string; ok: boolean; totalMs: number; steps: StepResult[]; when: string }
-
-const defaultSeed: Endpoint[] = [
-  {
-    id: 'rc-auth', name: 'RingCentral Auth Status', method: 'GET', tenantType: 'RingCentral',
-    url: `${API_BASE_URL}/api/v1/ringcentral/auth/status`, description: 'Check backend JWT auth and discovered account/extension.'
-  },
-  {
-    id: 'rc-search', name: 'RC: Search Blocked', method: 'GET', tenantType: 'RingCentral',
-    url: `${API_BASE_URL}/api/v1/ringcentral/dnc/search/{id}`, description: 'Search blocked list for E.164 phone.',
-    prereqs: [{ id: 'rc-auth', name: '', url: '', method: 'GET', tenantType: 'RingCentral' }], authRequired: true
-  },
-  {
-    id: 'convoso-search', name: 'Convoso: DNC Search', method: 'GET', tenantType: 'Convoso',
-    url: `${API_BASE_URL}/api/v1/convoso/dnc/search/{id}?phone_code=1&offset=0&limit=10`, description: 'Convoso DNC search'
-  },
-  {
-    id: 'ytel-check', name: 'Ytel: DNC Check', method: 'GET', tenantType: 'Ytel',
-    url: `${API_BASE_URL}/api/v1/ytel/dnc/check/{id}`, description: 'Ytel DNC check'
-  },
-  {
-    id: 'systems', name: 'Systems Check', method: 'GET', tenantType: 'Consolidated',
-    url: `${API_BASE_URL}/api/v1/systems-check?phone_number={id}`, description: 'Consolidated provider check'
-  },
-]
 
 const groupBy = (arr: Endpoint[], key: (e: Endpoint)=>string) => {
   const m: Record<string, Endpoint[]> = {}
@@ -53,46 +27,65 @@ const groupBy = (arr: Endpoint[], key: (e: Endpoint)=>string) => {
   return m
 }
 
+const methodOf = (k: string): Method | null => {
+  const u = k.toUpperCase()
+  return (['GET','POST','PUT','DELETE','PATCH'] as Method[]).includes(u as Method) ? (u as Method) : null
+}
+
 export const ApiEndpointTester: React.FC = () => {
   const [testValue, setTestValue] = useState('5618189087')
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [results, setResults] = useState<Record<string, TestResult>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
-  const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<Endpoint | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [lastSync, setLastSync] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
-  // Load/persist endpoints
-  useEffect(()=>{
-    const raw = localStorage.getItem('apiTester.endpoints')
-    if (raw) {
-      try { setEndpoints(JSON.parse(raw)) } catch { setEndpoints(defaultSeed) }
-    } else setEndpoints(defaultSeed)
-  }, [])
-  useEffect(()=>{ localStorage.setItem('apiTester.endpoints', JSON.stringify(endpoints)) }, [endpoints])
+  const substitutePathParams = (path: string) => path.replace(/\{[^/}]+\}/g, encodeURIComponent(testValue || ''))
 
-  const groups = useMemo(()=> groupBy(endpoints, e=> e.tenantType || 'General'), [endpoints])
+  const groups = useMemo(()=> groupBy(endpoints, e=> (e.tags && e.tags[0]) || e.url.split('/').slice(0,4).join('/') || 'Untagged'), [endpoints])
 
-  const openNew = () => { setEditing({ id: crypto.randomUUID(), name: '', url: '', method: 'GET', tenantType: 'General', description: '', headers: { 'Content-Type':'application/json' }, body: '' }); setShowModal(true) }
-  const openEdit = (ep: Endpoint) => { setEditing({ ...ep }); setShowModal(true) }
-  const del = (id: string) => setEndpoints(prev => prev.filter(e=> e.id!==id))
-
-  const save = () => {
-    if (!editing) return
-    if (!editing.name || !editing.url || !editing.method) return
-    setEndpoints(prev => {
-      const i = prev.findIndex(e=> e.id===editing.id)
-      if (i>=0) { const next=[...prev]; next[i]=editing; return next }
-      return [editing, ...prev]
-    })
-    setShowModal(false)
+  const syncFromOpenAPI = async () => {
+    setSyncing(true); setSyncError(null)
+    try {
+      const resp = await fetch(`${API_BASE_URL}/openapi.json`)
+      if (!resp.ok) throw new Error(`OpenAPI fetch failed: ${resp.status}`)
+      const spec = await resp.json()
+      const baseUrl: string | undefined = (spec.servers && spec.servers[0]?.url) || ''
+      const out: Endpoint[] = []
+      const paths = spec.paths || {}
+      Object.entries(paths).forEach(([path, ops]: any) => {
+        Object.entries(ops || {}).forEach(([verb, op]: any) => {
+          const m = methodOf(verb)
+          if (!m) return
+          const id = `${m}-${path}`
+          const url = (baseUrl ? baseUrl.replace(/\/$/,'') : '') + path
+          const name = op?.summary || `${m} ${path}`
+          const tags: string[] = Array.isArray(op?.tags) ? op.tags : ['Untagged']
+          let example: any = undefined
+          try {
+            example = op?.requestBody?.content?.['application/json']?.example
+              || op?.requestBody?.content?.['application/json']?.examples?.[0]
+          } catch {}
+          // Heuristic prereq for RingCentral auth
+          const prereqs: Endpoint[] = url.includes('/ringcentral/') ? [{ id:'rc-auth', name:'OAuth Status', url: `${API_BASE_URL}/api/v1/ringcentral/auth/status`, method:'GET', tags:['RingCentral'] }] : []
+          out.push({ id, name, url, method: m, tags, description: op?.description, requestBodyExample: example, headers: { 'Content-Type': 'application/json' }, prereqs })
+        })
+      })
+      setEndpoints(out)
+      setLastSync(new Date().toISOString())
+    } catch (e:any) {
+      setSyncError(e?.message || String(e))
+    } finally { setSyncing(false) }
   }
 
-  const substitute = (tpl: string) => tpl.replaceAll('{id}', encodeURIComponent(testValue || ''))
+  useEffect(()=>{ syncFromOpenAPI() }, [])
 
-  const runStep = async (title: string, method: Method, url: string, headers?: Record<string,string>, body?: string): Promise<StepResult> => {
+  const runStep = async (title: string, method: Method, url: string, headers?: Record<string,string>, body?: any): Promise<StepResult> => {
     const started = performance.now()
     try {
-      const resp = await fetch(url, { method, headers, body: body && body.trim() ? substitute(body) : undefined })
+      const payload = body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
+      const resp = await fetch(url, { method, headers, body: payload })
       const txt = await resp.text()
       let data: any = txt
       try { data = JSON.parse(txt) } catch {}
@@ -109,15 +102,15 @@ export const ApiEndpointTester: React.FC = () => {
     // prereqs (e.g., OAuth)
     if (ep.prereqs && ep.prereqs.length) {
       for (const pre of ep.prereqs) {
-        const url = substitute(pre.url || '') || substitute(ep.url)
-        const s = await runStep(pre.name || 'OAuth / Prereq', pre.method || 'GET', url, pre.headers, pre.body)
+        const url = substitutePathParams(pre.url || '') || substitutePathParams(ep.url)
+        const s = await runStep(pre.name || 'OAuth / Prereq', pre.method || 'GET', url, pre.headers)
         steps.push(s)
         if (!s.ok) break
       }
     }
     if (steps.every(s=> s.ok)) {
-      const url = substitute(ep.url)
-      const s = await runStep('API Call', ep.method, url, ep.headers, ep.body)
+      const url = substitutePathParams(ep.url)
+      const s = await runStep('API Call', ep.method, url, ep.headers, ep.requestBodyExample)
       steps.push(s)
     }
     const totalMs = Math.round(performance.now()-t0)
@@ -140,13 +133,15 @@ export const ApiEndpointTester: React.FC = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div className="md:col-span-2">
-              <label className="text-sm text-gray-700">Test Value (replaces {'{id}'} in URLs)</label>
+              <label className="text-sm text-gray-700">Test Value (replaces path parameters in URLs)</label>
               <Input value={testValue} onChange={(e)=>setTestValue(e.target.value)} placeholder="5618189087" />
             </div>
-            <div className="flex gap-2">
-              <Button className="bg-green-600 hover:bg-green-700" onClick={openNew}>+ Add Endpoint</Button>
+            <div className="flex items-end gap-2">
+              <Button className="bg-green-600 hover:bg-green-700" onClick={syncFromOpenAPI} disabled={syncing}>{syncing ? 'Syncing…' : 'Sync with OpenAPI'}</Button>
+              <div className="text-xs text-gray-600">{lastSync ? `Last synced: ${new Date(lastSync).toLocaleTimeString()} • ${endpoints.length} endpoints` : 'Not synced yet'}</div>
             </div>
           </div>
+          {syncError && <div className="text-sm text-red-600 mt-2">{syncError}</div>}
         </CardContent>
       </Card>
 
@@ -166,12 +161,8 @@ export const ApiEndpointTester: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     {ep.description && <div className="text-sm text-gray-600 mb-2">{ep.description}</div>}
-                    <div className="text-xs font-mono break-all bg-gray-50 border rounded p-2 mb-2">{substitute(ep.url)}</div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={()=>openEdit(ep)}>Edit</Button>
-                        <Button variant="outline" onClick={()=>del(ep.id)}>Delete</Button>
-                      </div>
+                    <div className="text-xs font-mono break-all bg-gray-50 border rounded p-2 mb-2">{substitutePathParams(ep.url)}</div>
+                    <div className="flex items-center justify-end gap-2">
                       <Button onClick={()=>testEndpoint(ep)} disabled={!!loading[ep.id]}>{loading[ep.id]? 'Testing…' : 'Test'}</Button>
                     </div>
                     {r && (
@@ -202,55 +193,6 @@ export const ApiEndpointTester: React.FC = () => {
           </div>
         </div>
       ))}
-
-      {showModal && editing && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded shadow-lg w-full max-w-2xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-lg font-semibold">{editing.id? 'Edit' : 'Add'} Endpoint</div>
-              <button className="text-sm text-gray-600" onClick={()=>setShowModal(false)}>Close</button>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="col-span-2">
-                <label>Name</label>
-                <Input value={editing.name} onChange={(e)=>setEditing({ ...editing, name: e.target.value })} />
-              </div>
-              <div className="col-span-2">
-                <label>URL</label>
-                <Input value={editing.url} onChange={(e)=>setEditing({ ...editing, url: e.target.value })} />
-              </div>
-              <div>
-                <label>Method</label>
-                <select className="w-full border rounded px-2 py-1" value={editing.method} onChange={(e)=>setEditing({ ...editing, method: e.target.value as Method })}>
-                  {['GET','POST','PUT','DELETE','PATCH'].map(m=> (<option key={m} value={m}>{m}</option>))}
-                </select>
-              </div>
-              <div>
-                <label>Tenant Type</label>
-                <Input value={editing.tenantType} onChange={(e)=>setEditing({ ...editing, tenantType: e.target.value })} />
-              </div>
-              <div className="col-span-2">
-                <label>Description</label>
-                <Input value={editing.description||''} onChange={(e)=>setEditing({ ...editing, description: e.target.value })} />
-              </div>
-              <div className="col-span-2">
-                <label>Headers (JSON)</label>
-                <Textarea value={JSON.stringify(editing.headers||{}, null, 2)} onChange={(e)=>{
-                  try { setEditing({ ...editing, headers: JSON.parse(e.target.value||'{}') }) } catch {}
-                }} />
-              </div>
-              <div className="col-span-2">
-                <label>Body (optional; supports {'{id}'} replacement)</label>
-                <Textarea value={editing.body||''} onChange={(e)=>setEditing({ ...editing, body: e.target.value })} />
-              </div>
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <Button variant="outline" onClick={()=>setShowModal(false)}>Cancel</Button>
-              <Button onClick={save} disabled={!editing.name || !editing.url}>Save</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
