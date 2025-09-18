@@ -321,7 +321,7 @@ def test_provider(provider: str, payload: dict | None = None, db: Session = Depe
     snippet = None
     try:
         import httpx
-        from ...core.config import settings
+        from ...config import settings
         # Minimal, safe read-only probes
         if provider == "ringcentral":
             url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers"

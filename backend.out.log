@@ -237,3 +237,296 @@ INFO:     Waiting for application startup.
 2025-09-18 11:45:27.830 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
 2025-09-18 11:45:28.798 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
 INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:45:40.007 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:45:40.007 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:45:40.007 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [59857]
+INFO:     Started server process [60382]
+INFO:     Waiting for application startup.
+2025-09-18 11:45:40.630 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:45:41.653 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:45:50.848 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:45:50.848 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:45:50.848 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [60382]
+INFO:     Started server process [60780]
+INFO:     Waiting for application startup.
+2025-09-18 11:45:51.478 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:45:52.338 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+INFO:     127.0.0.1:55261 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55259 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55260 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55261 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55267 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55260 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55267 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55260 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55269 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55267 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55259 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55267 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55261 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55267 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55267 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55261 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55261 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55373 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56016 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56014 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56015 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56016 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "OPTIONS /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "OPTIONS /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "GET /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56014 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56014 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56036 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56015 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56016 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56015 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56015 - "GET /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/system/services HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56015 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "OPTIONS /api/v1/tenants/system/test/ringcentral HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "POST /api/v1/tenants/system/test/ringcentral HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "OPTIONS /api/v1/tenants/system/test/convoso HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "POST /api/v1/tenants/system/test/convoso HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "OPTIONS /api/v1/tenants/system/test/ytel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56018 - "POST /api/v1/tenants/system/test/ytel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56173 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56172 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56173 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56179 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56176 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56177 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56176 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56179 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56179 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56176 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56176 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56267 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56267 - "OPTIONS /api/v1/ringcentral/dnc/list HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56267 - "GET /api/v1/ringcentral/dnc/list HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/base.py", line 78, in call_next
+    message = await recv_stream.receive()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/anyio/streams/memory.py", line 98, in receive
+    return self.receive_nowait()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/anyio/streams/memory.py", line 91, in receive_nowait
+    raise EndOfStream
+anyio.EndOfStream
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 426, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 84, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/fastapi/applications.py", line 1106, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/applications.py", line 122, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 184, in __call__
+    raise exc
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/errors.py", line 162, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 91, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/cors.py", line 146, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/base.py", line 108, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 85, in add_correlation_id
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/base.py", line 84, in call_next
+    raise app_exc
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/base.py", line 70, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 79, in __call__
+    raise exc
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 68, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 20, in __call__
+    raise e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 17, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 718, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 66, in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/fastapi/routing.py", line 274, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/api/v1/crm_integrations.py", line 31, in ringcentral_list_blocked
+    from ...core.config import settings
+ModuleNotFoundError: No module named 'do_not_call.core.config'
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:53:56.463 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:53:56.464 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:53:56.464 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [60780]
+INFO:     Started server process [77837]
+INFO:     Waiting for application startup.
+2025-09-18 11:53:57.189 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:53:58.196 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/tenants.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:54:01.832 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:54:01.833 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:54:01.833 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [77837]
+INFO:     Started server process [78009]
+INFO:     Waiting for application startup.
+2025-09-18 11:54:02.458 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:54:03.230 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py', 'do_not_call/api/v1/tenants.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:55:11.056 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:55:11.057 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:55:11.057 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [78009]
+INFO:     Started server process [80750]
+INFO:     Waiting for application startup.
+2025-09-18 11:55:11.720 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:55:12.556 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:55:15.481 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:55:15.482 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:55:15.482 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [80750]
+INFO:     Started server process [80898]
+INFO:     Waiting for application startup.
+2025-09-18 11:55:16.118 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:55:17.024 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+INFO:     127.0.0.1:58470 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58472 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58476 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58477 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58480 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58480 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58479 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58472 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58476 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58480 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58472 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58476 - "OPTIONS /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "OPTIONS /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58477 - "OPTIONS /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58470 - "OPTIONS /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58480 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58472 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58470 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:58480 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58476 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58480 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58480 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58479 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58583 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58583 - "GET /api/v1/ringcentral/dnc/list HTTP/1.1" 400 Bad Request
+WARNING:  WatchFiles detected changes in 'do_not_call/config.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 12:04:05.250 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 12:04:05.251 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 12:04:05.251 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [80898]
+INFO:     Started server process [2045]
+INFO:     Waiting for application startup.
+2025-09-18 12:04:06.034 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 12:04:07.991 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 12:05:26.345 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 12:05:26.345 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 12:05:26.346 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2045]
+INFO:     Started server process [4921]
+INFO:     Waiting for application startup.
+2025-09-18 12:05:26.986 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 12:05:28.052 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 12:05:32.089 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 12:05:32.090 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 12:05:32.090 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [4921]
+INFO:     Started server process [5120]
+INFO:     Waiting for application startup.
+2025-09-18 12:05:32.726 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 12:05:33.644 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+INFO:     127.0.0.1:62513 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62516 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62518 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62520 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62522 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62523 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62518 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62513 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62516 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62523 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62518 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62513 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62810 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62808 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62809 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62812 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62810 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62808 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62797 - "GET /irs-standards/standards?family_members_under_65%20=4&county_id=1928 HTTP/1.1" 404 Not Found

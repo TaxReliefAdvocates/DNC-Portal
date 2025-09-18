@@ -162,6 +162,10 @@ async def root():
         "docs": "/docs"
     }
 
+@app.get("/health", tags=["Health"])
+async def health():
+    return {"status": "ok"}
+
 # Custom OpenAPI description block
 
 def custom_openapi():

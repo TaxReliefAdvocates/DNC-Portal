@@ -40,6 +40,7 @@ export const ApiEndpointTester: React.FC = () => {
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [specBaseUrl, setSpecBaseUrl] = useState<string | undefined>(undefined)
 
   const substitutePathParams = (path: string) => path.replace(/\{[^/}]+\}/g, encodeURIComponent(testValue || ''))
 
@@ -51,7 +52,8 @@ export const ApiEndpointTester: React.FC = () => {
       const resp = await fetch(`${API_BASE_URL}/openapi.json`)
       if (!resp.ok) throw new Error(`OpenAPI fetch failed: ${resp.status}`)
       const spec = await resp.json()
-      const baseUrl: string | undefined = (spec.servers && spec.servers[0]?.url) || ''
+      const baseUrl: string | undefined = (spec.servers && spec.servers[0]?.url) || undefined
+      setSpecBaseUrl(baseUrl)
       const out: Endpoint[] = []
       const paths = spec.paths || {}
       Object.entries(paths).forEach(([path, ops]: any) => {
@@ -59,7 +61,7 @@ export const ApiEndpointTester: React.FC = () => {
           const m = methodOf(verb)
           if (!m) return
           const id = `${m}-${path}`
-          const url = (baseUrl ? baseUrl.replace(/\/$/,'') : '') + path
+          const url = path
           const name = op?.summary || `${m} ${path}`
           const tags: string[] = Array.isArray(op?.tags) ? op.tags : ['Untagged']
           let example: any = undefined
@@ -81,11 +83,21 @@ export const ApiEndpointTester: React.FC = () => {
 
   useEffect(()=>{ syncFromOpenAPI() }, [])
 
-  const runStep = async (title: string, method: Method, url: string, headers?: Record<string,string>, body?: any): Promise<StepResult> => {
+  const buildUrl = (pathOrUrl: string): string => {
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl
+    const base = specBaseUrl && /^https?:\/\//i.test(specBaseUrl) ? specBaseUrl : API_BASE_URL
+    const baseClean = base.replace(/\/$/, '')
+    const pathClean = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`
+    // Replace path params
+    const substituted = pathClean.replace(/\{[^/}]+\}/g, encodeURIComponent(testValue || ''))
+    return `${baseClean}${substituted}`
+  }
+
+  const runStep = async (title: string, method: Method, urlOrPath: string, headers?: Record<string,string>, body?: any): Promise<StepResult> => {
     const started = performance.now()
     try {
       const payload = body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
-      const resp = await fetch(url, { method, headers, body: payload })
+      const resp = await fetch(buildUrl(urlOrPath), { method, headers, body: payload })
       const txt = await resp.text()
       let data: any = txt
       try { data = JSON.parse(txt) } catch {}

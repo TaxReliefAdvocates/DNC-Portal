@@ -28,7 +28,7 @@ router = APIRouter()
 @router.get("/ringcentral/dnc/list", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
 async def ringcentral_list_blocked():
     """List blocked numbers on RingCentral (first page)."""
-    from ...core.config import settings
+    from ...config import settings
     import httpx
     client = RingCentralService()
     # Ensure token/account/extension via auth_status
@@ -400,7 +400,7 @@ async def get_supported_crm_systems():
 # RingCentral helpers
 @router.delete("/ringcentral/dnc/remove/{blocked_id}", response_model=BaseDNCOperationResponse, tags=["RingCentral"])
 async def ringcentral_delete_blocked(blocked_id: str):
-    from ...core.config import settings
+    from ...config import settings
     import httpx
     url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers/{blocked_id}"
     headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json"}
@@ -468,7 +468,7 @@ async def genesys_capabilities():
 
 @router.put("/ringcentral/blocked/{blocked_id}", tags=["RingCentral"])
 async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status: str = "Blocked", label: str | None = None):
-    from ...core.config import settings
+    from ...config import settings
     import httpx
     url = f"{settings.RINGCENTRAL_BASE_URL}/restapi/v1.0/account/{settings.RINGCENTRAL_ACCOUNT_ID}/extension/{settings.RINGCENTRAL_EXTENSION_ID}/caller-blocking/phone-numbers/{blocked_id}"
     headers = {"Authorization": f"Bearer {settings.RINGCENTRAL_ACCESS_TOKEN}", "Accept": "application/json", "Content-Type": "application/json"}
@@ -563,7 +563,7 @@ async def ytel_add_dnc(phone_number: str, db: Session = Depends(get_db)):
 @router.post("/ytel/dnc/bulk", tags=["Ytel"])
 async def ytel_bulk_upload(file_path: str):
     """Upload a CSV file to Ytel v4 bulk DNC (server-side path)."""
-    from ...core.config import settings
+    from ...config import settings
     import httpx
     headers = {"Authorization": f"Bearer {settings.YTEL_BEARER_TOKEN}"}
     url = f"{settings.YTEL_V4_BASE_URL}/dnc/bulk"

@@ -7,7 +7,7 @@ services:
     env: docker
     plan: starter
     rootDir: backend
-    healthCheckPath: /health
+    healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: ENVIRONMENT
@@ -32,6 +32,23 @@ services:
         value: "true"
       - key: ALLOWED_ORIGIN_REGEX
         value: ".*"
+      # RingCentral OAuth (populate in Render UI)
+      - key: RINGCENTRAL_CLIENT_ID
+        value: ""
+      - key: RINGCENTRAL_CLIENT_SECRET
+        value: ""
+      - key: RINGCENTRAL_JWT
+        value: ""
+      - key: RINGCENTRAL_BASE_URL
+        value: "https://platform.ringcentral.com"
+      # Convoso
+      - key: CONVOSO_AUTH_TOKEN
+        value: ""
+      - key: CONVOSO_COOKIE
+        value: ""
+      # Ytel
+      - key: YTEL_BEARER_TOKEN
+        value: ""
     disk:
       name: dnc-data
       mountPath: /data
