@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from ...core.database import get_db
@@ -677,7 +677,7 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 
 @router.post("/dnc-requests/{request_id}/approve")
-def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), background_tasks: BackgroundTasks = None):
     require_role("owner", "admin", "superadmin")(principal)
     req = db.query(DNCRequest).get(request_id)
     if not req:
@@ -701,7 +701,75 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
     )
     db.add(entry)
     db.commit()
+    # Trigger async propagation attempts across configured providers
+    try:
+        if background_tasks is not None:
+            background_tasks.add_task(_propagate_approved_entry, req.organization_id, req.phone_e164, int(getattr(principal, "user_id", 0) or 0))
+    except Exception:
+        pass
     return {"request_id": req.id, "status": req.status}
+
+
+def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
+    """Background task: create and update PropagationAttempt rows by calling providers.
+
+    Uses a fresh DB session and runs async provider calls via anyio.
+    """
+    from ...core.database import SessionLocal
+    from ...core.models import SystemSetting, PropagationAttempt
+    from datetime import datetime
+    import anyio
+
+    async def _run():
+        from ...core.crm_clients.ringcentral import RingCentralService
+        from ...core.crm_clients.convoso import ConvosoClient
+        from ...core.crm_clients.ytel import YtelClient
+        db2 = SessionLocal()
+        try:
+            providers = ["ringcentral", "convoso", "ytel"]  # genesys/logics not implemented for push
+            for key in providers:
+                # Check provider enabled
+                row = db2.query(SystemSetting).filter(SystemSetting.key == key).first()
+                if row is not None and not bool(row.enabled):
+                    continue
+                # Create attempt row (pending)
+                attempt = PropagationAttempt(
+                    organization_id=int(organization_id),
+                    job_item_id=None,
+                    phone_e164=str(phone_e164),
+                    service_key=key,
+                    attempt_no=1,
+                    status="pending",
+                    started_at=datetime.utcnow(),
+                )
+                db2.add(attempt)
+                db2.commit()
+                db2.refresh(attempt)
+                # Execute provider-specific add-to-DNC/blocked
+                try:
+                    if key == "ringcentral":
+                        client = RingCentralService()
+                        res = await client.remove_phone_number(phone_e164)
+                    elif key == "convoso":
+                        client = ConvosoClient()
+                        res = await client.remove_phone_number(phone_e164)
+                    elif key == "ytel":
+                        client = YtelClient()
+                        res = await client.remove_phone_number(phone_e164)
+                    else:
+                        raise Exception("provider push not implemented")
+                    attempt.status = "success"
+                    attempt.response_payload = res
+                    attempt.finished_at = datetime.utcnow()
+                except Exception as e:
+                    attempt.status = "failed"
+                    attempt.error_message = str(e)
+                    attempt.finished_at = datetime.utcnow()
+                db2.commit()
+        finally:
+            db2.close()
+
+    anyio.run(_run)
 
 
 @router.post("/dnc-requests/{request_id}/deny")

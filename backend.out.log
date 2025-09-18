@@ -530,3 +530,796 @@ INFO:     127.0.0.1:62812 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:62810 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
 INFO:     127.0.0.1:62808 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
 INFO:     127.0.0.1:62797 - "GET /irs-standards/standards?family_members_under_65%20=4&county_id=1928 HTTP/1.1" 404 Not Found
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/tenants.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 15:50:49.208 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 15:50:49.208 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 15:50:49.208 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [5120]
+INFO:     Started server process [60537]
+INFO:     Waiting for application startup.
+2025-09-18 15:50:50.188 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 15:50:51.109 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/tenants.py'. Reloading...
+INFO:     Started server process [60966]
+INFO:     Waiting for application startup.
+2025-09-18 15:50:58.537 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 15:50:58.706 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.
+WARNING:  WatchFiles detected changes in 'do_not_call/core/propagation.py'. Reloading...
+INFO:     Started server process [31582]
+INFO:     Waiting for application startup.
+2025-09-18 16:13:37.140 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 16:13:37.495 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Started server process [32774]
+INFO:     Waiting for application startup.
+2025-09-18 16:13:58.910 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 16:13:59.043 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.
+WARNING:  WatchFiles detected changes in 'do_not_call/core/propagation.py', 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Started server process [33371]
+INFO:     Waiting for application startup.
+2025-09-18 16:14:10.793 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 16:14:10.956 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Started server process [35935]
+INFO:     Waiting for application startup.
+2025-09-18 16:15:01.489 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 16:15:01.800 | ERROR    | do_not_call.core.database:init_db:72 - Error initializing database: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+ERROR:    Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/starlette/routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/main.py", line 21, in lifespan
+    await init_db()
+  File "/Users/lindseystevens/DNC Portal/backend/do_not_call/core/database.py", line 69, in init_db
+    Base.metadata.create_all(bind=engine)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 5924, in create_all
+    bind._run_ddl_visitor(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3251, in _run_ddl_visitor
+    with self.begin() as conn:
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3241, in begin
+    with self.connect() as conn:
+         ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3277, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2440, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 3301, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 447, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 1264, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 711, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 388, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 673, in __init__
+    self.__connect()
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 899, in __connect
+    with util.safe_reraise():
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 224, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/pool/base.py", line 895, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/create.py", line 661, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 629, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/lindseystevens/Library/Caches/pypoetry/virtualenvs/do-not-call-backend-U_1ofiFW-py3.12/lib/python3.12/site-packages/psycopg2/__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "dnc.postgres.database.azure.com" (172.185.50.15), port 5432 failed: FATAL:  The access token has expired. Acquire a new token and try again.
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+ERROR:    Application startup failed. Exiting.

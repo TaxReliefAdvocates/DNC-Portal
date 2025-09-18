@@ -26,7 +26,7 @@ from fastapi import Response
 
 router = APIRouter()
 @router.get("/ringcentral/dnc/list", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
-async def ringcentral_list_blocked():
+async def ringcentral_list_blocked(db: Session = Depends(get_db)):
     """List blocked numbers on RingCentral (first page)."""
     from ...config import settings
     import httpx
@@ -41,6 +41,15 @@ async def ringcentral_list_blocked():
     async with httpx.AsyncClient(timeout=30) as client_http:
         resp = await client_http.get(url, headers=headers, params=params)
         if resp.status_code != 200:
+            from ...core.propagation import track_provider_attempt
+            await track_provider_attempt(
+                db,
+                organization_id=1,
+                service_key="ringcentral",
+                phone_e164="",
+                request_context={"op": "list"},
+                call=None,
+            )
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         data = resp.json()
         entries = [
@@ -52,6 +61,16 @@ async def ringcentral_list_blocked():
             }
             for r in data.get('records', [])
         ]
+        # Track as success
+        from ...core.propagation import track_provider_attempt
+        await track_provider_attempt(
+            db,
+            organization_id=1,
+            service_key="ringcentral",
+            phone_e164="",
+            request_context={"op": "list"},
+            call=lambda: client.list_blocked_numbers(),
+        )
         return BaseDNCSearchResponse(success=True, found=len(entries)>0, total_count=len(entries), entries=entries, service_name='ringcentral')
 
 def _provider_enabled(db: Session, key: str) -> bool:
@@ -65,14 +84,32 @@ async def ringcentral_block_number(phone_number: str, label: str = "API Block", 
         raise HTTPException(status_code=403, detail="RingCentral integration disabled")
     """Add a phone number to RingCentral blocked list."""
     client = RingCentralService()
-    result = await client.remove_phone_number(phone_number)
+    from ...core.propagation import track_provider_attempt
+    summary = await track_provider_attempt(
+        db,
+        organization_id=1,
+        service_key="ringcentral",
+        phone_e164=phone_number,
+        request_context={"op": "add", "label": label},
+        call=lambda: client.remove_phone_number(phone_number),
+    )
+    result = summary
     return BaseDNCOperationResponse(success=True, message='Added to blocked list', phone_number=phone_number, operation='add', service_name='ringcentral', details=result)
 
 @router.get("/ringcentral/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
-async def ringcentral_search_blocked(phone_number: str):
+async def ringcentral_search_blocked(phone_number: str, db: Session = Depends(get_db)):
     """Search RingCentral blocked list for a phone number using JWT-auth client."""
     client = RingCentralService()
+    from ...core.propagation import track_provider_attempt
     res = await client.search_blocked_number(phone_number)
+    await track_provider_attempt(
+        db,
+        organization_id=1,
+        service_key="ringcentral",
+        phone_e164=phone_number,
+        request_context={"op": "search"},
+        call=None,
+    )
     found = bool(res.get('found'))
     entry = []
     if found and res.get('record'):
