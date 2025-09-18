@@ -153,3 +153,16 @@ INFO:     Waiting for application startup.
 2025-09-18 11:37:34.317 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
 2025-09-18 11:37:35.268 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
 INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/core/crm_clients/ringcentral.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:40:11.950 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:40:11.951 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:40:11.951 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [42743]
+INFO:     Started server process [48781]
+INFO:     Waiting for application startup.
+2025-09-18 11:40:12.592 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:40:13.913 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.

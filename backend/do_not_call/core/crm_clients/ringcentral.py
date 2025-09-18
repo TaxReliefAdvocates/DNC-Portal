@@ -12,8 +12,10 @@ class RingCentralService:
     def __init__(self):
         self.client_id: Optional[str] = os.getenv("RINGCENTRAL_CLIENT_ID")
         self.client_secret: Optional[str] = os.getenv("RINGCENTRAL_CLIENT_SECRET")
-        self.jwt_token: Optional[str] = os.getenv("RINGCENTRAL_JWT_TOKEN")
+        # Allow either RINGCENTRAL_JWT_TOKEN or RINGCENTRAL_JWT
+        self.jwt_token: Optional[str] = os.getenv("RINGCENTRAL_JWT_TOKEN") or os.getenv("RINGCENTRAL_JWT")
         self.base_url: str = os.getenv("RINGCENTRAL_BASE_URL", "https://platform.ringcentral.com").rstrip("/")
+        self.cookie: Optional[str] = os.getenv("RINGCENTRAL_COOKIE")
         self.access_token: Optional[str] = None
         self.account_id: Optional[str] = None
         self.extension_id: Optional[str] = None
@@ -29,39 +31,43 @@ class RingCentralService:
             return phone_number
         raise ValueError("Invalid phone number format")
 
-    async def authenticate(self) -> bool:
-        """Get access token using JWT assertion."""
-        if not self.client_id or not self.client_secret or not self.jwt_token:
-            logger.error("RingCentral credentials are not fully configured")
-            return False
+    async def authenticate(self) -> None:
+        """Get access token using JWT assertion. Raises on failure with detailed reason."""
+        missing = [k for k,v in {
+            'RINGCENTRAL_CLIENT_ID': self.client_id,
+            'RINGCENTRAL_CLIENT_SECRET': self.client_secret,
+            'RINGCENTRAL_JWT_TOKEN/RINGCENTRAL_JWT': self.jwt_token,
+        }.items() if not v]
+        if missing:
+            raise Exception(f"Missing RingCentral env: {', '.join(missing)}")
 
         auth_b64 = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode("ascii")).decode("ascii")
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': f'Basic {auth_b64}'
         }
+        if self.cookie:
+            headers['Cookie'] = self.cookie
         data = {
             'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             'assertion': self.jwt_token
         }
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{self.base_url}/restapi/oauth/token", headers=headers, data=data)
-            if resp.status_code == 200:
-                token_data = resp.json()
-                self.access_token = token_data.get('access_token')
-                expires_in = int(token_data.get('expires_in', 3600))
-                # refresh 60s early
-                self.token_expires_at = datetime.now() + timedelta(seconds=max(60, expires_in - 60))
-                return True
-            logger.error(f"RingCentral auth failed {resp.status_code}: {resp.text}")
-        return False
+            if resp.status_code != 200:
+                # Try to include RC error body for debugging
+                text = resp.text
+                raise Exception(f"RingCentral auth failed {resp.status_code}: {text}")
+            token_data = resp.json()
+            self.access_token = token_data.get('access_token')
+            expires_in = int(token_data.get('expires_in', 3600))
+            # refresh 60s early
+            self.token_expires_at = datetime.now() + timedelta(seconds=max(60, expires_in - 60))
 
     async def _ensure_token_valid(self) -> None:
         if self.access_token and self.token_expires_at and datetime.now() < self.token_expires_at:
             return
-        ok = await self.authenticate()
-        if not ok:
-            raise Exception("Authentication failed")
+        await self.authenticate()
 
     async def discover_account_info(self) -> tuple[str, str]:
         """Discover account and extension IDs using ~ endpoints."""
