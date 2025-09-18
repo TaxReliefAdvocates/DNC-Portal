@@ -113,7 +113,7 @@ export const SystemSettings: React.FC = () => {
     setRcLog('')
     try {
       const headers = await acquireAuthHeaders()
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/auth/status`, { headers })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/auth/status`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) {
@@ -125,7 +125,7 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     try {
       const headers = await acquireAuthHeaders()
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/list`, { headers })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/list`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -136,7 +136,7 @@ export const SystemSettings: React.FC = () => {
     try {
       const pn = encodeURIComponent(testPhone)
       const headers = await acquireAuthHeaders()
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/search/${pn}`, { headers })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/search/${pn}`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -146,7 +146,7 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     try {
       const headers = await acquireAuthHeaders()
-      const url = `${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
+      const url = `${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
       const resp = await fetch(url, { method: 'POST', headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))

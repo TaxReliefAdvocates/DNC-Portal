@@ -154,11 +154,11 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
       const headers = await acquireAuthHeaders()
       // Minimal: call provider-specific add endpoints where available
       if (providerKey === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers })
+        await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers })
       } else if (providerKey === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
       } else if (providerKey === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
       } else if (providerKey === 'logics') {
         // No generic push; rely on Systems Check flows. Skip here.
       }

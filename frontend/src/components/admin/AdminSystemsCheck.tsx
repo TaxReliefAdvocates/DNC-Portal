@@ -56,7 +56,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     // Reset DNC block on new check
     setDncFlag(null); setDncError(null); setDncRaw(null)
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
       if (!resp.ok) throw new Error('Failed systems check')
       const data = await resp.json()
       setResult(data)
@@ -83,7 +83,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ringcentral')
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`
+      const url = `${API_BASE_URL}/api/v1/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`
       const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -97,7 +97,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('convoso')
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`
+      const url = `${API_BASE_URL}/api/v1/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`
       const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -111,7 +111,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ytel')
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`
+      const url = `${API_BASE_URL}/api/v1/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`
       const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -127,7 +127,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!firstCaseId) return
     setPushing('logics')
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`
+      const url = `${API_BASE_URL}/api/v1/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`
       const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -177,7 +177,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/crm/ringcentral/dnc/search/${encodeURIComponent(num)}`
+      const url = `${API_BASE_URL}/api/v1/ringcentral/dnc/search/${encodeURIComponent(num)}`
       const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -190,7 +190,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/crm/convoso/dnc/search/${encodeURIComponent(num)}`
+      const url = `${API_BASE_URL}/api/v1/convoso/dnc/search/${encodeURIComponent(num)}`
       const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text
@@ -203,7 +203,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/crm/crm/ytel/dnc/check/${encodeURIComponent(num)}`
+      const url = `${API_BASE_URL}/api/v1/ytel/dnc/check/${encodeURIComponent(num)}`
       const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
       const text = await resp.text()
       let body: any = text

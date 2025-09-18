@@ -172,9 +172,16 @@ poetry run isort .             # Sort imports
 - `PUT /api/v1/phone-numbers/{id}` - Update phone number status
 
 ### CRM Integrations
-- `POST /api/v1/crm/remove-number` - Remove number from CRM
-- `GET /api/v1/crm/status/{phone_number}` - Get CRM status
-- `POST /api/v1/crm/retry-removal` - Retry failed removal
+- `POST /api/v1/remove-number` - Remove number from CRM
+- `GET /api/v1/status/{phone_number}` - Get CRM status
+- `POST /api/v1/retry-removal` - Retry failed removal
+
+Provider-specific endpoints (no extra `crm` in path):
+- RingCentral: `/api/v1/ringcentral/dnc/add`, `/api/v1/ringcentral/dnc/search/{phone_number}`, `/api/v1/ringcentral/dnc/list`, `/api/v1/ringcentral/dnc/remove/{blocked_id}`, `/api/v1/ringcentral/auth/status`
+- Convoso: `/api/v1/convoso/dnc/add`, `/api/v1/convoso/dnc/search/{phone_number}`, `/api/v1/convoso/dnc/remove/{phone_number}`
+- Ytel: `/api/v1/ytel/dnc/add`, `/api/v1/ytel/dnc/bulk`, `/api/v1/ytel/dnc/check/{phone_number}`
+- Logics (TPS): `/api/v1/logics/dnc/update-case`, `/api/v1/logics/dnc/cases-by-status`
+- Consolidated systems check: `/api/v1/systems-check?phone_number=+15551234567`
 
 ### Consent Management
 - `POST /api/v1/consent` - Create consent record

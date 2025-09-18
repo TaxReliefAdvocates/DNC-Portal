@@ -38,7 +38,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
       if (resp.ok) {
         const data = await resp.json()
         setResults((r)=>({ ...r, [phone]: data }))
@@ -78,16 +78,16 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
+          await fetch(`${API_BASE_URL}/api/v1/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
         }
       }
       await runCheck(phone)
