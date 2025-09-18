@@ -12,10 +12,22 @@ export const AdminSamplesGaps: React.FC<Props> = ({ organizationId, adminUserId 
   const [selected, setSelected] = useState<Record<number, boolean>>({})
   const [loading, setLoading] = useState(false)
 
-  const headers = { 'Content-Type':'application/json','X-Org-Id':String(organizationId),'X-User-Id':String(adminUserId),'X-Role':'owner' }
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const h: Record<string, string> = { 'Content-Type':'application/json','X-Org-Id':String(organizationId),'X-User-Id':String(adminUserId),'X-Role':'superadmin' }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) h['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return h
+  }
 
   const load = async () => {
     setLoading(true)
+    const headers = await acquireAuthHeaders()
     const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-samples/${organizationId}?only_gaps=true&limit=200`, { headers })
     const json = await resp.json()
     setRows(json)
@@ -27,6 +39,7 @@ export const AdminSamplesGaps: React.FC<Props> = ({ organizationId, adminUserId 
 
   const bulkAdd = async () => {
     if (ids.length===0) return
+    const headers = await acquireAuthHeaders()
     await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-samples/${organizationId}/bulk_add_to_dnc`, {
       method:'POST', headers, body: JSON.stringify({ ids })
     })
