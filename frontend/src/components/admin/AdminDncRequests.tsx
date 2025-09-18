@@ -94,13 +94,15 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   useEffect(() => {
     (async()=>{
       try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { headers: await withAuth(baseHeaders) })
         if (!resp.ok) return
         const list: Array<{id:number,email:string,name?:string}> = await resp.json()
         const m: Record<number,{id:number,email:string,name?:string}> = {}
         list.forEach(u=>{ m[u.id]=u })
         setUserMap(m)
-      } catch {}
+      } catch {
+        setUserMap({})
+      }
     })()
   }, [])
 

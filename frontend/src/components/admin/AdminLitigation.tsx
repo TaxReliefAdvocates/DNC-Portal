@@ -32,11 +32,22 @@ export const AdminLitigation: React.FC<Props> = ({ organizationId, adminUserId }
   const [caseNumber, setCaseNumber] = useState('')
   const [notes, setNotes] = useState('')
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Org-Id': String(organizationId),
-    'X-User-Id': String(adminUserId),
-    'X-Role': 'owner',
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Org-Id': String(organizationId),
+      'X-User-Id': String(adminUserId),
+      'X-Role': 'superadmin',
+    }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) h['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return h
   }
 
   const load = async (append=false) => {
@@ -45,6 +56,7 @@ export const AdminLitigation: React.FC<Props> = ({ organizationId, adminUserId }
     if (q) params.set('q', q)
     if (cursor) params.set('cursor', String(cursor))
     params.set('limit','50')
+    const headers = await acquireAuthHeaders()
     const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/litigations/${organizationId}?${params.toString()}`, { headers })
     const newRows: Row[] = await resp.json()
     setRows(append ? [...rows, ...newRows] : newRows)
@@ -57,9 +69,8 @@ export const AdminLitigation: React.FC<Props> = ({ organizationId, adminUserId }
 
   const add = async () => {
     if (!phone || !company) return
-    await fetch(`${API_BASE_URL}/api/v1/tenants/litigations/${organizationId}`, {
-      method:'POST', headers, body: JSON.stringify({ phone_e164: phone, company, case_number: caseNumber, notes })
-    })
+    const headers = await acquireAuthHeaders()
+    await fetch(`${API_BASE_URL}/api/v1/tenants/litigations/${organizationId}`, { method:'POST', headers, body: JSON.stringify({ phone_e164: phone, company, case_number: caseNumber, notes }) })
     setPhone(''); setCompany(''); setCaseNumber(''); setNotes('')
     setCursor(null)
     load(false)

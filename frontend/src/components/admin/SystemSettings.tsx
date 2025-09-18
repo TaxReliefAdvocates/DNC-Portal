@@ -38,10 +38,11 @@ export const SystemSettings: React.FC = () => {
     if (!open || !isSuperAdmin) return
     ;(async () => {
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services`, { headers: getHeaders(role, organizationId, userId) })
+        const headers = await acquireAuthHeaders()
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services`, { headers })
         if (resp.ok) setServices(await resp.json())
         // fetch users (minimal: reuse tenants GET /users)
-        const u = await fetch(`${API_BASE_URL}/api/v1/tenants/users`)
+        const u = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { headers })
         if (u.ok) setUsers(await u.json())
       } catch {}
     })()
@@ -49,11 +50,8 @@ export const SystemSettings: React.FC = () => {
 
   const toggle = async (key: string, enabled: boolean) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services/${key}`, {
-        method: 'PUT',
-        headers: getHeaders(role, organizationId, userId),
-        body: JSON.stringify({ enabled }),
-      })
+      const headers = await acquireAuthHeaders()
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/system/services/${key}`, { method: 'PUT', headers, body: JSON.stringify({ enabled }) })
       if (resp.ok) {
         setServices((rows) => rows.map((r) => (r.key === key ? { ...r, enabled } : r)))
       }
@@ -114,7 +112,8 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     setRcLog('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/auth/status`)
+      const headers = await acquireAuthHeaders()
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/auth/status`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) {
@@ -125,7 +124,8 @@ export const SystemSettings: React.FC = () => {
   const rcListBlocked = async () => {
     setRcBusy(true)
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/list`)
+      const headers = await acquireAuthHeaders()
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/list`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -135,7 +135,8 @@ export const SystemSettings: React.FC = () => {
     setRcBusy(true)
     try {
       const pn = encodeURIComponent(testPhone)
-      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/search/${pn}`)
+      const headers = await acquireAuthHeaders()
+      const resp = await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/dnc/search/${pn}`, { headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -144,8 +145,9 @@ export const SystemSettings: React.FC = () => {
   const rcAdd = async () => {
     setRcBusy(true)
     try {
+      const headers = await acquireAuthHeaders()
       const url = `${API_BASE_URL}/api/v1/crm/ringcentral/dnc/add?phone_number=${encodeURIComponent(testPhone)}&label=${encodeURIComponent('API Block')}`
-      const resp = await fetch(url, { method: 'POST' })
+      const resp = await fetch(url, { method: 'POST', headers })
       const data = await resp.json()
       setRcLog(JSON.stringify(data, null, 2))
     } catch (e) { setRcLog(`Error: ${(e as Error).message}`) } finally { setRcBusy(false) }
@@ -250,7 +252,8 @@ export const SystemSettings: React.FC = () => {
                   <Button
                     onClick={async ()=>{
                       try {
-                        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: newUserEmail, name: newUserName }) })
+                        const headers = await acquireAuthHeaders()
+                        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { method:'POST', headers:{ ...headers, 'Content-Type':'application/json' }, body: JSON.stringify({ email: newUserEmail, name: newUserName }) })
                         if (resp.ok) {
                           const u = await resp.json()
                           setUsers([u, ...users])
