@@ -9,6 +9,14 @@ type SystemsResult = {
   providers: Record<string, any>
 }
 
+type PushResult = {
+  provider: string
+  ok: boolean
+  status: number
+  body?: any
+  at: string
+}
+
 const getDemoHeaders = (): Record<string, string> => {
   try {
     const raw = localStorage.getItem('persist:do-not-call-root')
@@ -34,12 +42,19 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SystemsResult | null>(null)
   const [pushing, setPushing] = useState<string | null>(null)
+  const [responses, setResponses] = useState<Record<string, PushResult | null>>({})
+  const [dncLoading, setDncLoading] = useState(false)
+  const [dncError, setDncError] = useState<string | null>(null)
+  const [dncFlag, setDncFlag] = useState<boolean | null>(null)
+  const [dncRaw, setDncRaw] = useState<any>(null)
 
   const runCheck = async () => {
     if (!phone.trim()) return
     setLoading(true)
     setError(null)
     setResult(null)
+    // Reset DNC block on new check
+    setDncFlag(null); setDncError(null); setDncRaw(null)
     try {
       const resp = await fetch(`${API_BASE_URL}/api/v1/crm/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
       if (!resp.ok) throw new Error('Failed systems check')
@@ -47,6 +62,8 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
       setResult(data)
       // Enrich Logics (TPS) with direct case lookup to ensure accuracy
       await recheckLogics(data.phone_number)
+      // Also run DNC check, non-blocking
+      runDncCheck(data.phone_number)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed systems check')
     } finally {
@@ -66,7 +83,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ringcentral')
     try {
-      await fetch(`${API_BASE_URL}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      const url = `${API_BASE_URL}/api/v1/crm/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`
+      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, ringcentral: { provider: 'ringcentral', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -75,7 +97,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('convoso')
     try {
-      await fetch(`${API_BASE_URL}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      const url = `${API_BASE_URL}/api/v1/crm/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`
+      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, convoso: { provider: 'convoso', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -84,7 +111,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ytel')
     try {
-      await fetch(`${API_BASE_URL}/api/v1/crm/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+      const url = `${API_BASE_URL}/api/v1/crm/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`
+      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, ytel: { provider: 'ytel', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -95,7 +127,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!firstCaseId) return
     setPushing('logics')
     try {
-      await fetch(`${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
+      const url = `${API_BASE_URL}/api/v1/crm/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`
+      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const text = await resp.text()
+      let body: any = text
+      try { body = JSON.parse(text) } catch {}
+      setResponses(prev => ({ ...prev, logics: { provider: 'logics', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
       await runCheck()
     } finally { setPushing(null) }
   }
@@ -133,6 +170,34 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     } catch {}
   }
 
+  const runDncCheck = async (pn?: string) => {
+    const num = (pn || phone || '').trim()
+    if (!num) return
+    setDncLoading(true)
+    setDncError(null)
+    setDncFlag(null)
+    setDncRaw(null)
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/dnc/check_batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_numbers: [num] })
+      })
+      const text = await resp.text()
+      let data: any = text
+      try { data = JSON.parse(text) } catch {}
+      setDncRaw(data)
+      // Try common shapes
+      const first = data?.results?.[0]
+      const flag = typeof first?.is_dnc === 'boolean' ? first.is_dnc : (Array.isArray(data?.matches) ? data.matches.length > 0 : null)
+      setDncFlag(flag)
+    } catch (e) {
+      setDncError(e instanceof Error ? e.message : 'Failed DNC check')
+    } finally {
+      setDncLoading(false)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -164,6 +229,34 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
               </div>
             )}
             <div className="mt-3 space-y-2 text-sm">
+              {/* National DNC quick check */}
+              <div className="flex items-center justify-between border rounded p-2">
+                <div className="font-medium">National DNC</div>
+                <div className="flex items-center gap-2">
+                  {dncLoading ? (
+                    <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Checking…</span>
+                  ) : dncFlag === true ? (
+                    <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Listed</span>
+                  ) : dncFlag === false ? (
+                    <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not listed</span>
+                  ) : (
+                    <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                  )}
+                  <Button size="sm" variant="outline" onClick={()=>runDncCheck(result.phone_number)} disabled={dncLoading}>Check</Button>
+                </div>
+              </div>
+              {(dncError || dncRaw) && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  {dncError ? (
+                    <div className="text-red-600">{dncError}</div>
+                  ) : (
+                    <>
+                      <div className="mb-1">DNC API Response</div>
+                      <pre className="whitespace-pre-wrap break-words">{typeof dncRaw === 'string' ? dncRaw : JSON.stringify(dncRaw, null, 2)}</pre>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between border rounded p-2">
                 <div className="font-medium">RingCentral</div>
                 <div className="flex items-center gap-2">
@@ -171,6 +264,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                   {!providers.ringcentral?.listed && <Button size="sm" variant="outline" onClick={pushRingCentral} disabled={pushing==='ringcentral'}>Push</Button>}
                 </div>
               </div>
+              {responses.ringcentral && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Response ({responses.ringcentral.status}) • {new Date(responses.ringcentral.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.ringcentral.body === 'string' ? responses.ringcentral.body : JSON.stringify(responses.ringcentral.body, null, 2)}</pre>
+                </div>
+              )}
               <div className="flex items-center justify-between border rounded p-2">
                 <div className="font-medium">Convoso</div>
                 <div className="flex items-center gap-2">
@@ -178,6 +277,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                   {!providers.convoso?.listed && <Button size="sm" variant="outline" onClick={pushConvoso} disabled={pushing==='convoso'}>Push</Button>}
                 </div>
               </div>
+              {responses.convoso && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Response ({responses.convoso.status}) • {new Date(responses.convoso.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.convoso.body === 'string' ? responses.convoso.body : JSON.stringify(responses.convoso.body, null, 2)}</pre>
+                </div>
+              )}
               <div className="flex items-center justify-between border rounded p-2">
                 <div className="font-medium">Logics (TPS)</div>
                 <div className="flex items-center gap-2">
@@ -198,6 +303,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                   {providers.logics?.cases?.[0]?.CaseID && <Button size="sm" variant="outline" onClick={pushLogics} disabled={pushing==='logics'}>Push</Button>}
                 </div>
               </div>
+              {responses.logics && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Response ({responses.logics.status}) • {new Date(responses.logics.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.logics.body === 'string' ? responses.logics.body : JSON.stringify(responses.logics.body, null, 2)}</pre>
+                </div>
+              )}
               <div className="flex items-center justify-between border rounded p-2">
                 <div className="font-medium">Ytel</div>
                 <div className="flex items-center gap-2">
@@ -205,6 +316,12 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                   <Button size="sm" variant="outline" onClick={pushYtel} disabled={pushing==='ytel'}>Push</Button>
                 </div>
               </div>
+              {responses.ytel && (
+                <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
+                  <div className="mb-1">Response ({responses.ytel.status}) • {new Date(responses.ytel.at).toLocaleTimeString()}</div>
+                  <pre className="whitespace-pre-wrap break-words">{typeof responses.ytel.body === 'string' ? responses.ytel.body : JSON.stringify(responses.ytel.body, null, 2)}</pre>
+                </div>
+              )}
             </div>
             <div className="mt-3">
               <Button onClick={pushAllRemaining} disabled={pushing!==null}>Push DNC to remaining</Button>
