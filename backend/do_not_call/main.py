@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Do Not Call List Manager API...")
     await init_db()
-    logger.info("Database initialized successfully")
+
     
     yield
     
@@ -135,7 +135,7 @@ app.include_router(
 
 app.include_router(
     free_dnc_api.router,
-    prefix="/api/dnc",
+    prefix="/api",
     tags=["FreeDNCList.com API"],
     responses={404: {"description": "Not found"}},
 )
@@ -154,67 +154,23 @@ app.include_router(
     responses={404: {"description": "Not found"}},
 )
 
-
 @app.get("/", tags=["Health"])
 async def root():
-    """Root endpoint with API information"""
     return {
-        "message": "Do Not Call List Manager API",
+        "message": "Welcome to the Do Not Call List Manager API",
         "version": "1.0.0",
         "status": "healthy",
-        "docs": "/docs",
-        "redoc": "/redoc",
+        "docs": "/docs"
     }
 
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    """Health check endpoint"""
-    try:
-        # minimal DB roundtrip (SQLAlchemy 2.0 requires text())
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
-        return {"status": "healthy"}
-    except Exception:
-        return {"status": "degraded"}
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """Custom HTTP exception handler"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": True,
-            "message": exc.detail,
-            "status_code": exc.status_code,
-        },
-    )
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    """General exception handler"""
-    logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": True,
-            "message": "Internal server error",
-            "status_code": 500,
-        },
-    )
-
+# Custom OpenAPI description block
 
 def custom_openapi():
-    """Custom OpenAPI schema generator"""
     if app.openapi_schema:
         return app.openapi_schema
-    
     openapi_schema = get_openapi(
-        title="Do Not Call List Manager API",
-        version="1.0.0",
+        title=app.title,
+        version=app.version,
         description="""
         Comprehensive API for managing phone number removals from Do Not Call lists across multiple CRM systems.
         
@@ -279,69 +235,23 @@ def custom_openapi():
         
         ### Adding Phone Numbers
         ```bash
-        curl -X POST "http://localhost:8000/api/v1/phone-numbers/bulk" \\
-             -H "X-API-Key: your-api-key" \\
-             -H "Content-Type: application/json" \\
-             -d '{
-               "phone_numbers": ["5551234567", "5559876543"],
-               "notes": "Customer requested removal"
-             }'
-        ```
-        
-        ### Processing DNC CSV
-        ```bash
-        curl -X POST "http://localhost:8000/api/v1/dnc/process-dnc" \\
-             -H "X-API-Key: your-api-key" \\
-             -F "file=@phone_numbers.csv" \\
-             -F "column_index=1"
+        curl -X POST "http://localhost:8000/api/v1/phone-numbers/bulk" 
         ```
         
         ### Checking CRM Status
         ```bash
-        curl -X GET "http://localhost:8000/api/v1/crm/status/5551234567" \\
-             -H "X-API-Key: your-api-key"
+        curl -X GET "http://localhost:8000/api/v1/status/5551234567" 
         ```
         
         ### Getting Reports
         ```bash
-        curl -X GET "http://localhost:8000/api/v1/reports/removal-stats" \\
-             -H "X-API-Key: your-api-key"
+        curl -X GET "http://localhost:8000/api/v1/reports/removal-stats" 
         ```
         """,
         routes=app.routes,
     )
-    
-    # Custom tags descriptions
-    openapi_schema["tags"] = [
-        {
-            "name": "Phone Numbers",
-            "description": "Operations for managing phone numbers and removal requests",
-        },
-        {
-            "name": "CRM Integrations",
-            "description": "Operations for CRM system integrations and status tracking",
-        },
-        {
-            "name": "DNC Processing",
-            "description": "Operations for processing CSV files and checking DNC status",
-        },
-        {
-            "name": "Consent Management",
-            "description": "Operations for managing messaging consent and compliance",
-        },
-        {
-            "name": "Reports & Analytics",
-            "description": "Operations for generating reports and analytics",
-        },
-        {
-            "name": "Health",
-            "description": "Health check and status endpoints",
-        },
-    ]
-    
     app.openapi_schema = openapi_schema
-    return openapi_schema
-
+    return app.openapi_schema
 
 app.openapi = custom_openapi
 
