@@ -42,23 +42,25 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
     const run = async (append=false) => {
       setLoading(true)
       try {
-        // Resolve current user id from backend if not known
-        if (!meId) {
-          try {
-            const headers = await acquireAuthHeaders()
-            const meResp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
-            if (meResp.ok) {
-              const me = await meResp.json()
-              if (me?.user_id) setMeId(Number(me.user_id))
+        // Resolve current user id from backend; prefer freshly fetched value within this call
+        let resolvedUserId: number | null = meId
+        try {
+          const headers = await acquireAuthHeaders()
+          const meResp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
+          if (meResp.ok) {
+            const me = await meResp.json()
+            if (me?.user_id) {
+              resolvedUserId = Number(me.user_id)
+              if (meId !== resolvedUserId) setMeId(resolvedUserId)
             }
-          } catch {}
-        }
+          }
+        } catch {}
         const params = new URLSearchParams()
         if (status) params.set('status', status)
         if (cursor) params.set('cursor', String(cursor))
         params.set('limit','50')
         const headers = await acquireAuthHeaders()
-        const targetUserId = meId || userId
+        const targetUserId = resolvedUserId || meId || userId
         const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/user/${targetUserId}?${params.toString()}`, { headers })
         const newRows: Row[] = await resp.json()
         setRows(append ? [...rows, ...newRows] : newRows)
@@ -71,7 +73,7 @@ export const UserRequestHistory: React.FC<Props> = ({ userId }) => {
     setCursor(null)
     run(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, status])
+  }, [userId, status, meId])
 
   return (
     <Card>
