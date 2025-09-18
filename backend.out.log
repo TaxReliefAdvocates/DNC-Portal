@@ -166,3 +166,74 @@ INFO:     Waiting for application startup.
 2025-09-18 11:40:12.592 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
 2025-09-18 11:40:13.913 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
 INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/core/crm_clients/ringcentral.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:40:39.058 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:40:39.059 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:40:39.059 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [48781]
+INFO:     Started server process [49769]
+INFO:     Waiting for application startup.
+2025-09-18 11:40:39.697 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:40:40.599 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+INFO:     127.0.0.1:53447 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53443 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53445 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53457 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53443 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53457 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53443 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53469 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53445 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53457 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53447 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53457 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53677 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54736 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54738 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54743 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54744 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54736 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54743 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54738 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54736 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54743 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54738 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54736 - "OPTIONS /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "OPTIONS /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54744 - "OPTIONS /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54746 - "OPTIONS /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54743 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54738 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54746 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54743 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54736 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54743 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54743 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54742 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54881 - "GET /api/v1/ringcentral/auth/status HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:45:27.067 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:45:27.068 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:45:27.068 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [49769]
+INFO:     Started server process [59857]
+INFO:     Waiting for application startup.
+2025-09-18 11:45:27.830 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:45:28.798 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.

@@ -589,6 +589,25 @@ async def logics_cases_by_status(status_id: int):
     client = TPSApiClient()
     return await client.get_cases_by_status(status_id)
 
+@router.get("/logics/dnc/cases-by-phone", tags=["Logics"])
+async def logics_cases_by_phone(phone_number: str):
+    """Search TPS/Logics cases by phone number.
+
+    Returns a concise list of cases (CaseID, CreatedDate, StatusID) for the phone.
+    """
+    client = TPSApiClient()
+    cases = await client.find_cases_by_phone(phone_number)
+    # Normalize minimal fields
+    out = [
+        {
+            "CaseID": c.get("CaseID"),
+            "CreatedDate": c.get("CreatedDate"),
+            "StatusID": c.get("StatusID"),
+        }
+        for c in (cases or [])
+    ]
+    return { "success": True, "phone_number": phone_number, "count": len(out), "cases": out }
+
 
 @router.get("/systems-check", tags=["Aggregate"])
 async def systems_check(phone_number: str):
