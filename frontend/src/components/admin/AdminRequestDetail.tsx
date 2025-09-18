@@ -18,11 +18,22 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
   const [cases, setCases] = useState<any[]>([])
   const [notes, setNotes] = useState('')
 
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Org-Id': String(organizationId),
-    'X-User-Id': String(adminUserId),
-    'X-Role': 'owner',
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Org-Id': String(organizationId),
+      'X-User-Id': String(adminUserId),
+      'X-Role': 'superadmin',
+    }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) h['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return h
   }
 
   useEffect(() => {
@@ -30,6 +41,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
       setLoading(true)
       setError(null)
       try {
+        const headers = await acquireAuthHeaders()
         const pre = await fetch(`${API_BASE_URL}/api/dnc/check_batch`, { method:'POST', headers, body: JSON.stringify({ phone_numbers: [request.phone_e164] }) })
         if (pre.ok) setPrecheck(await pre.json())
         const c = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, { method:'POST', headers, body: JSON.stringify({ phone_number: request.phone_e164 }) })
@@ -49,6 +61,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
 
   const act = async (action: 'approve'|'deny') => {
     try {
+      const headers = await acquireAuthHeaders()
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/${action}`, { method:'POST', headers, body: JSON.stringify({ notes }) })
       if (!resp.ok) throw new Error('Action failed')
       onBack()
