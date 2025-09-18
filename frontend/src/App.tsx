@@ -42,7 +42,7 @@ const AppContent: React.FC = () => {
   const { isLoading, error } = useAppSelector((state) => state.phoneNumbers)
   const role = useAppSelector((s) => s.demoAuth.role)
   const [activeTab, setActiveTab] = useState<'main' | 'admin' | 'dnc-checker' | 'requests' | 'settings'>('main')
-  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('crm')
+  const [rightPane, setRightPane] = useState<'none' | 'crm' | 'precheck' | 'systems'>('none')
   const [systemsNumbers, setSystemsNumbers] = useState<string[]>([])
   const [precheckResults] = useState<any | null>(null)
   const [precheckSelected, setPrecheckSelected] = useState<{ phone: string, cases: any[] } | null>(null)

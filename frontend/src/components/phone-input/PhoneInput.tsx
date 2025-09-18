@@ -114,7 +114,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
     }
   }
 
-  const isAdmin = role === 'admin' || role === 'owner'
+  const isAdmin = role === 'admin' || role === 'owner' || role === 'superadmin'
   const isMember = role === 'member'
 
   return (

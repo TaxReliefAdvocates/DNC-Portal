@@ -11,7 +11,7 @@ from ...core.models import (
     DNCEntry, DNCEntryCreate, DNCEntryResponse,
     RemovalJob, RemovalJobCreate, RemovalJobResponse,
     RemovalJobItem, RemovalJobItemCreate, RemovalJobItemResponse,
-    CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord,
+    CRMDNCSample, SMSOptOut, DNCRequest, DNCEntry, LitigationRecord, PhoneNumber, CRMStatus,
     SystemSetting, IntegrationTestResult, PropagationAttempt,
 )
 from passlib.context import CryptContext
