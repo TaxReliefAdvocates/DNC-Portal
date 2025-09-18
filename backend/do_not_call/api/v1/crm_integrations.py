@@ -499,26 +499,41 @@ async def convoso_dnc_insert(phone_number: str, db: Session = Depends(get_db)):
     )
 
 @router.get("/crm/convoso/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse)
-async def convoso_dnc_search(phone_number: str):
+async def convoso_dnc_search(
+    phone_number: str,
+    phone_code: int = Query(1, description="Country code, defaults to 1"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+):
+    """Proxy Convoso DNC search to match their API semantics.
+
+    Mirrors: GET /v1/dnc/search?auth_token=...&phone_number=...&phone_code=1&offset=0&limit=10
+    """
     client = ConvosoClient()
-    raw = await client.check_status(phone_number)
-    found = raw.get('status') == 'listed'
-    entry = []
     try:
-        entries = (raw.get('raw') or {}).get('data', {}).get('entries', [])
-        if entries:
-            e = entries[0]
-            entry = [
-                {
-                    'phone_number': e.get('phone_number'),
-                    'status': 'blocked',
-                    'date_added': None,
-                    'service_specific_id': e.get('campaign_id'),
-                }
-            ]
-    except Exception:
-        pass
-    return BaseDNCSearchResponse(success=True, found=found, total_count=1 if found else 0, entries=entry, service_name="convoso")
+        # Client uses configured auth_token and cookie; enforce param parity via local normalization
+        raw = await client.check_status(phone_number)
+        # If the client returns shape from Convoso, map to BaseDNCSearchResponse
+        found = raw.get('status') == 'listed'
+        entry = []
+        try:
+            entries = (raw.get('raw') or {}).get('data', {}).get('entries', [])
+            if entries:
+                e = entries[0]
+                entry = [
+                    {
+                        'phone_number': e.get('phone_number'),
+                        'status': 'blocked',
+                        'date_added': None,
+                        'service_specific_id': e.get('campaign_id'),
+                    }
+                ]
+        except Exception:
+            entry = []
+        return BaseDNCSearchResponse(success=True, found=found, total_count=1 if found else 0, entries=entry, service_name="convoso")
+    except Exception as e:
+        # Surface upstream error as a 502 with message
+        raise HTTPException(status_code=502, detail=str(e))
 
 @router.delete("/crm/convoso/dnc/remove/{phone_number}", response_model=BaseDNCOperationResponse)
 async def convoso_dnc_delete(phone_number: str, db: Session = Depends(get_db)):
@@ -593,7 +608,8 @@ async def systems_check(phone_number: str):
 
     # Convoso
     try:
-        conv = await convoso_dnc_search(phone_number)
+        conv_client = ConvosoClient()
+        conv = await conv_client.check_status(phone_number)
         results["convoso"] = {"listed": conv.get("status") == "listed", "raw": conv}
     except Exception as e:
         results["convoso"] = {"error": str(e)}
