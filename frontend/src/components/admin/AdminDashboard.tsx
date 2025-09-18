@@ -10,12 +10,13 @@ import { AdminSamplesGaps } from './AdminSamplesGaps'
 import { AdminDncRequests } from './AdminDncRequests'
 import { AdminSystemsCheck } from './AdminSystemsCheck'
 import { AdminPropagationMonitor } from './AdminPropagationMonitor'
+import { ApiEndpointTester } from './ApiEndpointTester'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
   const { phoneNumbers, isLoading: phoneNumbersLoading } = useAppSelector((state) => state.phoneNumbers)
   const { crmStatuses, stats, isLoading: crmLoading } = useAppSelector((state) => state.crmStatus)
-  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'recent'|'propagation'|'systems'|'litigation'|'samples'>('pending')
+  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'recent'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
 
   useEffect(() => {
     dispatch(fetchPhoneNumbers())
@@ -78,6 +79,7 @@ export const AdminDashboard: React.FC = () => {
             { key: 'samples', label: 'Samples & Gaps' },
             { key: 'recent', label: 'Recent' },
             { key: 'overview', label: 'Overview' },
+            { key: 'tester', label: 'Tester' },
           ].map(t => (
             <button
               key={t.key}
@@ -344,6 +346,10 @@ export const AdminDashboard: React.FC = () => {
             </Card>
           </div>
         </div>
+      )}
+
+      {activeTab === 'tester' && (
+        <ApiEndpointTester />
       )}
     </div>
   )
