@@ -37,3 +37,43 @@ INFO:     127.0.0.1:56975 - "GET /api/v1/tenants/dnc-requests/org/1?status=pendi
 INFO:     127.0.0.1:56984 - "GET /api/v1/tenants/users HTTP/1.1" 200 OK
 INFO:     127.0.0.1:56981 - "GET /api/v1/tenants/dnc-requests/org/1?status=pending&limit=50 HTTP/1.1" 200 OK
 INFO:     127.0.0.1:58902 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62208 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62211 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62213 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62215 - "OPTIONS /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62217 - "OPTIONS /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62218 - "OPTIONS /api/v1/crm/statuses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62215 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62208 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62213 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62218 - "GET /api/v1/crm/statuses HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:62215 - "GET /api/v1/tenants/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62208 - "GET /api/v1/phone-numbers/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62266 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62266 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+WARNING:  WatchFiles detected changes in 'do_not_call/api/v1/crm_integrations.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:19:51.340 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:19:51.341 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:19:51.341 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31515]
+INFO:     Started server process [2959]
+INFO:     Waiting for application startup.
+2025-09-18 11:19:52.171 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:19:53.497 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'do_not_call/main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-09-18 11:20:05.110 | INFO     | do_not_call.main:lifespan:27 - Shutting down Do Not Call List Manager API...
+2025-09-18 11:20:05.111 | INFO     | do_not_call.core.database:close_db:80 - Database connections closed
+2025-09-18 11:20:05.111 | INFO     | do_not_call.main:lifespan:29 - Database connection closed
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2959]
+INFO:     Started server process [3479]
+INFO:     Waiting for application startup.
+2025-09-18 11:20:05.701 | INFO     | do_not_call.main:lifespan:20 - Starting Do Not Call List Manager API...
+2025-09-18 11:20:06.928 | INFO     | do_not_call.core.database:init_db:70 - Database tables created successfully
+INFO:     Application startup complete.
