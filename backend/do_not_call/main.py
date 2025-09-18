@@ -108,7 +108,6 @@ app.include_router(
 app.include_router(
     crm_integrations.router,
     prefix="/api/v1",
-    tags=["Aggregate"],
     responses={404: {"description": "Not found"}},
 )
 
