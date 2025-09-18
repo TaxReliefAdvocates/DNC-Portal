@@ -733,6 +733,8 @@ def list_requests_by_org(organization_id: int, status: str | None = None, cursor
         q = q.filter(DNCRequest.id < cursor)
     q = q.order_by(DNCRequest.id.desc()).limit(min(200, max(1, limit)))
     rows = q.all()
+    # Enrich with requester display info if available
+    users = {u.id: u for u in db.query(User).all()}
     return [{
         "id": r.id,
         "phone_e164": r.phone_e164,
@@ -740,6 +742,11 @@ def list_requests_by_org(organization_id: int, status: str | None = None, cursor
         "reason": r.reason,
         "channel": r.channel,
         "requested_by_user_id": r.requested_by_user_id,
+        "requested_by": {
+            "id": r.requested_by_user_id,
+            "email": users.get(r.requested_by_user_id).email if users.get(r.requested_by_user_id) else None,
+            "name": users.get(r.requested_by_user_id).name if users.get(r.requested_by_user_id) else None,
+        },
         "reviewed_by_user_id": r.reviewed_by_user_id,
         "created_at": r.created_at.isoformat(),
         "decided_at": r.decided_at.isoformat() if r.decided_at else None,

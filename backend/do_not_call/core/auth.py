@@ -55,6 +55,7 @@ async def get_principal(
             # Common Entra claim ids: oid (object id), tid (tenant id), roles / groups
             oid = claims.get("oid") or claims.get("sub")
             email = claims.get("preferred_username") or claims.get("upn") or claims.get("email")
+            display_name = claims.get("name") or email
             # Map oid/email → user record (create if missing)
             if oid or email:
                 db = next(get_db())
@@ -64,7 +65,7 @@ async def get_principal(
                 if not user and email:
                     user = db.query(User).filter_by(email=str(email)).first()
                 if not user:
-                    user = User(oid=str(oid) if oid else None, email=str(email) if email else f"user-{oid}@local", name=email)
+                    user = User(oid=str(oid) if oid else None, email=str(email) if email else f"user-{oid}@local", name=display_name)
                     db.add(user)
                     db.commit()
                     db.refresh(user)
@@ -97,6 +98,9 @@ async def get_principal(
                         desired_role = "owner" if role == "owner" else ("admin" if role == "admin" else ("member" if role == "member" else user.role or "member"))
                         is_super = (role == "superadmin")
                         changed = False
+                        if display_name and user.name != display_name:
+                            user.name = display_name
+                            changed = True
                         if user.role != desired_role:
                             user.role = desired_role
                             changed = True
@@ -132,11 +136,11 @@ async def get_principal(
             pass
 
     # In production, do not trust header fallbacks without a valid Bearer token
-    if settings.DEBUG or (not settings.ENTRA_REQUIRE_SIGNATURE and not authorization):
+    if settings.DEBUG:
         allow_header_fallback = True
     else:
-        # If we required signature or any Authorization was provided, prefer token exclusively
-        allow_header_fallback = authorization is None
+        # In non-debug, only allow fallback when signature not required AND no Authorization header is present
+        allow_header_fallback = (not settings.ENTRA_REQUIRE_SIGNATURE) and (authorization is None)
 
     # Fallback / override from headers
     if allow_header_fallback and x_user_id:

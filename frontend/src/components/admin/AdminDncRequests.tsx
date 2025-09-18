@@ -211,7 +211,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                   <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
                   <div className="text-sm">
                     <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
-                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {userMap[r.requested_by_user_id]?.name || 'User'}{userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : ''}</div>
+                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
                   </div>
                 </div>
                 <div className="flex gap-2">
