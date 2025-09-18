@@ -9,6 +9,7 @@ import { store, persistor } from './lib/store'
 import { PhoneInput } from './components/phone-input/PhoneInput'
 import { CRMStatusDashboard } from './components/crm-status/CRMStatusDashboard'
 import { SystemsCheckPane } from './components/admin/SystemsCheckPane'
+import { PendingRequestsWidget } from './components/admin/PendingRequestsWidget'
 import { AdminDashboard } from './components/admin/AdminDashboard'
 import { UserRequestHistory } from './components/admin/UserRequestHistory'
 import { DNCChecker } from './components/dnc-checker/DNCChecker'
@@ -182,7 +183,12 @@ const AppContent: React.FC = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
-                    {rightPane === 'crm' && <CRMStatusDashboard />}
+                    {rightPane === 'crm' && (
+                      <div className="space-y-6">
+                        <PendingRequestsWidget organizationId={1} adminUserId={1} />
+                        <CRMStatusDashboard />
+                      </div>
+                    )}
                     {rightPane === 'systems' && <SystemsCheckPane numbers={systemsNumbers} />}
                     {rightPane === 'precheck' && precheckResults && (
                       <div className="space-y-3">
