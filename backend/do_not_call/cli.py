@@ -83,6 +83,32 @@ def reset() -> None:
     typer.secho("Tables reset", fg=typer.colors.GREEN)
 
 
+@app.command("purge-requests")
+def purge_requests(
+    org_id: int | None = typer.Option(None, help="Only delete requests for this organization id"),
+    status: str | None = typer.Option(None, help="Only delete requests with this status"),
+    confirm: bool = typer.Option(False, "--confirm", help="Confirm deletion"),
+) -> None:
+    """Delete rows from dnc_requests (optionally filtered)."""
+    if not confirm:
+        typer.secho("Pass --confirm to proceed", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=2)
+    db = next(get_db())
+    try:
+        q = db.query(DNCRequest)
+        if org_id is not None:
+            q = q.filter(DNCRequest.organization_id == int(org_id))
+        if status:
+            q = q.filter(DNCRequest.status == str(status))
+        count = q.delete(synchronize_session=False)
+        db.commit()
+        typer.secho(f"Deleted {count} dnc_requests row(s)", fg=typer.colors.GREEN)
+    except Exception as exc:
+        db.rollback()
+        typer.secho(f"Purge failed: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
 @app.command("schema-report")
 def schema_report(include_counts: bool = typer.Option(False, help="Include row counts (may be slow)")) -> None:
     """Print a comprehensive schema report: tables, columns, PK/FK, indexes, and counts."""
