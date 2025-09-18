@@ -9,6 +9,7 @@ import { AdminLitigation } from './AdminLitigation'
 import { AdminSamplesGaps } from './AdminSamplesGaps'
 import { AdminDncRequests } from './AdminDncRequests'
 import { AdminSystemsCheck } from './AdminSystemsCheck'
+import { AdminPropagationMonitor } from './AdminPropagationMonitor'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
@@ -126,6 +127,9 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Pending DNC Requests */}
       <AdminDncRequests organizationId={1} adminUserId={1} />
+
+      {/* Propagation Monitor */}
+      <AdminPropagationMonitor organizationId={1} adminUserId={1} />
 
       {/* Systems Check */}
       <AdminSystemsCheck />
