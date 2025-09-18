@@ -201,6 +201,30 @@ export const SystemSettings: React.FC = () => {
           </Card>
 
           <Card>
+            <CardHeader><CardTitle>Maintenance</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async ()=>{
+                    if (!confirm('Delete ALL DNC requests? This cannot be undone.')) return
+                    try {
+                      const headers = await acquireAuthHeaders()
+                      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/admin/purge/dnc-requests`, { method: 'POST', headers })
+                      const data = await resp.json().catch(()=>({}))
+                      alert(resp.ok ? `Deleted ${data.deleted ?? 0} request(s)` : (data.detail || 'Failed'))
+                    } catch (e) {
+                      alert(`Error: ${(e as Error).message}`)
+                    }
+                  }}
+                >Purge DNC requests</Button>
+              </div>
+              <div className="text-xs text-gray-500 mt-2">Superadmin only. Deletes rows; keeps table.</div>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader><CardTitle>RingCentral Auth & DNC</CardTitle></CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 mb-2">

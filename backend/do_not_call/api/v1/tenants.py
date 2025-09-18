@@ -195,6 +195,21 @@ async def entra_sync_users(principal: Principal = Depends(get_principal), db: Se
     db.commit()
     return {"upserted": upserted, "linked": linked, "assignments": len(value)}
 
+# Superadmin: purge DNC requests
+@router.post("/admin/purge/dnc-requests")
+def purge_dnc_requests(payload: dict | None = None, principal: Principal = Depends(get_principal), db: Session = Depends(get_db)):
+    require_role("superadmin")(principal)
+    org_id = (payload or {}).get("organization_id")
+    status = (payload or {}).get("status")
+    q = db.query(DNCRequest)
+    if org_id is not None:
+        q = q.filter(DNCRequest.organization_id == int(org_id))
+    if status:
+        q = q.filter(DNCRequest.status == str(status))
+    deleted = q.delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
 # Auth utilities
 @router.get("/auth/me")
 def auth_me(principal: Principal = Depends(get_principal)):
