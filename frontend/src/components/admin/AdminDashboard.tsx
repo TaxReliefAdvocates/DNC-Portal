@@ -14,8 +14,8 @@ import { ApiEndpointTester } from './ApiEndpointTester'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
-  const { phoneNumbers, isLoading: phoneNumbersLoading } = useAppSelector((state) => state.phoneNumbers)
-  const { crmStatuses, stats, isLoading: crmLoading } = useAppSelector((state) => state.crmStatus)
+  const { phoneNumbers } = useAppSelector((state) => state.phoneNumbers)
+  const { crmStatuses, stats } = useAppSelector((state) => state.crmStatus)
   const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
 
   // Organization/user defaults (matches other admin panes)
