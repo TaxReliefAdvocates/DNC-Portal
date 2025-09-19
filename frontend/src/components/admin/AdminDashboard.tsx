@@ -26,21 +26,6 @@ export const AdminDashboard: React.FC = () => {
   const totalPhoneNumbers = phoneNumbers.length
   const totalCRMStatuses = crmStatuses.length
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-        return 'text-green-600'
-      case 'failed':
-        return 'text-red-600'
-      case 'processing':
-        return 'text-yellow-600'
-      case 'pending':
-        return 'text-blue-600'
-      default:
-        return 'text-gray-600'
-    }
-  }
-
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
