@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { API_BASE_URL } from '@/lib/api'
+import { useAppSelector } from '@/lib/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -42,6 +43,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
   const [q, setQ] = useState('')
   const [provider, setProvider] = useState('')
   const [status, setStatus] = useState('')
+  const role = useAppSelector((s) => (s as any).demoAuth?.role || 'member')
 
   const acquireAuthHeaders = async (): Promise<Record<string,string>> => {
     const h: Record<string,string> = {
@@ -136,11 +138,13 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
       const byProvider: Record<string, Attempt | undefined> = {}
       arr.forEach(a => { if (!byProvider[a.service_key]) byProvider[a.service_key] = a })
       const req = requests.find(r => r.phone_e164 === phone)
+      const adminFallback = users[adminUserId]
+      const isSuperadmin = String(role).toLowerCase() === 'superadmin'
       return {
         phone,
         providers: byProvider,
-        requested_by: req ? users[req.requested_by_user_id] : undefined,
-        approved_by: req && req.reviewed_by_user_id ? users[req.reviewed_by_user_id] : undefined,
+        requested_by: req ? users[req.requested_by_user_id] : (isSuperadmin ? adminFallback : undefined),
+        approved_by: req && req.reviewed_by_user_id ? users[req.reviewed_by_user_id] : (isSuperadmin ? adminFallback : undefined),
         decided_at: req?.decided_at,
       }
     })

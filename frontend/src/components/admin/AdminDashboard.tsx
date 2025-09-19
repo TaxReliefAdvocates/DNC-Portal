@@ -16,7 +16,7 @@ export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
   const { phoneNumbers, isLoading: phoneNumbersLoading } = useAppSelector((state) => state.phoneNumbers)
   const { crmStatuses, stats, isLoading: crmLoading } = useAppSelector((state) => state.crmStatus)
-  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'recent'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
+  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
 
   useEffect(() => {
     dispatch(fetchPhoneNumbers())
@@ -77,7 +77,6 @@ export const AdminDashboard: React.FC = () => {
             { key: 'systems', label: 'Systems Check' },
             { key: 'litigation', label: 'Litigation' },
             { key: 'samples', label: 'Samples & Gaps' },
-            { key: 'recent', label: 'Recent' },
             { key: 'overview', label: 'Overview' },
             { key: 'tester', label: 'Tester' },
           ].map(t => (
@@ -113,74 +112,7 @@ export const AdminDashboard: React.FC = () => {
         <AdminSamplesGaps organizationId={1} adminUserId={1} />
       )}
 
-      {activeTab === 'recent' && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Phone Numbers</CardTitle>
-              <CardDescription>Latest phone numbers added to the system</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {phoneNumbersLoading ? (
-                <div className="text-center py-4">Loading phone numbers...</div>
-              ) : phoneNumbers.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">No phone numbers found</div>
-              ) : (
-                <div className="space-y-3">
-                  {phoneNumbers.slice(0, 16).map((phone) => (
-                    <div key={phone.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">{phone.phone_number}</div>
-                        <div className="text-sm text-gray-500">
-                          Added: {new Date(phone.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(phone.status)}`}>
-                          {phone.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent CRM Status Updates</CardTitle>
-              <CardDescription>Latest CRM removal attempts and their status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {crmLoading ? (
-                <div className="text-center py-4">Loading CRM statuses...</div>
-              ) : crmStatuses.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">No CRM status records found</div>
-              ) : (
-                <div className="space-y-3">
-                  {crmStatuses.slice(0, 16).map((status) => (
-                    <div key={status.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <div className="font-medium">Phone ID: {status.phone_number_id}</div>
-                        <div className="text-sm text-gray-500">
-                          {status.crm_system} • {new Date().toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(status.status)}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status.status)}`}>
-                          {status.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      
 
       {activeTab === 'overview' && (
         <div className="space-y-6">
