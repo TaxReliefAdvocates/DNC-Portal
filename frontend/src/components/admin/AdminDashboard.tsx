@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../lib/hooks'
 import { fetchPhoneNumbers } from '../../lib/features/phoneNumbers/phoneNumbersSlice'
 import { fetchCRMStatuses } from '../../lib/features/crmStatus/crmStatusSlice'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { API_BASE_URL } from '@/lib/api'
 import { Button } from '../ui/button'
 import { Phone, CheckCircle, XCircle, Clock, Database } from 'lucide-react'
 import { AdminLitigation } from './AdminLitigation'
@@ -56,7 +57,7 @@ export const AdminDashboard: React.FC = () => {
     try {
       const headers = await acquireAuthHeaders()
       // Fetch recent attempts (limit 200 for light payload)
-      const a = await fetch(`/api/v1/tenants/propagation/attempts/${organizationId}?limit=200`, { headers })
+      const a = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/${organizationId}?limit=200`, { headers })
       if (a.ok) {
         const attempts: Array<{ status: string }> = await a.json()
         const total = attempts.length
@@ -67,7 +68,7 @@ export const AdminDashboard: React.FC = () => {
         setAttemptSummary({ total: 0, success: 0, failed: 0 })
       }
       // Fetch DNC entries to reflect total numbers in system (capped by API limit)
-      const d = await fetch(`/api/v1/tenants/dnc-entries/${organizationId}`, { headers })
+      const d = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-entries/${organizationId}`, { headers })
       if (d.ok) {
         const entries: unknown[] = await d.json()
         setDncEntriesCount(entries.length)
