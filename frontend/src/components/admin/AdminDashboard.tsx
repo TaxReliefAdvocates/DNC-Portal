@@ -73,7 +73,7 @@ export const AdminDashboard: React.FC = () => {
         <nav className="flex flex-wrap gap-2 -mb-px text-sm">
           {[
             { key: 'pending', label: 'Pending' },
-            { key: 'propagation', label: 'Propagation' },
+            { key: 'propagation', label: 'DNC History' },
             { key: 'systems', label: 'Systems Check' },
             { key: 'litigation', label: 'Litigation' },
             { key: 'samples', label: 'Samples & Gaps' },

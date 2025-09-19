@@ -20,7 +20,7 @@ from ...config import settings
 from sqlalchemy import inspect, text
 
 router = APIRouter()
-# Track provider propagation attempts
+# Track provider DNC history attempts
 @router.post("/propagation/attempt")
 def record_propagation_attempt(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_role("owner", "admin", "superadmin")(principal)

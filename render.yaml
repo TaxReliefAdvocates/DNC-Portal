@@ -1,81 +1,50 @@
-# Render Blueprint for DNC Portal
-# Docs: https://render.com/docs/blueprint-spec
-
 services:
   - type: web
-    name: dnc-backend
-    env: docker
-    plan: starter
-    rootDir: backend
-    healthCheckPath: /
-    autoDeploy: true
+    name: dnc-portal-backend
+    env: python
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install poetry
+      poetry install
+      poetry run alembic upgrade head
+    startCommand: |
+      cd backend
+      poetry run uvicorn do_not_call.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: PORT
-        value: "8000"
-      - key: HOST
-        value: 0.0.0.0
-      - key: RELOAD
-        value: "false"
       - key: DATABASE_URL
-        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
-      - key: UPLOADS_DIR
-        value: /data/uploads
+        value: postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require
+      - key: PGHOST
+        value: dnc.postgres.database.azure.com
+      - key: PGUSER
+        value: traadmin
+      - key: PGPORT
+        value: 5432
+      - key: PGDATABASE
+        value: postgres
+      - key: PGPASSWORD
+        value: TPSZen2025@!
+      - key: DEBUG
+        value: false
       - key: LOG_LEVEL
-        value: info
-      - key: ENTRA_TENANT_ID
-        value: "185fc38c-2c1b-4307-a164-24a4072e83e1"
-      - key: ENTRA_AUDIENCE
-        value: "api://a2a6c2c2-cb10-411e-a354-da61bfa4a3b2"
-      - key: ENTRA_REQUIRE_SIGNATURE
-        value: "true"
-      - key: ALLOWED_ORIGIN_REGEX
-        value: ".*"
-      # Optional AAD token auth (leave unset for password auth)
-      - key: AZURE_DB_TENANT_ID
-        value: ""
-      - key: AZURE_DB_CLIENT_ID
-        value: ""
-      - key: AZURE_DB_CLIENT_SECRET
-        value: ""
-      # RingCentral OAuth (populate in Render UI)
-      - key: RINGCENTRAL_CLIENT_ID
-        value: ""
-      - key: RINGCENTRAL_CLIENT_SECRET
-        value: ""
-      - key: RINGCENTRAL_JWT
-        value: ""
-      - key: RINGCENTRAL_BASE_URL
-        value: "https://platform.ringcentral.com"
-      # Convoso
-      - key: CONVOSO_AUTH_TOKEN
-        value: ""
-      - key: CONVOSO_COOKIE
-        value: ""
-      # Ytel
-      - key: YTEL_BEARER_TOKEN
-        value: ""
-    disk:
-      name: dnc-data
-      mountPath: /data
-      sizeGB: 1
+        value: INFO
 
   - type: web
-    name: dnc-frontend
-    env: node
-    rootDir: frontend
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
-    startCommand: npx serve -s dist -l $PORT
-    autoDeploy: true
+    name: dnc-portal-frontend
+    env: static
+    plan: free
+    buildCommand: |
+      cd frontend
+      npm install -g pnpm
+      pnpm install
+      pnpm build
+    staticPublishPath: ./frontend/dist
     envVars:
-      - key: NODE_VERSION
-        value: "20"
       - key: VITE_API_BASE_URL
-        value: "https://dnc-backend-bb96.onrender.com"
-      - key: VITE_ENTRA_SPA_CLIENT_ID
-        value: "a2a6c2c2-cb10-411e-a354-da61bfa4a3b2"
+        value: https://dnc-portal-backend.onrender.com
       - key: VITE_ENTRA_TENANT_ID
-        value: "185fc38c-2c1b-4307-a164-24a4072e83e1"
+        value: 185fc38c-2c1b-4307-a164-24a4072e83e1
+      - key: VITE_ENTRA_SPA_CLIENT_ID
+        value: a2a6c2c2-cb10-411e-a354-da61bfa4a3b2
       - key: VITE_ENTRA_SCOPE
-        value: "api://a2a6c2c2-cb10-411e-a354-da61bfa4a3b2/access_as_user"
+        value: api://a2a6c2c2-cb10-411e-a354-da61bfa4a3b2/access_as_user

@@ -138,7 +138,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'propagation_export.csv'
+    a.download = 'dnc_history_export.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -170,7 +170,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Propagation Monitor</CardTitle>
+        <CardTitle>DNC History Monitor</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-end gap-2 mb-3 text-sm">
@@ -201,7 +201,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
         {loading ? (
           <div className="text-sm text-gray-600">Loading…</div>
         ) : rows.length === 0 ? (
-          <div className="text-sm text-gray-600">No propagation attempts yet.</div>
+          <div className="text-sm text-gray-600">No DNC history yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border">

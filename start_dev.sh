@@ -59,21 +59,11 @@ echo "Clearing logs..."
 echo "Starting backend on :8000..."
 (
   cd "$BACKEND_DIR"
-  # Prefer Azure Postgres via AAD token if configured; else fall back to Supabase
+  # Use Azure PostgreSQL with password authentication
   if [[ -f "$BACKEND_DIR/.env.azure" ]]; then
     # shellcheck disable=SC2046
     export $(grep -v '^#' "$BACKEND_DIR/.env.azure" | xargs)
-    if command -v az >/dev/null 2>&1; then
-      TOKEN=$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv || true)
-      if [[ -n "${TOKEN:-}" && -n "${PGHOST:-}" && -n "${PGUSER:-}" && -n "${PGDATABASE:-}" ]]; then
-        export DATABASE_URL="postgresql+psycopg2://${PGUSER}:${TOKEN}@${PGHOST}:5432/${PGDATABASE}?sslmode=require"
-        echo "Using Azure PostgreSQL (AAD token)"
-      else
-        echo "Azure DB env incomplete, falling back to other envs" >&2
-      fi
-    else
-      echo "Azure CLI not found; cannot obtain AAD token. Install az or use another env." >&2
-    fi
+    echo "Using Azure PostgreSQL (password authentication)"
   fi
   # Fallback: Supabase local env
   if [[ -z "${DATABASE_URL:-}" && -f "$BACKEND_DIR/.env.supabase" ]]; then
