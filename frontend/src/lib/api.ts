@@ -35,18 +35,30 @@ function getDemoHeaders(): Record<string, string> {
   }
 }
 
-// Helper function for API calls
-export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-  // Attach bearer token from MSAL if available (window.__msalAcquireToken optional)
-  let authHeaders: Record<string, string> = {}
+// Helper to get Azure AD token
+async function getAzureToken(): Promise<string | null> {
   try {
     const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
     const scope = import.meta.env.VITE_ENTRA_SCOPE as string | undefined
     if (acquire && scope) {
       const token = await acquire([scope])
-      if (token) authHeaders['Authorization'] = `Bearer ${token}`
+      return token || null
     }
-  } catch {}
+  } catch (error) {
+    console.warn('Failed to acquire Azure AD token:', error)
+  }
+  return null
+}
+
+// Helper function for API calls
+export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+  // Get Azure AD token
+  const token = await getAzureToken()
+  let authHeaders: Record<string, string> = {}
+  
+  if (token) {
+    authHeaders['Authorization'] = `Bearer ${token}`
+  }
 
   const response = await fetch(endpoint, {
     headers: {
@@ -60,6 +72,38 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
 
   if (!response.ok) {
     throw new Error(`API call failed: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+// Enhanced API call function with better error handling
+export const authenticatedApiCall = async (endpoint: string, options: RequestInit = {}) => {
+  const token = await getAzureToken()
+  const demoHeaders = getDemoHeaders()
+  
+  if (!token && !demoHeaders['X-Org-Id']) {
+    throw new Error('No authentication available')
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...demoHeaders,
+    ...(options.headers || {}),
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(endpoint, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`API call failed: ${response.status} ${response.statusText} - ${errorText}`)
   }
 
   return response.json()

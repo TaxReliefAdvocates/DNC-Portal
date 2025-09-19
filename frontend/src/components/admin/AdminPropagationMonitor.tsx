@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE_URL } from '@/lib/api'
+import { API_BASE_URL, authenticatedApiCall } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -57,7 +57,9 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
         const token = await acquire([scope])
         if (token) h['Authorization'] = `Bearer ${token}`
       }
-    } catch {}
+    } catch (error) {
+      console.warn('Failed to acquire token:', error)
+    }
     return h
   }
 
@@ -65,18 +67,50 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     setLoading(true)
     try {
       const headers = await acquireAuthHeaders()
-      const a = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/${organizationId}`, { headers })
-      const attemptsJson: Attempt[] = await a.json()
-      setAttempts(attemptsJson || [])
-      const r = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?limit=500`, { headers })
-      const reqJson: RequestRow[] = await r.json()
-      setRequests(reqJson || [])
-      const u = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { headers })
-      if (u.ok) {
-        const list: UserRow[] = await u.json()
-        const m: Record<number, UserRow> = {}
-        list.forEach(u => { m[u.id] = u })
-        setUsers(m)
+      
+      // Fetch propagation attempts
+      try {
+        const a = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/${organizationId}`, { headers })
+        if (a.ok) {
+          const attemptsJson: Attempt[] = await a.json()
+          setAttempts(attemptsJson || [])
+        } else {
+          console.warn('Failed to fetch propagation attempts:', a.status, a.statusText)
+          setAttempts([])
+        }
+      } catch (error) {
+        console.error('Error fetching propagation attempts:', error)
+        setAttempts([])
+      }
+
+      // Fetch DNC requests
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?limit=500`, { headers })
+        if (r.ok) {
+          const reqJson: RequestRow[] = await r.json()
+          setRequests(reqJson || [])
+        } else {
+          console.warn('Failed to fetch DNC requests:', r.status, r.statusText)
+          setRequests([])
+        }
+      } catch (error) {
+        console.error('Error fetching DNC requests:', error)
+        setRequests([])
+      }
+
+      // Fetch users
+      try {
+        const u = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { headers })
+        if (u.ok) {
+          const list: UserRow[] = await u.json()
+          const m: Record<number, UserRow> = {}
+          list.forEach(u => { m[u.id] = u })
+          setUsers(m)
+        } else {
+          console.warn('Failed to fetch users:', u.status, u.statusText)
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error)
       }
     } finally {
       setLoading(false)
@@ -152,19 +186,32 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
   const retry = async (providerKey: string, phone: string) => {
     try {
       const headers = await acquireAuthHeaders()
+      let response: Response | null = null
+      
       // Minimal: call provider-specific add endpoints where available
       if (providerKey === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers })
+        response = await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers })
       } else if (providerKey === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        response = await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
       } else if (providerKey === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        response = await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
       } else if (providerKey === 'logics') {
         // No generic push; rely on Systems Check flows. Skip here.
+        console.log('Logics retry not implemented - use Systems Check flow')
+        return
       }
+      
+      if (response && !response.ok) {
+        console.error(`Retry failed for ${providerKey}:`, response.status, response.statusText)
+      } else if (response) {
+        console.log(`Retry successful for ${providerKey}`)
+      }
+      
       // After retry, reload attempts
       load()
-    } catch {}
+    } catch (error) {
+      console.error(`Error retrying ${providerKey}:`, error)
+    }
   }
 
   return (
