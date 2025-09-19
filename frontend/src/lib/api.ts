@@ -89,7 +89,11 @@ export const authenticatedApiCall = async (endpoint: string, options: RequestIni
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...demoHeaders,
-    ...(options.headers || {}),
+  }
+
+  // Merge additional headers if provided
+  if (options.headers) {
+    Object.assign(headers, options.headers)
   }
 
   if (token) {
