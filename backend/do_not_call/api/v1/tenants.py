@@ -461,6 +461,11 @@ def list_org_services(organization_id: int, db: Session = Depends(get_db)):
 # DNC Entries
 @router.post("/dnc-entries", response_model=DNCEntryResponse)
 def create_dnc_entry(payload: DNCEntryCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    try:
+        org_scope = None if principal.role == "superadmin" else payload.organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     require_org_access(principal, payload.organization_id)
     data = payload.model_dump()
     data["created_by_user_id"] = getattr(principal, "user_id", None)
@@ -473,12 +478,22 @@ def create_dnc_entry(payload: DNCEntryCreate, db: Session = Depends(get_db), pri
 
 @router.get("/dnc-entries/{organization_id}", response_model=list[DNCEntryResponse])
 def list_dnc_entries(organization_id: int, db: Session = Depends(get_db)):
+    try:
+        # no principal here; list is admin-only elsewhere. RLS uses path org
+        set_rls_org(db, organization_id)
+    except Exception:
+        pass
     return db.query(DNCEntry).filter_by(organization_id=organization_id).order_by(DNCEntry.id.desc()).limit(500).all()
 
 
 # Jobs + Items
 @router.post("/jobs", response_model=RemovalJobResponse)
 def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    try:
+        org_scope = None if principal.role == "superadmin" else payload.organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     require_org_access(principal, payload.organization_id)
     data = payload.model_dump()
     data["submitted_by_user_id"] = getattr(principal, "user_id", None)
@@ -492,6 +507,12 @@ def create_job(payload: RemovalJobCreate, db: Session = Depends(get_db), princip
 @router.post("/job-items", response_model=RemovalJobItemResponse)
 def create_job_item(payload: RemovalJobItemCreate, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     # org inferred from job via FK would be ideal; keeping open here
+    try:
+        # Fallback to principal org; RLS will validate via FK policy on job
+        org_scope = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     item = RemovalJobItem(**payload.model_dump())
     db.add(item)
     db.commit()
@@ -501,6 +522,10 @@ def create_job_item(payload: RemovalJobItemCreate, db: Session = Depends(get_db)
 
 @router.get("/jobs/{organization_id}", response_model=list[RemovalJobResponse])
 def list_jobs(organization_id: int, db: Session = Depends(get_db)):
+    try:
+        set_rls_org(db, organization_id)
+    except Exception:
+        pass
     return db.query(RemovalJob).filter_by(organization_id=organization_id).order_by(RemovalJob.id.desc()).all()
 
 
@@ -565,6 +590,10 @@ def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal
 @router.post("/dnc-samples/ingest/{organization_id}")
 def ingest_samples(organization_id: int, rows: list[dict], db: Session = Depends(get_db)):
     """Bulk ingest up to 10k rows per call. Rows: {phone_e164, in_national_dnc, in_org_dnc, crm_source?, notes?}."""
+    try:
+        set_rls_org(db, organization_id)
+    except Exception:
+        pass
     to_add: list[CRMDNCSample] = []
     from datetime import datetime
     sample_date = datetime.utcnow()
@@ -589,6 +618,10 @@ def ingest_samples(organization_id: int, rows: list[dict], db: Session = Depends
 
 @router.get("/dnc-samples/{organization_id}")
 def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 1000, db: Session = Depends(get_db)):
+    try:
+        set_rls_org(db, organization_id)
+    except Exception:
+        pass
     q = db.query(CRMDNCSample).filter(CRMDNCSample.organization_id == organization_id)
     if only_gaps:
         q = q.filter(CRMDNCSample.in_national_dnc.is_(True), CRMDNCSample.in_org_dnc.is_(False))
@@ -608,6 +641,11 @@ def query_samples(organization_id: int, only_gaps: bool = True, limit: int = 100
 def bulk_add_samples_to_dnc(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
     require_role("owner", "admin", "superadmin")(principal)
+    try:
+        org_scope = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     ids: list[int] = payload.get("ids", [])
     created = 0
     for sid in ids:
@@ -637,6 +675,11 @@ def bulk_add_samples_to_dnc(organization_id: int, payload: dict, db: Session = D
 def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
     require_role("owner", "admin", "superadmin")(principal)
+    try:
+        org_scope = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     items: list[SMSOptOut] = []
     from datetime import datetime
     # Preload org DNC for quick lookups
@@ -921,6 +964,11 @@ def list_requests_by_user(user_id: int, status: str | None = None, cursor: int |
 def add_litigation(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
     require_role("owner", "admin", "superadmin")(principal)
+    try:
+        org_scope = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     record = LitigationRecord(
         organization_id=organization_id,
         phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
@@ -941,6 +989,11 @@ def add_litigation(organization_id: int, payload: dict, db: Session = Depends(ge
 @router.get("/litigations/{organization_id}")
 def list_litigations(organization_id: int, q: str | None = None, cursor: int | None = None, limit: int = 50, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     require_org_access(principal, organization_id)
+    try:
+        org_scope = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_scope)
+    except Exception:
+        pass
     qy = db.query(LitigationRecord).filter(LitigationRecord.organization_id == organization_id)
     if q:
         qlike = f"%{q}%"
