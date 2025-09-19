@@ -18,10 +18,71 @@ export const AdminDashboard: React.FC = () => {
   const { crmStatuses, stats, isLoading: crmLoading } = useAppSelector((state) => state.crmStatus)
   const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
 
+  // Organization/user defaults (matches other admin panes)
+  const organizationId = 1
+  const adminUserId = 1
+
+  // Summary metrics sourced from backend
+  const [attemptSummary, setAttemptSummary] = useState<{ total: number; success: number; failed: number }>({ total: 0, success: 0, failed: 0 })
+  const [dncEntriesCount, setDncEntriesCount] = useState<number>(0)
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(false)
+
   useEffect(() => {
     dispatch(fetchPhoneNumbers())
     dispatch(fetchCRMStatuses())
   }, [dispatch])
+  // Acquire auth headers (Bearer if available + dev X- headers)
+  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Org-Id': String(organizationId),
+      'X-User-Id': String(adminUserId),
+      'X-Role': 'superadmin',
+    }
+    try {
+      const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
+      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
+      if (acquire && scope) {
+        const token = await acquire([scope])
+        if (token) h['Authorization'] = `Bearer ${token}`
+      }
+    } catch {}
+    return h
+  }
+
+  // Load small summary for the Overview cards from backend attempts and DNC entries
+  const loadSummary = async () => {
+    setLoadingSummary(true)
+    try {
+      const headers = await acquireAuthHeaders()
+      // Fetch recent attempts (limit 200 for light payload)
+      const a = await fetch(`/api/v1/tenants/propagation/attempts/${organizationId}?limit=200`, { headers })
+      if (a.ok) {
+        const attempts: Array<{ status: string }> = await a.json()
+        const total = attempts.length
+        const success = attempts.filter(t => t.status === 'success').length
+        const failed = attempts.filter(t => t.status === 'failed').length
+        setAttemptSummary({ total, success, failed })
+      } else {
+        setAttemptSummary({ total: 0, success: 0, failed: 0 })
+      }
+      // Fetch DNC entries to reflect total numbers in system (capped by API limit)
+      const d = await fetch(`/api/v1/tenants/dnc-entries/${organizationId}`, { headers })
+      if (d.ok) {
+        const entries: unknown[] = await d.json()
+        setDncEntriesCount(entries.length)
+      } else {
+        setDncEntriesCount(0)
+      }
+    } catch {
+      setAttemptSummary({ total: 0, success: 0, failed: 0 })
+      setDncEntriesCount(0)
+    } finally {
+      setLoadingSummary(false)
+    }
+  }
+
+  useEffect(() => { loadSummary() }, [])
 
   const totalPhoneNumbers = phoneNumbers.length
   const totalCRMStatuses = crmStatuses.length
@@ -48,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-2">Monitor phone number removals and CRM system status</p>
         </div>
-        <Button onClick={() => window.location.reload()}>
+        <Button onClick={loadSummary} disabled={loadingSummary}>
           Refresh Data
         </Button>
       </div>
@@ -109,9 +170,9 @@ export const AdminDashboard: React.FC = () => {
                 <Phone className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalPhoneNumbers}</div>
+                <div className="text-2xl font-bold">{dncEntriesCount || totalPhoneNumbers}</div>
                 <p className="text-xs text-muted-foreground">
-                  {phoneNumbersLoading ? 'Loading...' : 'Phone numbers in system'}
+                  {loadingSummary ? 'Loading...' : 'Phone numbers in org DNC'}
                 </p>
               </CardContent>
             </Card>
@@ -122,9 +183,9 @@ export const AdminDashboard: React.FC = () => {
                 <Database className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalCRMStatuses}</div>
+                <div className="text-2xl font-bold">{attemptSummary.total || totalCRMStatuses}</div>
                 <p className="text-xs text-muted-foreground">
-                  {crmLoading ? 'Loading...' : 'CRM removal attempts'}
+                  {loadingSummary ? 'Loading...' : 'Provider attempts (recent)'}
                 </p>
               </CardContent>
             </Card>
@@ -135,11 +196,9 @@ export const AdminDashboard: React.FC = () => {
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {crmStatuses.filter(s => s.status === 'completed').length}
-                </div>
+                <div className="text-2xl font-bold text-green-600">{attemptSummary.success}</div>
                 <p className="text-xs text-muted-foreground">
-                  Successfully removed from CRM systems
+                  Successfully pushed to providers (recent)
                 </p>
               </CardContent>
             </Card>
@@ -150,11 +209,9 @@ export const AdminDashboard: React.FC = () => {
                 <XCircle className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {crmStatuses.filter(s => s.status === 'failed').length}
-                </div>
+                <div className="text-2xl font-bold text-red-600">{attemptSummary.failed}</div>
                 <p className="text-xs text-muted-foreground">
-                  Failed removal attempts
+                  Failed provider attempts (recent)
                 </p>
               </CardContent>
             </Card>
