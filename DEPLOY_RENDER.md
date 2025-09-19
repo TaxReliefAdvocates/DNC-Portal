@@ -29,3 +29,4 @@ Re-deploy the frontend after setting `VITE_API_BASE_URL`.
 - CORS is controlled by `ALLOWED_ORIGIN_REGEX`; narrow to your exact frontend hostname when known.
 - Use the Logs tab on each service if there are startup issues.
 
+
