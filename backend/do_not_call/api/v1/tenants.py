@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from ...core.database import get_db
+from ...core.database import get_db, set_rls_org
+from ...core.rate_limit import rate_limiter
 from ...core.auth import get_principal, Principal, require_role, require_org_access
 from ...core.utils import normalize_phone_to_e164_digits
 from ...core.models import (
@@ -22,7 +23,13 @@ from sqlalchemy import inspect, text
 router = APIRouter()
 # Track provider DNC history attempts
 @router.post("/propagation/attempt")
-def record_propagation_attempt(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def record_propagation_attempt(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("propagate", limit=30, window_seconds=60))):
+    # Set RLS org for duration of this request (non-superadmin)
+    try:
+        org_id = getattr(principal, "organization_id", None) if principal and principal.role not in {"superadmin"} else None
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
     require_role("owner", "admin", "superadmin")(principal)
     try:
         attempt = PropagationAttempt(
@@ -54,7 +61,12 @@ def record_propagation_attempt(payload: dict, db: Session = Depends(get_db), pri
         raise HTTPException(status_code=400, detail=f"Failed to record attempt: {e}")
 
 @router.get("/propagation/attempts/{organization_id}")
-def list_propagation_attempts(organization_id: int, cursor: int | None = None, limit: int = 100, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def list_propagation_attempts(organization_id: int, cursor: int | None = None, limit: int = 100, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("attempts", limit=120, window_seconds=60))):
+    try:
+        org_id = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
     require_org_access(principal, organization_id)
     require_role("owner", "admin", "superadmin")(principal)
     q = db.query(PropagationAttempt).filter(PropagationAttempt.organization_id == organization_id)
@@ -494,7 +506,12 @@ def list_jobs(organization_id: int, db: Session = Depends(get_db)):
 
 # Bulk approve/deny
 @router.post("/dnc-requests/bulk/approve")
-def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("approve", limit=30, window_seconds=60))):
+    try:
+        org_id = getattr(principal, "organization_id", None) if principal and principal.role not in {"superadmin"} else None
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
     require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
     reviewer = int(getattr(principal, "user_id", 0) or 0)
@@ -522,7 +539,12 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
 
 
 @router.post("/dnc-requests/bulk/deny")
-def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def bulk_deny(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("deny", limit=30, window_seconds=60))):
+    try:
+        org_id = getattr(principal, "organization_id", None) if principal and principal.role not in {"superadmin"} else None
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
     require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
     reviewer = int(getattr(principal, "user_id", 0) or 0)
@@ -659,7 +681,12 @@ def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depend
 
 # DNC Request workflow
 @router.post("/dnc-requests/{organization_id}")
-def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("request", limit=60, window_seconds=60))):
+    try:
+        org_id = None if principal.role == "superadmin" else organization_id
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
     require_org_access(principal, organization_id)
     # members can create
     req = DNCRequest(

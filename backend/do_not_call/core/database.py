@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -36,6 +36,18 @@ def get_db() -> Generator:
         yield db
     finally:
         db.close()
+
+
+# RLS helper: set/clear current organization id per request
+def set_rls_org(db_session, organization_id: int | None):
+    try:
+        if organization_id is None:
+            db_session.execute(text("RESET app.current_organization_id"))
+        else:
+            db_session.execute(text("SET app.current_organization_id = :oid"), {"oid": int(organization_id)})
+    except Exception:
+        # Non-fatal; app still functions without RLS set
+        pass
 
 
 async def init_db():

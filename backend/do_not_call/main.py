@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 from loguru import logger
+from .core.logging_middleware import JsonRequestLogger
 
 from .config import settings
 from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron
@@ -85,6 +86,10 @@ async def add_correlation_id(request, call_next):
     response = await call_next(request)
     response.headers["X-Correlation-Id"] = cid
     return response
+
+
+# Structured JSON request logging
+app.add_middleware(JsonRequestLogger)
 
 
 # CORS middleware
