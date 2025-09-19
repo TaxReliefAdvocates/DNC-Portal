@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from typing import Callable, Optional
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Request, status, Depends
 from .auth import get_principal, Principal
 from ..config import settings
 
@@ -24,7 +24,7 @@ def rate_limiter(key_prefix: str, limit: int = 60, window_seconds: int = 60) -> 
     Key is built from user_id (if present) or client IP, plus a static prefix.
     """
 
-    async def _dependency(request: Request, principal: Principal = None):  # type: ignore
+    async def _dependency(request: Request, principal: Principal = Depends(get_principal)) -> None:  # type: ignore
         user_or_ip = (getattr(principal, "user_id", None) if principal else None) or request.client.host or "anon"
         key = f"rl:{key_prefix}:{user_or_ip}"
 
