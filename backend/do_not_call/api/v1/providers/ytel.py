@@ -14,7 +14,12 @@ router = APIRouter()
 
 
 class PhoneRequest(BaseModel):
-    phoneNumber: str = Field(..., description="Phone number in E.164 format or US digits")
+    phoneNumber: str | None = Field(None, description="Phone number in E.164 format or US digits")
+    phone_number: str | None = Field(None, description="Alternate Field: phone_number")
+
+def _resolve_phone(payload: PhoneRequest) -> str:
+    val = payload.phoneNumber or payload.phone_number or ""
+    return val
 
 
 @router.post("/ytel/dnc/add")
@@ -24,7 +29,7 @@ async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal:
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()
@@ -48,7 +53,7 @@ async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), princip
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()
@@ -71,7 +76,7 @@ async def ytel_remove(body: PhoneRequest, db: Session = Depends(get_db), princip
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()

@@ -52,7 +52,10 @@ async def ringcentral_add(body: PhoneRequest, db: Session = Depends(get_db), pri
 @router.get("/ringcentral/dnc/list")
 async def ringcentral_list():
     client = RingCentralService()
-    return await client.list_blocked_numbers()
+    try:
+        return await client.list_blocked_numbers()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @router.get("/ringcentral/dnc/search")

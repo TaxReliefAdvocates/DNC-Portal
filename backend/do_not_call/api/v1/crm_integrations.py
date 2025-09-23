@@ -15,6 +15,7 @@ from ...core.crm_clients.genesys import GenesysClient
 from ...core.crm_clients.ringcentral import RingCentralService
 from ...core.crm_clients.convoso import ConvosoClient
 from ...core.dnc_standard import BaseDNCOperationResponse, BaseDNCSearchResponse
+from pydantic import BaseModel
 from ...core.crm_clients.ytel import YtelClient
 from ...core.tps_api import TPSApiClient
 from ...core.dnc_service import dnc_service
@@ -39,7 +40,19 @@ async def ringcentral_list_blocked(db: Session = Depends(get_db)):
     headers = {"Authorization": f"Bearer {client._access_token}", "Accept": "application/json"}
     params = {"page": 1, "perPage": 100, "status": "Blocked"}
     async with httpx.AsyncClient(timeout=30) as client_http:
-        resp = await client_http.get(url, headers=headers, params=params)
+        try:
+            resp = await client_http.get(url, headers=headers, params=params)
+        except Exception as e:
+            from ...core.propagation import track_provider_attempt
+            await track_provider_attempt(
+                db,
+                organization_id=1,
+                service_key="ringcentral",
+                phone_e164="",
+                request_context={"op": "list"},
+                call=None,
+            )
+            raise HTTPException(status_code=502, detail=str(e))
         if resp.status_code != 200:
             from ...core.propagation import track_provider_attempt
             await track_provider_attempt(

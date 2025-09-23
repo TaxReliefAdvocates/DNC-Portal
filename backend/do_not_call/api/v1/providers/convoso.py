@@ -51,7 +51,10 @@ async def convoso_search(phoneNumber: str = Query(...), db: Session = Depends(ge
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = ConvosoClient()
-    res = await client.check_status(phone)
+    try:
+        res = await client.check_status(phone)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
     await track_provider_attempt(
         db,
         organization_id=int(getattr(principal, "organization_id", 0) or 0),
