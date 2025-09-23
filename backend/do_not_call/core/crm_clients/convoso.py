@@ -130,3 +130,30 @@ class ConvosoClient(BaseCRMClient):
         except Exception as e:
             logger.error(f"Convoso delete failed: {e}")
             raise
+
+    async def search_leads_by_phone(self, phone_number: str) -> Dict[str, Any]:
+        """Search Convoso leads by phone using leads token.
+
+        Mirrors sample:
+        /v1/leads/search?auth_token=<leads_token>&phone_number=...&offset=0&limit=10
+        """
+        try:
+            clean_phone = (
+                phone_number.replace('+1','').replace('-','').replace('(','').replace(')','').replace(' ','')
+            )
+            params = {
+                'auth_token': getattr(settings, 'CONVOSO_LEADS_TOKEN', None) or '',
+                'phone_number': clean_phone,
+                'offset': 0,
+                'limit': 10,
+            }
+            url = f"{settings.CONVOSO_BASE_URL}/v1/leads/search"
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(url, params=params)
+                if resp.status_code != 200:
+                    raise Exception(f"Convoso leads search error {resp.status_code}: {resp.text}")
+                data = resp.json() if 'application/json' in resp.headers.get('content-type','') else { 'text': resp.text }
+                return { 'success': True, 'crm_system': 'convoso', 'response': data }
+        except Exception as e:
+            logger.error(f"Convoso leads search failed: {e}")
+            raise

@@ -89,7 +89,24 @@ async def convoso_delete(phoneNumber: str = Query(...), db: Session = Depends(ge
 
 @router.get("/convoso/leads/search")
 async def convoso_leads_search(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    # Placeholder: reuse DNC search; replace with proper leads endpoint when available
-    return await convoso_search(phoneNumber=phoneNumber, db=db, principal=principal)
+    try:
+        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
+    phone = normalize_phone_to_e164_digits(phoneNumber)
+    if not phone:
+        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
+    client = ConvosoClient()
+    res = await client.search_leads_by_phone(phone)
+    await track_provider_attempt(
+        db,
+        organization_id=int(getattr(principal, "organization_id", 0) or 0),
+        service_key="convoso",
+        phone_e164=phone,
+        request_context={"op": "leads_search"},
+        call=None,
+    )
+    return res
 
 
