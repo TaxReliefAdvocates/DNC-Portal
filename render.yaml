@@ -28,6 +28,10 @@ services:
         value: false
       - key: LOG_LEVEL
         value: INFO
+      - key: YTEL_USER
+        value: "103"
+      - key: YTEL_PASS
+        value: "bHSQPgE7J6nLzX"
       - key: RINGCENTRAL_CLIENT_ID
         value: a2fq2a96nVteLDto4T6aO1
       - key: RINGCENTRAL_CLIENT_SECRET
