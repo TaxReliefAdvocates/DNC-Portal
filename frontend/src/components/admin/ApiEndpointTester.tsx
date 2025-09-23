@@ -69,12 +69,19 @@ export const ApiEndpointTester: React.FC = () => {
             example = op?.requestBody?.content?.['application/json']?.example
               || op?.requestBody?.content?.['application/json']?.examples?.[0]
           } catch {}
-          // Heuristic prereq for RingCentral auth
-          const prereqs: Endpoint[] = url.includes('/ringcentral/') ? [{ id:'rc-auth', name:'OAuth Status', url: `${API_BASE_URL}/api/v1/ringcentral/auth/status`, method:'GET', tags:['RingCentral'] }] : []
+          // Heuristic prereq for RingCentral auth (new provider endpoints)
+          const prereqs: Endpoint[] = url.includes('/ringcentral/') && !url.includes('/auth')
+            ? [{ id:'rc-auth', name:'RingCentral Auth', url: '/api/ringcentral/auth', method:'POST', tags:['RingCentral'] }]
+            : []
           out.push({ id, name, url, method: m, tags, description: op?.description, requestBodyExample: example, headers: { 'Content-Type': 'application/json' }, prereqs })
         })
       })
-      setEndpoints(out)
+      // Append curated provider endpoints to guarantee coverage and correct request bodies
+      const curated = buildProviderEndpoints()
+      const seen = new Set(out.map(e => e.id))
+      const merged = [...out]
+      curated.forEach(e => { if (!seen.has(e.id)) { merged.push(e); seen.add(e.id) } })
+      setEndpoints(merged)
       setLastSync(new Date().toISOString())
     } catch (e:any) {
       setSyncError(e?.message || String(e))
@@ -96,7 +103,8 @@ export const ApiEndpointTester: React.FC = () => {
   const runStep = async (title: string, method: Method, urlOrPath: string, headers?: Record<string,string>, body?: any): Promise<StepResult> => {
     const started = performance.now()
     try {
-      const payload = body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
+      const resolvedBody = resolveBodyPlaceholders(body)
+      const payload = resolvedBody !== undefined ? (typeof resolvedBody === 'string' ? resolvedBody : JSON.stringify(resolvedBody)) : undefined
       const resp = await fetch(buildUrl(urlOrPath), { method, headers, body: payload })
       const txt = await resp.text()
       let data: any = txt
@@ -207,6 +215,62 @@ export const ApiEndpointTester: React.FC = () => {
       ))}
     </div>
   )
+}
+
+// Helpers
+function deepReplace(value: any, map: Record<string,string>): any {
+  if (typeof value === 'string') {
+    let out = value
+    Object.entries(map).forEach(([k,v]) => {
+      out = out.split(`{${k}}`).join(v)
+    })
+    return out
+  }
+  if (Array.isArray(value)) return value.map(v => deepReplace(v, map))
+  if (value && typeof value === 'object') {
+    const obj: any = {}
+    Object.entries(value).forEach(([k,v]) => { obj[k] = deepReplace(v, map) })
+    return obj
+  }
+  return value
+}
+
+function buildProviderEndpoints(): Endpoint[] {
+  const json = { 'Content-Type': 'application/json' }
+  const body = { phoneNumber: '{phoneNumber}' }
+  const rcAuth: Endpoint = { id:'POST-/api/ringcentral/auth', name:'RingCentral Auth', url:'/api/ringcentral/auth', method:'POST', tags:['RingCentral'], headers: json }
+  const rcPrereq = [rcAuth]
+  return [
+    // Ytel
+    { id:'POST-/api/ytel/dnc/add', name:'Ytel Add DNC', url:'/api/ytel/dnc/add', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
+    { id:'POST-/api/ytel/dnc/search', name:'Ytel Search DNC', url:'/api/ytel/dnc/search', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
+    { id:'POST-/api/ytel/dnc/remove', name:'Ytel Remove DNC', url:'/api/ytel/dnc/remove', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
+    // Convoso
+    { id:'POST-/api/convoso/dnc/add', name:'Convoso Add DNC', url:'/api/convoso/dnc/add', method:'POST', tags:['Convoso'], headers: json, requestBodyExample: body },
+    { id:'GET-/api/convoso/dnc/search', name:'Convoso Search DNC', url:'/api/convoso/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['Convoso'] },
+    { id:'DELETE-/api/convoso/dnc/delete', name:'Convoso Delete DNC', url:'/api/convoso/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['Convoso'] },
+    { id:'GET-/api/convoso/leads/search', name:'Convoso Leads Search', url:'/api/convoso/leads/search?phoneNumber={phoneNumber}', method:'GET', tags:['Convoso'] },
+    // RingCentral
+    rcAuth,
+    { id:'POST-/api/ringcentral/dnc/add', name:'RingCentral Add Blocked', url:'/api/ringcentral/dnc/add', method:'POST', tags:['RingCentral'], headers: json, requestBodyExample: body, prereqs: rcPrereq },
+    { id:'GET-/api/ringcentral/dnc/search', name:'RingCentral Search Blocked', url:'/api/ringcentral/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['RingCentral'], prereqs: rcPrereq },
+    { id:'GET-/api/ringcentral/dnc/list', name:'RingCentral List Blocked', url:'/api/ringcentral/dnc/list', method:'GET', tags:['RingCentral'], prereqs: rcPrereq },
+    { id:'DELETE-/api/ringcentral/dnc/delete', name:'RingCentral Delete Blocked', url:'/api/ringcentral/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['RingCentral'], prereqs: rcPrereq },
+    // Genesys
+    { id:'POST-/api/genesys/auth', name:'Genesys Auth', url:'/api/genesys/auth', method:'POST', tags:['Genesys'], headers: json },
+    { id:'GET-/api/genesys/dnc/lists', name:'Genesys DNC Lists', url:'/api/genesys/dnc/lists', method:'GET', tags:['Genesys'] },
+    { id:'POST-/api/genesys/dnc/add', name:'Genesys Add DNC', url:'/api/genesys/dnc/add', method:'POST', tags:['Genesys'], headers: json, requestBodyExample: body },
+    { id:'DELETE-/api/genesys/dnc/delete', name:'Genesys Delete DNC', url:'/api/genesys/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['Genesys'] },
+    // Logics
+    { id:'POST-/api/logics/dnc/add', name:'Logics Update Case to DNC', url:'/api/logics/dnc/add?statusId=0', method:'POST', tags:['Logics'], headers: json, requestBodyExample: body },
+    { id:'GET-/api/logics/dnc/search', name:'Logics Search by Phone', url:'/api/logics/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['Logics'] },
+  ]
+}
+
+function resolveBodyPlaceholders(body: any) {
+  if (body === undefined) return undefined
+  const map = { phoneNumber: (document.querySelector('input[placeholder="5618189087"]') as HTMLInputElement)?.value || '' }
+  return deepReplace(body, map)
 }
 
 
