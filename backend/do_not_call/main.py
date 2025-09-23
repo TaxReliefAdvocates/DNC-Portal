@@ -10,6 +10,7 @@ from .core.logging_middleware import JsonRequestLogger
 
 from .config import settings
 from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron
+from .api.v1.providers import ytel as ytel_router, convoso as convoso_router, ringcentral as ringcentral_router, genesys as genesys_router, logics as logics_router
 from .core.database import SessionLocal
 from .core.database import init_db, close_db
 
@@ -115,6 +116,13 @@ app.include_router(
     prefix="/api/v1",
     responses={404: {"description": "Not found"}},
 )
+
+# New provider-specific routers
+app.include_router(ytel_router.router)
+app.include_router(convoso_router.router)
+app.include_router(ringcentral_router.router)
+app.include_router(genesys_router.router)
+app.include_router(logics_router.router)
 
 app.include_router(
     consent.router,
