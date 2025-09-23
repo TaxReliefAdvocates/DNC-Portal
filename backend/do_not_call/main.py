@@ -124,6 +124,13 @@ app.include_router(ringcentral_router.router, prefix="/api/v1")
 app.include_router(genesys_router.router, prefix="/api/v1")
 app.include_router(logics_router.router, prefix="/api/v1")
 
+# Back-compat aliases for provider endpoints under /api/* (no version)
+app.include_router(ytel_router.router, prefix="/api")
+app.include_router(convoso_router.router, prefix="/api")
+app.include_router(ringcentral_router.router, prefix="/api")
+app.include_router(genesys_router.router, prefix="/api")
+app.include_router(logics_router.router, prefix="/api")
+
 app.include_router(
     consent.router,
     prefix="/api/v1/consent",
