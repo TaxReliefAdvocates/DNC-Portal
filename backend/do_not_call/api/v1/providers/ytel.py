@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -17,19 +17,19 @@ class PhoneRequest(BaseModel):
     phoneNumber: str | None = Field(None, description="Phone number in E.164 format or US digits")
     phone_number: str | None = Field(None, description="Alternate Field: phone_number")
 
-def _resolve_phone(payload: PhoneRequest) -> str:
-    val = payload.phoneNumber or payload.phone_number or ""
+def _resolve_phone(payload: PhoneRequest, fallback_query: str | None = None) -> str:
+    val = payload.phoneNumber or payload.phone_number or fallback_query or ""
     return val
 
 
 @router.post("/ytel/dnc/add")
-async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_add(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body, phone_number))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()
@@ -47,13 +47,13 @@ async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal:
 
 
 @router.post("/ytel/dnc/search")
-async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_search(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body, phone_number))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()
@@ -70,13 +70,13 @@ async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), princip
 
 
 @router.post("/ytel/dnc/remove")
-async def ytel_remove(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_remove(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone(body, phone_number))
     if not phone:
         raise HTTPException(status_code=400, detail="Invalid phoneNumber")
     client = YtelClient()
