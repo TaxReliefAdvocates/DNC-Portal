@@ -75,34 +75,44 @@ class YtelClient(BaseCRMClient):
             raise Exception(f"Ytel removal failed: {str(e)}")
     
     async def check_status(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Check the status of a phone number in Ytel
-        
-        Args:
-            phone_number: Phone number to check
-            
-        Returns:
-            Dict containing the current status
+        """Mimic Ytel non_agent check using add_lead with DNC checks enabled.
+
+        Example (provided):
+        https://tra.ytel.com/x5/api/non_agent.php?function=add_lead&user=103&pass=bHSQPgE7J6nLzX&source=dncfilter&phone_number=5618189087&dnc_check=Y&campaign_dnc_check=Y&duplicate_check=Y
         """
         try:
-            logger.info(f"Checking status of {phone_number} in Ytel")
-            
-            # TODO: Implement actual Ytel API call here
-            # This is a placeholder implementation
-            
-            result = {
-                "phone_number": phone_number,
-                "crm_system": "ytel",
-                "status": "active",  # or "removed", "pending", etc.
-                "last_updated": datetime.now().isoformat(),
-                "notes": "Status check completed"
+            logger.info(f"Ytel DNC search for {phone_number}")
+            clean_phone = (
+                phone_number.replace('+1','').replace('-','').replace('(','').replace(')','').replace(' ','')
+            )
+            params = {
+                "function": "add_lead",
+                "user": settings.YTEL_USER or "",
+                "pass": settings.YTEL_PASS or "",
+                "source": settings.YTEL_ADD_TO_DNC.lower() if settings.YTEL_ADD_TO_DNC else "dncfilter",
+                "phone_number": clean_phone,
+                "dnc_check": "Y",
+                "campaign_dnc_check": "Y",
+                "duplicate_check": "Y",
             }
-            
-            return result
-            
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(settings.YTEL_NON_AGENT_URL, params=params)
+                body = (resp.text or "").strip()
+                ok = resp.status_code == 200
+                # Ytel returns ERROR lines for DNC present; treat that as listed
+                listed = ("PHONE NUMBER IN DNC" in body.upper()) or ("DNC" in body.upper() and "PHONE" in body.upper())
+                return {
+                    "success": ok,
+                    "phone_number": clean_phone,
+                    "crm_system": "ytel",
+                    "listed": listed,
+                    "message": body,
+                    "http_status": resp.status_code,
+                    "checked_at": datetime.now().isoformat(),
+                }
         except Exception as e:
-            logger.error(f"Failed to check status of {phone_number} in Ytel: {e}")
-            raise Exception(f"Ytel status check failed: {str(e)}")
+            logger.error(f"Ytel search failed for {phone_number}: {e}")
+            raise Exception(f"Ytel search failed: {str(e)}")
     
     async def get_removal_history(self, phone_number: str) -> Dict[str, Any]:
         """
