@@ -16,7 +16,7 @@ class PhoneRequest(BaseModel):
     phoneNumber: str = Field(...)
 
 
-@router.post("/api/ringcentral/auth")
+@router.post("/ringcentral/auth")
 async def ringcentral_auth():
     client = RingCentralService()
     st = await client.auth_status()
@@ -25,7 +25,7 @@ async def ringcentral_auth():
     return st
 
 
-@router.post("/api/ringcentral/dnc/add")
+@router.post("/ringcentral/dnc/add")
 async def ringcentral_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -49,19 +49,19 @@ async def ringcentral_add(body: PhoneRequest, db: Session = Depends(get_db), pri
     return {"success": True, "provider": "ringcentral", "phoneNumber": phone}
 
 
-@router.get("/api/ringcentral/dnc/list")
+@router.get("/ringcentral/dnc/list")
 async def ringcentral_list():
     client = RingCentralService()
     return await client.list_blocked_numbers()
 
 
-@router.get("/api/ringcentral/dnc/search")
+@router.get("/ringcentral/dnc/search")
 async def ringcentral_search(phoneNumber: str = Query(...)):
     client = RingCentralService()
     return await client.search_blocked_number(phoneNumber)
 
 
-@router.delete("/api/ringcentral/dnc/delete")
+@router.delete("/ringcentral/dnc/delete")
 async def ringcentral_delete(phoneNumber: str = Query(...)):
     client = RingCentralService()
     ok = await client.remove_blocked_number(phoneNumber)

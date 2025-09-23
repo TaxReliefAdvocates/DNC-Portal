@@ -16,7 +16,7 @@ class PhoneRequest(BaseModel):
     phoneNumber: str = Field(...)
 
 
-@router.post("/api/logics/dnc/add")
+@router.post("/logics/dnc/add")
 async def logics_add(body: PhoneRequest, statusId: int = Query(0), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -45,7 +45,7 @@ async def logics_add(body: PhoneRequest, statusId: int = Query(0), db: Session =
     return {"success": True, "provider": "logics", "phoneNumber": phone, "caseId": case_id}
 
 
-@router.get("/api/logics/dnc/search")
+@router.get("/logics/dnc/search")
 async def logics_search(phoneNumber: str = Query(...)):
     client = TPSApiClient()
     cases = await client.find_cases_by_phone(phoneNumber)

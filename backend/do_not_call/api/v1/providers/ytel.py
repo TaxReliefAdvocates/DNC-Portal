@@ -17,7 +17,7 @@ class PhoneRequest(BaseModel):
     phoneNumber: str = Field(..., description="Phone number in E.164 format or US digits")
 
 
-@router.post("/api/ytel/dnc/add")
+@router.post("/ytel/dnc/add")
 async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -41,7 +41,7 @@ async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal:
     return {"success": True, "provider": "ytel", "phoneNumber": phone}
 
 
-@router.post("/api/ytel/dnc/search")
+@router.post("/ytel/dnc/search")
 async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -64,7 +64,7 @@ async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), princip
     return res
 
 
-@router.post("/api/ytel/dnc/remove")
+@router.post("/ytel/dnc/remove")
 async def ytel_remove(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)

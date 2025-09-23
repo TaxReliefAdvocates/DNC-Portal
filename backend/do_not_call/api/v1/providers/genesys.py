@@ -16,19 +16,19 @@ class PhoneRequest(BaseModel):
     phoneNumber: str = Field(...)
 
 
-@router.post("/api/genesys/auth")
+@router.post("/genesys/auth")
 async def genesys_auth():
     # Placeholder auth status endpoint; implement client credentials flow in client as needed
     return {"authenticated": True}
 
 
-@router.get("/api/genesys/dnc/lists")
+@router.get("/genesys/dnc/lists")
 async def genesys_lists():
     # Placeholder; real implementation would fetch lists
     return {"lists": []}
 
 
-@router.post("/api/genesys/dnc/add")
+@router.post("/genesys/dnc/add")
 async def genesys_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -52,7 +52,7 @@ async def genesys_add(body: PhoneRequest, db: Session = Depends(get_db), princip
     return {"success": True, "provider": "genesys", "phoneNumber": phone}
 
 
-@router.delete("/api/genesys/dnc/delete")
+@router.delete("/genesys/dnc/delete")
 async def genesys_delete(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)

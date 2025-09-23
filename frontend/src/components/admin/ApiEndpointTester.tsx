@@ -57,6 +57,8 @@ export const ApiEndpointTester: React.FC = () => {
       const out: Endpoint[] = []
       const paths = spec.paths || {}
       Object.entries(paths).forEach(([path, ops]: any) => {
+        // Hide legacy provider endpoints (we expose curated ones below)
+        if (/^\/api\/v1\/(ringcentral|ytel|convoso|genesys|logics)\//.test(path)) return
         Object.entries(ops || {}).forEach(([verb, op]: any) => {
           const m = methodOf(verb)
           if (!m) return

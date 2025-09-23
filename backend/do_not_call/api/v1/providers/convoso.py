@@ -16,7 +16,7 @@ class PhoneRequest(BaseModel):
     phoneNumber: str = Field(..., description="Phone number in E.164 format or US digits")
 
 
-@router.post("/api/convoso/dnc/add")
+@router.post("/convoso/dnc/add")
 async def convoso_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -40,7 +40,7 @@ async def convoso_add(body: PhoneRequest, db: Session = Depends(get_db), princip
     return {"success": True, "provider": "convoso", "phoneNumber": phone}
 
 
-@router.get("/api/convoso/dnc/search")
+@router.get("/convoso/dnc/search")
 async def convoso_search(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -63,7 +63,7 @@ async def convoso_search(phoneNumber: str = Query(...), db: Session = Depends(ge
     return res
 
 
-@router.delete("/api/convoso/dnc/delete")
+@router.delete("/convoso/dnc/delete")
 async def convoso_delete(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
@@ -87,7 +87,7 @@ async def convoso_delete(phoneNumber: str = Query(...), db: Session = Depends(ge
     return {"success": True, "provider": "convoso", "phoneNumber": phone}
 
 
-@router.get("/api/convoso/leads/search")
+@router.get("/convoso/leads/search")
 async def convoso_leads_search(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     # Placeholder: reuse DNC search; replace with proper leads endpoint when available
     return await convoso_search(phoneNumber=phoneNumber, db=db, principal=principal)
