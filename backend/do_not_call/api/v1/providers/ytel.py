@@ -17,13 +17,13 @@ class PhoneRequest(BaseModel):
     phoneNumber: str | None = Field(None, description="Phone number in E.164 format or US digits")
     phone_number: str | None = Field(None, description="Alternate Field: phone_number")
 
-def _resolve_phone(payload: PhoneRequest, fallback_query: str | None = None) -> str:
-    val = payload.phoneNumber or payload.phone_number or fallback_query or ""
+def _resolve_phone(payload: PhoneRequest | None, fallback_query: str | None = None) -> str:
+    val = (payload.phoneNumber if payload else None) or (payload.phone_number if payload else None) or fallback_query or ""
     return val
 
 
 @router.post("/ytel/dnc/add")
-async def ytel_add(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_add(body: PhoneRequest | None = None, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
@@ -47,7 +47,7 @@ async def ytel_add(body: PhoneRequest, phone_number: str | None = Query(None), d
 
 
 @router.post("/ytel/dnc/search")
-async def ytel_search(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_search(body: PhoneRequest | None = None, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
@@ -70,7 +70,7 @@ async def ytel_search(body: PhoneRequest, phone_number: str | None = Query(None)
 
 
 @router.post("/ytel/dnc/remove")
-async def ytel_remove(body: PhoneRequest, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_remove(body: PhoneRequest | None = None, phone_number: str | None = Query(None), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
