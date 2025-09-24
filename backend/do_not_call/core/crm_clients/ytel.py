@@ -113,6 +113,10 @@ class YtelClient(BaseCRMClient):
         except Exception as e:
             logger.error(f"Ytel search failed for {phone_number}: {e}")
             raise Exception(f"Ytel search failed: {str(e)}")
+
+    async def check_phone_number_status(self, phone_number: str) -> Dict[str, Any]:
+        """Implement abstract base compatibility by delegating to check_status."""
+        return await self.check_status(phone_number)
     
     async def get_removal_history(self, phone_number: str) -> Dict[str, Any]:
         """
