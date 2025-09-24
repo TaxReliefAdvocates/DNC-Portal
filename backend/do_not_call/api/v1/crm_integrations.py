@@ -26,6 +26,10 @@ from ...core.models import SystemSetting
 from fastapi import Response
 
 router = APIRouter()
+@router.get("/crm/statuses", tags=["Core"])
+async def crm_statuses(db: Session = Depends(get_db)):
+    # Placeholder: return empty list for dashboard summary until implemented
+    return []
 @router.get("/ringcentral/dnc/list", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
 async def ringcentral_list_blocked(db: Session = Depends(get_db)):
     """List blocked numbers on RingCentral (first page)."""
