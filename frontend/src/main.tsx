@@ -25,20 +25,40 @@ const msal = new PublicClientApplication({
   // Expose instance for auth checks and logout ONLY after initialize
   ;(window as any).__msalInstance = msal
 
-  // Expose a minimal token getter for api.ts to use
+  // Expose a minimal token getter for api.ts to use with reentrancy guard
+  let __tokenPromise: Promise<string | null> | null = null
   ;(window as any).__msalAcquireToken = async (scopes: string[]) => {
-    try {
-      const accounts = msal.getAllAccounts()
-      if (accounts.length === 0) {
-        await msal.loginPopup({ scopes })
+    if (__tokenPromise) return __tokenPromise
+    __tokenPromise = (async () => {
+      try {
+        const accounts = msal.getAllAccounts()
+        // Try silent first if we have an account
+        if (accounts.length > 0) {
+          try {
+            const req: SilentRequest = { account: accounts[0], scopes }
+            const res = await msal.acquireTokenSilent(req)
+            return res.accessToken
+          } catch (e: any) {
+            // fall through to interactive
+          }
+        }
+        // Interactive: guard against interaction_in_progress
+        try {
+          const res = await msal.loginPopup({ scopes })
+          return res.accessToken
+        } catch (e: any) {
+          const code = e?.errorCode || e?.message || ''
+          if (String(code).includes('interaction_in_progress')) {
+            // Another popup in flight; do not spawn another. Let caller continue without token.
+            return null
+          }
+          throw e
+        }
+      } finally {
+        __tokenPromise = null
       }
-      const req: SilentRequest = { account: msal.getAllAccounts()[0], scopes }
-      const res = await msal.acquireTokenSilent(req)
-      return res.accessToken
-    } catch {
-      const res = await msal.loginPopup({ scopes })
-      return res.accessToken
-    }
+    })()
+    return __tokenPromise
   }
 
   ;(window as any).__msalLogout = async () => {

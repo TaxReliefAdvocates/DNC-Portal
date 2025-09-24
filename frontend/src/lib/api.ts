@@ -36,12 +36,15 @@ function getDemoHeaders(): Record<string, string> {
 }
 
 // Helper to get Azure AD token
+let tokenInFlight: Promise<string | null> | null = null
 async function getAzureToken(): Promise<string | null> {
   try {
     const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
     const scope = import.meta.env.VITE_ENTRA_SCOPE as string | undefined
     if (acquire && scope) {
-      const token = await acquire([scope])
+      if (!tokenInFlight) tokenInFlight = acquire([scope]).catch(()=>null)
+      const token = await tokenInFlight
+      tokenInFlight = null
       return token || null
     }
   } catch (error) {
