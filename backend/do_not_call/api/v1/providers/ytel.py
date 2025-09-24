@@ -31,7 +31,7 @@ async def ytel_add(body: PhoneRequest | None = None, db: Session = Depends(get_d
         pass
     phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
+        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
     client = YtelClient()
     summary = await track_provider_attempt(
         db,
@@ -55,7 +55,7 @@ async def ytel_search(body: PhoneRequest | None = None, db: Session = Depends(ge
         pass
     phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
+        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
     client = YtelClient()
     res = await client.check_status(phone)
     await track_provider_attempt(
@@ -78,7 +78,7 @@ async def ytel_remove(body: PhoneRequest | None = None, db: Session = Depends(ge
         pass
     phone = normalize_phone_to_e164_digits(_resolve_phone(body))
     if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
+        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
     client = YtelClient()
     summary = await track_provider_attempt(
         db,
