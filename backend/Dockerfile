@@ -1,5 +1,6 @@
 # Render backend Dockerfile
-FROM python:3.11-slim
+# Use AWS ECR Public mirror to avoid Docker Hub auth/rate-limit issues
+FROM public.ecr.aws/docker/library/python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
