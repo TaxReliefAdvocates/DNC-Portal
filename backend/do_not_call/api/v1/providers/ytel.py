@@ -23,7 +23,7 @@ def _resolve_phone(payload: PhoneRequest | None) -> str:
 
 
 @router.post("/ytel/dnc/add")
-async def ytel_add(body: PhoneRequest | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_add(body: PhoneRequest = Depends(), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
@@ -47,7 +47,7 @@ async def ytel_add(body: PhoneRequest | None = None, db: Session = Depends(get_d
 
 
 @router.post("/ytel/dnc/search")
-async def ytel_search(body: PhoneRequest | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_search(body: PhoneRequest = Depends(), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
@@ -70,7 +70,7 @@ async def ytel_search(body: PhoneRequest | None = None, db: Session = Depends(ge
 
 
 @router.post("/ytel/dnc/remove")
-async def ytel_remove(body: PhoneRequest | None = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_remove(body: PhoneRequest = Depends(), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)

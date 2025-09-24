@@ -96,10 +96,10 @@ app.add_middleware(JsonRequestLogger)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_origin_regex=settings.ALLOWED_ORIGIN_REGEX,
-    allow_credentials=True,
-    allow_methods=["*"] ,
+    allow_origins=["*"],
+    allow_origin_regex=None,
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Correlation-Id"]
 )
