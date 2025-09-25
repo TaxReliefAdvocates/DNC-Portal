@@ -16,6 +16,7 @@ type Endpoint = {
   requestBodyExample?: any
   headers?: Record<string, string>
   prereqs?: Endpoint[]
+  hasBody?: boolean
 }
 
 type StepResult = { title: string; ok: boolean; status: number; ms: number; body: any }
@@ -59,13 +60,14 @@ export const ApiEndpointTester: React.FC = () => {
       const out: Endpoint[] = []
       const paths = spec.paths || {}
       Object.entries(paths).forEach(([path, ops]: any) => {
-        // Hide provider endpoints discovered from OpenAPI; we show curated ones with strict JSON bodies
-        if (/^\/api(?:\/v1)?\/(ringcentral|ytel|convoso|genesys|logics)\//.test(path)) return
         Object.entries(ops || {}).forEach(([verb, op]: any) => {
           const m = methodOf(verb)
           if (!m) return
           const id = `${m}-${path}`
-          const url = path
+          // Append query parameter placeholders based on OpenAPI parameter list
+          const params = Array.isArray(op?.parameters) ? (op.parameters as any[]).filter(p => p?.in === 'query').map(p => p?.name).filter(Boolean) : []
+          const querySuffix = params.length ? `?${params.map((n:string)=>`${n}={${n}}`).join('&')}` : ''
+          const url = `${path}${querySuffix}`
           const name = op?.summary || `${m} ${path}`
           const tags: string[] = Array.isArray(op?.tags) ? op.tags : ['Untagged']
           let example: any = undefined
@@ -73,11 +75,13 @@ export const ApiEndpointTester: React.FC = () => {
             example = op?.requestBody?.content?.['application/json']?.example
               || op?.requestBody?.content?.['application/json']?.examples?.[0]
           } catch {}
+          const hasBody = !!op?.requestBody
           // Heuristic prereq for RingCentral auth (new provider endpoints)
           const prereqs: Endpoint[] = url.includes('/ringcentral/') && !url.includes('/auth')
             ? [{ id:'rc-auth', name:'RingCentral Auth', url: '/api/ringcentral/auth', method:'POST', tags:['RingCentral'] }]
             : []
-          out.push({ id, name, url, method: m, tags, description: op?.description, requestBodyExample: example, headers: { 'Content-Type': 'application/json' }, prereqs })
+          const headers = hasBody ? { 'Content-Type': 'application/json' } : undefined
+          out.push({ id, name, url, method: m, tags, description: op?.description, requestBodyExample: example, headers, prereqs, hasBody })
         })
       })
       // Append curated provider endpoints to guarantee coverage and correct request bodies
@@ -164,7 +168,7 @@ export const ApiEndpointTester: React.FC = () => {
     }
     if (steps.every(s=> s.ok)) {
       const url = substitutePathParams(ep.url)
-      const s = await runStep('API Call', ep.method, url, ep.headers, ep.requestBodyExample)
+      const s = await runStep('API Call', ep.method, url, ep.headers, ep.hasBody ? ep.requestBodyExample : undefined)
       steps.push(s)
     }
     const totalMs = Math.round(performance.now()-t0)
@@ -234,7 +238,7 @@ export const ApiEndpointTester: React.FC = () => {
                         ))}
                       </div>
                     )}
-                    {isWrite && (
+                    {isWrite && ep.hasBody && (
                       <div className="mb-2">
                         <div className="text-xs text-gray-600 mb-1">Request JSON Body</div>
                         <textarea
