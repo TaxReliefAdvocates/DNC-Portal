@@ -190,6 +190,20 @@ async def root():
 async def health():
     return {"status": "ok"}
 
+@app.get("/debug-env", tags=["Debug"])
+async def debug_env():
+    """Debug endpoint to check environment variables"""
+    return {
+        "convoso_auth_token": bool(settings.convoso_auth_token),
+        "ytel_user": bool(settings.ytel_user),
+        "ytel_password": bool(settings.ytel_password),
+        "genesys_client_id": bool(settings.genesys_client_id),
+        "genesys_client_secret": bool(settings.genesys_client_secret),
+        "logics_basic_auth_b64": bool(settings.logics_basic_auth_b64),
+        "ringcentral_jwt_assertion": bool(settings.ringcentral_jwt_assertion),
+        "enable_providers": settings.ENABLE_PROVIDERS
+    }
+
 # Custom OpenAPI description block
 
 def custom_openapi():
