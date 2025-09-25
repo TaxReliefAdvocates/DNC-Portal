@@ -20,7 +20,8 @@ router = APIRouter()
 
 
 async def ringcentral_get_token(assertion: Optional[str] = None, client_basic_b64: Optional[str] = None) -> str:
-	jwt_assertion = assertion or settings.ringcentral_jwt_assertion
+    # Prefer explicit assertion, then settings.ringcentral_jwt_assertion, then legacy settings.ringcentral_jwt
+    jwt_assertion = assertion or settings.ringcentral_jwt_assertion or getattr(settings, 'ringcentral_jwt', None)
 	if not jwt_assertion:
 		raise HTTPException(status_code=400, detail="RingCentral JWT assertion required.")
 	headers: Dict[str, str] = {"Content-Type": "application/x-www-form-urlencoded"}

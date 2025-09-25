@@ -139,6 +139,8 @@ class Settings(BaseSettings):
     ringcentral_client_id: Optional[str] = None
     ringcentral_client_secret: Optional[str] = None
     ringcentral_jwt_assertion: Optional[str] = None
+    # Backwards compat: allow env RINGCENTRAL_JWT as an alias
+    ringcentral_jwt: Optional[str] = None
     ringcentral_basic_b64: Optional[str] = None
 
     # Genesys
