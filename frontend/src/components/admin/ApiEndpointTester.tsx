@@ -84,8 +84,8 @@ export const ApiEndpointTester: React.FC = () => {
           out.push({ id, name, url, method: m, tags, description: op?.description, requestBodyExample: example, headers, prereqs, hasBody })
         })
       })
-      // Append curated provider endpoints to guarantee coverage and correct request bodies
-  const curated = buildProviderEndpoints().filter(e => !/^POST|GET|DELETE/.test('') )
+      // Append curated endpoints that are allowed in the tester (FreeDNC/Tenants only)
+      const curated = buildProviderEndpoints()
       const seen = new Set(out.map(e => e.id))
       const merged = [...out]
       curated.forEach(e => { if (!seen.has(e.id)) { merged.push(e); seen.add(e.id) } })
@@ -304,9 +304,6 @@ function deepReplace(value: any, map: Record<string,string>): any {
 
 function buildProviderEndpoints(): Endpoint[] {
   const json = { 'Content-Type': 'application/json' }
-  const body = { phoneNumber: '{phoneNumber}' }
-  const rcAuth: Endpoint = { id:'POST-/api/v1/ringcentral/auth', name:'RingCentral Auth', url:'/api/v1/ringcentral/auth', method:'POST', tags:['RingCentral'], headers: json }
-  const rcPrereq = [rcAuth]
   const tenantAdmin = Object.assign({}, json, { 'X-Org-Id': '1', 'X-User-Id': '1', 'X-Role': 'superadmin' })
   // Only include FreeDNC/Postgres-backed tester items
   return [
