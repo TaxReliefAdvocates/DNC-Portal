@@ -23,6 +23,7 @@ import anyio
 import httpx
 from httpx import ASGITransport
 from ...main import app as fastapi_app
+from ...api.v1.providers.ringcentral import ringcentral_get_token
 
 router = APIRouter()
 # Track provider DNC history attempts
@@ -466,6 +467,7 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
     g_cid = getattr(cfg, "genesys_client_id", None)
     g_csec = getattr(cfg, "genesys_client_secret", None)
     g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
+    # RingCentral uses JWT assertion in settings; we'll search blocked list
 
     async def _in_app_client():
         transport = ASGITransport(app=fastapi_app)
@@ -526,6 +528,29 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
                         entry["added"]["genesys"] = a.json()
                     except Exception as e:
                         entry.setdefault("add_errors", {})["genesys"] = str(e)
+
+            # RingCentral search (blocked list)
+            try:
+                # Acquire access token via server credentials
+                token = await ringcentral_get_token()
+                headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+                params = {"status": "Blocked", "page": 1, "perPage": 100}
+                rc_phone = phone if phone.startswith("+") else f"+{phone}"
+                async with httpx.AsyncClient(base_url="https://platform.ringcentral.com") as hc:
+                    r = await hc.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
+                    listed = False
+                    try:
+                        js = r.json()
+                        items = js.get("records") or js.get("data") or []
+                        for it in items:
+                            if str(it.get("phoneNumber", "")) == rc_phone:
+                                listed = True
+                                break
+                    except Exception:
+                        listed = False
+                    entry.setdefault("searched", {}).setdefault("ringcentral", {})["listed"] = listed
+            except Exception:
+                entry.setdefault("searched", {}).setdefault("ringcentral", {})["error"] = "search_failed"
 
             # Log attempt rows (best-effort)
             try:
