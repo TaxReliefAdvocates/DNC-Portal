@@ -38,10 +38,28 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/systems-check?phone_number=${encodeURIComponent(phone)}`, { headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc/orchestrate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ mode: 'search', phone_numbers: [phone] })
+      })
       if (resp.ok) {
         const data = await resp.json()
-        setResults((r)=>({ ...r, [phone]: data }))
+        const rr = Array.isArray(data.results) ? data.results[0] : null
+        const providers: Record<string, any> = {}
+        // Federal DNC summary
+        if (rr?.freednc) providers.dnc = { listed: Boolean(rr.freednc.is_dnc) }
+        // Genesys present mapping
+        try {
+          const present = rr?.searched?.genesys?.data?.present || rr?.searched?.genesys?.present
+          if (present && typeof present === 'object') {
+            providers.genesys = { listed: Boolean(present[phone]) }
+          }
+        } catch {}
+        setResults((r)=>({
+          ...r,
+          [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } }
+        }))
         setErr(null)
         // Ensure Logics (TPS) detection by doing a direct case lookup
         await recheckLogics(phone)
@@ -231,31 +249,25 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
       <Button
         onClick={async ()=>{
           try {
-            const tasks: { provider: 'ringcentral'|'convoso'|'ytel'|'logics', phone: string }[] = []
-            numbers.forEach((n)=>{
-              const res = results[n]
-              const prov = res?.providers || {}
-              if (!prov.ringcentral?.listed) tasks.push({ provider:'ringcentral', phone: n })
-              if (!prov.convoso?.listed) tasks.push({ provider:'convoso', phone: n })
-              tasks.push({ provider:'ytel', phone: n })
-              if (prov.logics?.cases?.[0]?.CaseID) tasks.push({ provider:'logics', phone: n })
-            })
-
-            setProgress({
-              total: tasks.length,
-              completed: 0,
-              failed: 0,
-              per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 } },
-              logs: [],
-            })
             setShowModal(true)
-            for (const t of tasks) {
-              // eslint-disable-next-line no-await-in-loop
-              await push(t.provider, t.phone)
+            setProgress({ total: numbers.length, completed: 0, failed: 0, per: { ringcentral:{completed:0,failed:0}, convoso:{completed:0,failed:0}, ytel:{completed:0,failed:0}, logics:{completed:0,failed:0} }, logs: [] })
+            const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc/orchestrate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+              body: JSON.stringify({ mode: 'push', phone_numbers: numbers })
+            })
+            if (resp.ok) {
+              setProgress((p)=>({ ...p, completed: numbers.length, logs: [...p.logs, `orchestrate ✓ ${numbers.length} numbers`] }))
+              // Refresh each number's status
+              for (const n of numbers) { // eslint-disable-line no-restricted-syntax
+                // eslint-disable-next-line no-await-in-loop
+                await runCheck(n)
+              }
+            } else {
+              setProgress((p)=>({ ...p, failed: numbers.length, logs: [...p.logs, `orchestrate ✗`]}))
             }
           } finally {
-            // keep modal open until explicit close
-            onAutomationComplete?.(progress.total)
+            onAutomationComplete?.(numbers.length)
           }
         }}
         disabled={pushing !== null}
