@@ -42,6 +42,7 @@ export const ApiEndpointTester: React.FC = () => {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [specBaseUrl, setSpecBaseUrl] = useState<string | undefined>(undefined)
   const [customBodies, setCustomBodies] = useState<Record<string, string>>({})
+  const [customParams, setCustomParams] = useState<Record<string, Record<string,string>>>({})
 
   const substitutePathParams = (path: string) => path.replace(/\{[^/}]+\}/g, encodeURIComponent(testValue || ''))
 
@@ -115,7 +116,7 @@ export const ApiEndpointTester: React.FC = () => {
         }
       }
       const payload = resolvedBody !== undefined ? (typeof resolvedBody === 'string' ? resolvedBody : JSON.stringify(resolveBodyPlaceholders(resolvedBody))) : undefined
-      const resp = await fetch(buildUrl(urlOrPath), { method, headers, body: payload })
+      const resp = await fetch(buildUrl(applyQueryOverrides(urlOrPath)), { method, headers, body: payload })
       const txt = await resp.text()
       let data: any = txt
       try { data = JSON.parse(txt) } catch {}
@@ -124,6 +125,29 @@ export const ApiEndpointTester: React.FC = () => {
       return { title, ok: false, status: 0, ms: Math.round(performance.now()-started), body: String(e?.message||e) }
     }
   }
+  // Parse initial query params from a path like /api/foo?x=1&y=2
+  const parseQueryParams = (path: string): string[] => {
+    const qIndex = path.indexOf('?')
+    if (qIndex === -1) return []
+    const qs = path.slice(qIndex+1)
+    return qs.split('&').map(p => p.split('=')[0]).filter(Boolean)
+  }
+
+  // Apply overrides from customParams into the path's query string
+  const applyQueryOverrides = (path: string): string => {
+    const overrides = customParams[path]
+    if (!overrides || Object.keys(overrides).length === 0) return path
+    const qIndex = path.indexOf('?')
+    const base = qIndex === -1 ? path : path.slice(0, qIndex)
+    const urlSearch = new URLSearchParams(qIndex === -1 ? '' : path.slice(qIndex+1))
+    Object.entries(overrides).forEach(([k,v]) => {
+      if (v === undefined || v === null || String(v).trim() === '') return
+      urlSearch.set(k, String(v))
+    })
+    const qs = urlSearch.toString()
+    return qs ? `${base}?${qs}` : base
+  }
+
 
   const testEndpoint = async (ep: Endpoint) => {
     setLoading(prev => ({ ...prev, [ep.id]: true }))
@@ -182,6 +206,7 @@ export const ApiEndpointTester: React.FC = () => {
             {list.map(ep => {
               const r = results[ep.id]
               const isWrite = ['POST','PUT','PATCH'].includes(ep.method)
+              const isReadWithQuery = ['GET','DELETE'].includes(ep.method) && ep.url.includes('?')
               const defaultBody = JSON.stringify(resolveBodyPlaceholders(ep.requestBodyExample ?? { phoneNumber: '{phoneNumber}' }), null, 2)
               return (
                 <Card key={ep.id}>
@@ -194,6 +219,21 @@ export const ApiEndpointTester: React.FC = () => {
                   <CardContent>
                     {ep.description && <div className="text-sm text-gray-600 mb-2">{ep.description}</div>}
                     <div className="text-xs font-mono break-all bg-gray-50 border rounded p-2 mb-2">{substitutePathParams(ep.url)}</div>
+                    {isReadWithQuery && (
+                      <div className="mb-2 space-y-1">
+                        <div className="text-xs text-gray-600">Query Parameters</div>
+                        {parseQueryParams(ep.url).map((key) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <div className="text-xs w-32 text-gray-700">{key}</div>
+                            <Input
+                              value={(customParams[ep.url]?.[key] ?? '')}
+                              onChange={(e)=> setCustomParams(prev=> ({ ...prev, [ep.url]: { ...(prev[ep.url]||{}), [key]: e.target.value } }))}
+                              placeholder={key === 'phoneNumber' ? testValue : ''}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {isWrite && (
                       <div className="mb-2">
                         <div className="text-xs text-gray-600 mb-1">Request JSON Body</div>
