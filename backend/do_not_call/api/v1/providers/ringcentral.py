@@ -85,9 +85,14 @@ async def list_all_dnc(request: ListAllDNCRequest, bearer_token: Optional[str] =
 		return DNCOperationResponse(success=True, message="Listed DNC entries (RingCentral)", data=data)
 
 
-@router.post("/search-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
-async def search_dnc_placeholder(_: SearchDNCRequest):
-	return ComingSoonResponse()
+@router.get("/blocked/{resource_id}", response_model=DNCOperationResponse)
+async def get_blocked_entry(resource_id: str, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+    token = bearer_token or await ringcentral_get_token(assertion)
+    headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+    url = f"/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers/{resource_id}"
+    async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+        resp = await http.get(url, headers=headers)
+        return DNCOperationResponse(success=True, message="Fetched blocked entry (RingCentral)", data=resp.json())
 
 
 @router.post("/upload-dnc-list-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
