@@ -390,7 +390,7 @@ async def check_batch_numbers(
             detail=f"Error in batch DNC check: {str(e)}"
         )
 
-@router.post("/check_tps_database")
+@router.post("/check_tps_database", include_in_schema=False)
 async def check_tps_database_dnc(
     request_data: dict,
     db: Session = Depends(get_db)
@@ -531,7 +531,7 @@ async def get_processing_status(processing_id: str):
         "message": "Processing completed successfully"
     }
 
-@router.post("/cases_by_phone")
+@router.post("/cases_by_phone", include_in_schema=False)
 async def cases_by_phone(request_data: dict):
     """
     Return all cases for a given phone number across TPS2 phone fields.

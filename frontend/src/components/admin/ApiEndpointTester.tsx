@@ -85,7 +85,7 @@ export const ApiEndpointTester: React.FC = () => {
         })
       })
       // Append curated provider endpoints to guarantee coverage and correct request bodies
-      const curated = buildProviderEndpoints()
+  const curated = buildProviderEndpoints().filter(e => !/^POST|GET|DELETE/.test('') )
       const seen = new Set(out.map(e => e.id))
       const merged = [...out]
       curated.forEach(e => { if (!seen.has(e.id)) { merged.push(e); seen.add(e.id) } })
@@ -308,6 +308,7 @@ function buildProviderEndpoints(): Endpoint[] {
   const rcAuth: Endpoint = { id:'POST-/api/v1/ringcentral/auth', name:'RingCentral Auth', url:'/api/v1/ringcentral/auth', method:'POST', tags:['RingCentral'], headers: json }
   const rcPrereq = [rcAuth]
   const tenantAdmin = Object.assign({}, json, { 'X-Org-Id': '1', 'X-User-Id': '1', 'X-Role': 'superadmin' })
+  // Only include FreeDNC/Postgres-backed tester items
   return [
     // Statuses (CRMStatus summary)
     { id:'GET-/api/v1/statuses', name:'CRM Statuses', url:'/api/v1/statuses', method:'GET', tags:['Core'] },
@@ -317,29 +318,7 @@ function buildProviderEndpoints(): Endpoint[] {
     { id:'POST-/api/cases_by_phone', name:'Cases By Phone (TPS)', url:'/api/cases_by_phone', method:'POST', tags:['Core'], headers: json, requestBodyExample: { phone_number: '{phoneNumber}' } },
     { id:'POST-/api/run_automation', name:'Run DNC Automation (stub)', url:'/api/run_automation', method:'POST', tags:['Core'], headers: json, requestBodyExample: { phone_number: '{phoneNumber}' } },
     { id:'POST-/api/cookies/refresh', name:'Refresh FreeDNC Cookies', url:'/api/cookies/refresh', method:'POST', tags:['Core'] },
-    // Ytel uses query params
-    { id:'POST-/api/v1/ytel/dnc/add', name:'Ytel Add DNC', url:'/api/v1/ytel/dnc/add?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
-    { id:'POST-/api/v1/ytel/dnc/search', name:'Ytel Search DNC', url:'/api/v1/ytel/dnc/search?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
-    { id:'POST-/api/v1/ytel/dnc/remove', name:'Ytel Remove DNC', url:'/api/v1/ytel/dnc/remove?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
-    // Convoso
-    { id:'POST-/api/v1/convoso/dnc/add', name:'Convoso Add DNC', url:'/api/v1/convoso/dnc/add', method:'POST', tags:['Convoso'], headers: json, requestBodyExample: body },
-    { id:'GET-/api/v1/convoso/dnc/search', name:'Convoso Search DNC', url:'/api/v1/convoso/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['Convoso'] },
-    { id:'DELETE-/api/v1/convoso/dnc/delete', name:'Convoso Delete DNC', url:'/api/v1/convoso/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['Convoso'] },
-    { id:'GET-/api/v1/convoso/leads/search', name:'Convoso Leads Search', url:'/api/v1/convoso/leads/search?phoneNumber={phoneNumber}', method:'GET', tags:['Convoso'] },
-    // RingCentral
-    rcAuth,
-    { id:'POST-/api/v1/ringcentral/dnc/add', name:'RingCentral Add Blocked', url:'/api/v1/ringcentral/dnc/add', method:'POST', tags:['RingCentral'], headers: json, requestBodyExample: body, prereqs: rcPrereq },
-    { id:'GET-/api/v1/ringcentral/dnc/search', name:'RingCentral Search Blocked', url:'/api/v1/ringcentral/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['RingCentral'], prereqs: rcPrereq },
-    { id:'GET-/api/v1/ringcentral/dnc/list', name:'RingCentral List Blocked', url:'/api/v1/ringcentral/dnc/list', method:'GET', tags:['RingCentral'], prereqs: rcPrereq },
-    { id:'DELETE-/api/v1/ringcentral/dnc/delete', name:'RingCentral Delete Blocked', url:'/api/v1/ringcentral/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['RingCentral'], prereqs: rcPrereq },
-    // Genesys
-    { id:'POST-/api/v1/genesys/auth', name:'Genesys Auth', url:'/api/v1/genesys/auth', method:'POST', tags:['Genesys'], headers: json },
-    { id:'GET-/api/v1/genesys/dnc/lists', name:'Genesys DNC Lists', url:'/api/v1/genesys/dnc/lists', method:'GET', tags:['Genesys'] },
-    { id:'POST-/api/v1/genesys/dnc/add', name:'Genesys Add DNC', url:'/api/v1/genesys/dnc/add', method:'POST', tags:['Genesys'], headers: json, requestBodyExample: body },
-    { id:'DELETE-/api/v1/genesys/dnc/delete', name:'Genesys Delete DNC', url:'/api/v1/genesys/dnc/delete?phoneNumber={phoneNumber}', method:'DELETE', tags:['Genesys'] },
-    // Logics
-    { id:'POST-/api/v1/logics/dnc/add', name:'Logics Update Case to DNC', url:'/api/v1/logics/dnc/add?statusId=0', method:'POST', tags:['Logics'], headers: json, requestBodyExample: body },
-    { id:'GET-/api/v1/logics/dnc/search', name:'Logics Search by Phone', url:'/api/v1/logics/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['Logics'] },
+    // (provider endpoints removed from tester)
     // Tenants (admin headers)
     { id:'GET-/api/v1/tenants/propagation/attempts', name:'Tenant DNC History (by Org)', url:'/api/v1/tenants/propagation/attempts/1', method:'GET', tags:['Tenants'], headers: tenantAdmin },
     { id:'GET-/api/v1/tenants/system/services', name:'System Services (admin)', url:'/api/v1/tenants/system/services', method:'GET', tags:['Tenants'], headers: tenantAdmin },
