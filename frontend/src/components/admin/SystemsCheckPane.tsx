@@ -33,7 +33,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const [, setErr] = useState<string | null>(null)
   const [pushing, setPushing] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [progress, setProgress] = useState<{ total: number, completed: number, failed: number, per: Record<string, { completed: number, failed: number }>, logs: string[] }>({ total: 0, completed: 0, failed: 0, per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 } }, logs: [] })
+  const [progress, setProgress] = useState<{ total: number, completed: number, failed: number, per: Record<string, { completed: number, failed: number }>, logs: string[] }>({ total: 0, completed: 0, failed: 0, per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 }, genesys: { completed: 0, failed: 0 } }, logs: [] })
 
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
@@ -56,6 +56,10 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
             providers.genesys = { listed: Boolean(present[phone]) }
           }
         } catch {}
+        // Map other providers from orchestrate response
+        try { providers.ringcentral = { listed: Boolean(rr?.searched?.ringcentral?.listed) } } catch {}
+        try { providers.convoso = { listed: Boolean(rr?.searched?.convoso?.listed) } } catch {}
+        try { providers.ytel = { listed: Boolean(rr?.searched?.ytel?.listed) } } catch {}
         setResults((r)=>({
           ...r,
           [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } }
@@ -231,6 +235,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                     </div>
                   </div>
                   <div className="flex items-center justify-between border rounded p-2">
+                    <div className="font-medium">Genesys</div>
+                    <div className="flex items-center gap-2">
+                      {cell(providers.genesys?.listed)}
+                      {/* Per-provider push for Genesys requires list id; use the big button below */}
+                      <Button size="sm" variant="outline" disabled title="Use 'Put on DNC List (all remaining)' for Genesys">Push</Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border rounded p-2">
                     <div className="font-medium">Ytel</div>
                     <div className="flex items-center gap-2">
                       {cell(providers.ytel?.listed, 'read N/A')}
@@ -250,7 +262,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         onClick={async ()=>{
           try {
             setShowModal(true)
-            setProgress({ total: numbers.length, completed: 0, failed: 0, per: { ringcentral:{completed:0,failed:0}, convoso:{completed:0,failed:0}, ytel:{completed:0,failed:0}, logics:{completed:0,failed:0} }, logs: [] })
+            setProgress({ total: numbers.length, completed: 0, failed: 0, per: { ringcentral:{completed:0,failed:0}, convoso:{completed:0,failed:0}, ytel:{completed:0,failed:0}, logics:{completed:0,failed:0}, genesys:{completed:0,failed:0} }, logs: [] })
             const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc/orchestrate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
@@ -293,7 +305,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
             </div>
             <div className="p-2 border rounded">
               <div className="font-medium mb-1">By Provider</div>
-              {(['ringcentral','convoso','ytel','logics'] as const).map((k)=> (
+              {(['ringcentral','convoso','ytel','logics','genesys'] as const).map((k)=> (
                 <div key={k} className="flex items-center justify-between">
                   <span className="capitalize">{k}</span>
                   <span>{progress.per[k].completed} ✓ / {progress.per[k].failed} ✗</span>
