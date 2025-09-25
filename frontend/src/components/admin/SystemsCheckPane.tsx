@@ -48,81 +48,62 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }
       } catch {}
 
-      // 2) RingCentral list-all and search for number
+      // 2) RingCentral search for number
       try {
-        await fetch(`${API_BASE_URL}/api/v1/ringcentral/auth`, { method:'POST', headers: { ...getDemoHeaders() } })
-        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/list-all-dnc`, { method:'POST', headers: { ...getDemoHeaders() } })
+        const rc = await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/dnc/search`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
         if (rc.ok) {
           const rj = await rc.json()
-          const recs = rj?.data?.records || rj?.data || []
-          const target = phone.startsWith('+') ? phone : `+${phone}`
-          const found = Array.isArray(recs) && recs.some((x:any)=> String(x?.phoneNumber||'') === target)
+          const found = rj?.data?.found || rj?.found || false
           providers.ringcentral = { listed: found }
         }
       } catch {}
 
-      // 3) Convoso search-dnc (ensure auth token passed if set in localStorage)
+      // 3) Convoso search-dnc
       try {
-        const demo = localStorage.getItem('persist:do-not-call-root')
-        let token: string | undefined
-        if (demo) {
-          try { token = JSON.parse(JSON.parse(demo).systemSettings || '{}').convosoAuthToken } catch {}
-        }
-        const body: any = { phone_number: phone, phone_code: '1', offset: 0, limit: 10 }
-        const url = `${API_BASE_URL}/api/v1/convoso/search-dnc${token ? `?auth_token=${encodeURIComponent(token)}` : ''}`
-        const cv = await fetch(url, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify(body) })
+        const cv = await fetch(`${API_BASE_URL}/api/v1/providers/convoso/dnc/search`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
         if (cv.ok) {
           const cj = await cv.json()
-          let total = 0
-          try {
-            const raw = cj?.data?.raw
-            const parsed = typeof raw === 'string' ? JSON.parse(raw) : null
-            total = parsed?.data?.total ?? 0
-          } catch {}
-          providers.convoso = { listed: Number(total) > 0 }
+          const found = cj?.data?.found || cj?.found || false
+          providers.convoso = { listed: found }
         }
       } catch {}
 
-      // 4) Ytel search-dnc (ensure creds passed if present in settings cache)
+      // 4) Ytel search-dnc
       try {
-        const demo = localStorage.getItem('persist:do-not-call-root')
-        let user: string | undefined
-        let password: string | undefined
-        try { const parsed = demo ? JSON.parse(demo) : null; const sys = parsed ? JSON.parse(parsed.systemSettings || '{}') : null; user = sys?.ytelUser; password = sys?.ytelPassword } catch {}
-        const qs = new URLSearchParams()
-        if (user) qs.set('user', user)
-        if (password) qs.set('password', password)
-        const endpoint = `${API_BASE_URL}/api/v1/ytel/search-dnc${qs.toString() ? `?${qs.toString()}` : ''}`
-        const yt = await fetch(endpoint, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+        const yt = await fetch(`${API_BASE_URL}/api/v1/providers/ytel/dnc/search`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
         if (yt.ok) {
           const yj = await yt.json()
-          const raw: string = yj?.data?.raw || ''
-          const listed = typeof raw === 'string' && raw.includes('PHONE NUMBER IN DNC')
-          providers.ytel = { listed }
+          const found = yj?.data?.found || yj?.found || false
+          providers.ytel = { listed: found }
         }
       } catch {}
 
       // 5) Logics direct
       await recheckLogics(phone)
 
-      // 6) Genesys list + check
+      // 6) Genesys search
       try {
-        const listsResp = await fetch(`${API_BASE_URL}/api/v1/genesys/list-all-dnc`, { method: 'POST', headers: { ...getDemoHeaders() } })
-        if (listsResp.ok) {
-          const lists = await listsResp.json()
-          const firstId = lists?.data?.entities?.[0]?.id
-          if (firstId) {
-            const chk = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/${firstId}/check`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-              body: JSON.stringify({ phone_numbers: [phone] })
-            })
-            if (chk.ok) {
-              const cj = await chk.json()
-              const present = cj?.data?.present || cj?.present
-              providers.genesys = { listed: Boolean(present?.[phone]) }
-            }
-          }
+        const gs = await fetch(`${API_BASE_URL}/api/v1/providers/genesys/dnc/search`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
+        if (gs.ok) {
+          const gj = await gs.json()
+          const found = gj?.data?.found || gj?.found || false
+          providers.genesys = { listed: found }
         }
       } catch {}
 
@@ -158,16 +139,32 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/dnc/add`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
       } else if (provider === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/providers/convoso/dnc/add`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
       } else if (provider === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers: { ...getDemoHeaders() } })
+        await fetch(`${API_BASE_URL}/api/v1/providers/ytel/dnc/add`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phoneNumber: phone })
+        })
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${API_BASE_URL}/api/v1/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`, { method:'POST', headers: { ...getDemoHeaders() } })
+          await fetch(`${API_BASE_URL}/api/v1/providers/logics/dnc/update-case`, { 
+            method:'POST', 
+            headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+            body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
+          })
         }
       }
       await runCheck(phone)
@@ -203,31 +200,18 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      // Prefer provider endpoint which is proven in tests
-      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/providers/logics/dnc/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phone_number: phone })
+        body: JSON.stringify({ phoneNumber: phone })
       })
       if (!resp.ok) return
       const data = await resp.json()
-      // Provider returns under data.raw JSON string; support both shapes
-      let cases: any[] = []
-      try {
-        const raw = data?.data?.raw
-        if (typeof raw === 'string') {
-          const parsed = JSON.parse(raw)
-          cases = parsed?.data?.entries || parsed?.Data || []
-        }
-      } catch {}
-      if (!Array.isArray(cases) || !cases.length) {
-        try {
-          cases = Array.isArray(data?.cases) ? data.cases : []
-        } catch {}
-      }
+      const found = data?.data?.found || data?.found || false
+      const cases = data?.data?.cases || data?.cases || []
       setResults((r)=>{
         const prev = r[phone] || { phone_number: phone, providers: {} as any }
-        return { ...r, [phone]: { ...prev, providers: { ...prev.providers, logics: { listed: cases.length>0, count: cases.length, cases } } } }
+        return { ...r, [phone]: { ...prev, providers: { ...prev.providers, logics: { listed: found, count: cases.length, cases } } } }
       })
     } catch {}
   }
