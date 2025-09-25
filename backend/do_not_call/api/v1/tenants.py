@@ -19,6 +19,10 @@ from passlib.context import CryptContext
 from ...core.graph import GraphClient
 from ...config import settings
 from sqlalchemy import inspect, text
+import anyio
+import httpx
+from httpx import ASGITransport
+from ...main import app as fastapi_app
 
 router = APIRouter()
 # Track provider DNC history attempts
@@ -432,6 +436,131 @@ def update_user(user_id: int, payload: dict, db: Session = Depends(get_db), prin
     db.commit()
     db.refresh(user)
     return user
+
+
+# DNC Orchestration (admin)
+@router.post("/dnc/orchestrate")
+async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Run cross-provider DNC search, add missing, log attempts, and record org DNC entries.
+
+    Payload: { "phone_numbers": ["+15618189087", ...] }
+    """
+    require_role("owner", "admin", "superadmin")(principal)
+    try:
+        org_id = getattr(principal, "organization_id", None) if principal and principal.role not in {"superadmin"} else None
+        set_rls_org(db, org_id)
+    except Exception:
+        pass
+
+    numbers = payload.get("phone_numbers") or []
+    if not isinstance(numbers, list) or not numbers:
+        raise HTTPException(status_code=400, detail="phone_numbers array required")
+
+    # Provider creds from settings/env
+    from ...config import settings as cfg
+    y_user = getattr(cfg, "ytel_user", None)
+    y_pass = getattr(cfg, "ytel_password", None)
+    conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
+    g_cid = getattr(cfg, "genesys_client_id", None)
+    g_csec = getattr(cfg, "genesys_client_secret", None)
+    g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
+
+    async def _in_app_client():
+        transport = ASGITransport(app=fastapi_app)
+        return httpx.AsyncClient(transport=transport, base_url="http://test")
+
+    results: list[dict] = []
+    async with await _in_app_client() as client:
+        for raw in numbers:
+            # Normalize to E.164 digits using existing utility
+            phone = normalize_phone_to_e164_digits(raw)
+            entry: dict = {"phone_e164": phone, "searched": {}, "added": {}, "freednc": None}
+
+            # FreeDNC check
+            try:
+                fr = await client.post("/api/check_number", json={"phone_number": phone})
+                entry["freednc"] = fr.json()
+            except Exception as e:
+                entry["freednc_error"] = str(e)
+
+            # Ytel search → add if needed
+            if y_user and y_pass:
+                try:
+                    s = await client.post(f"/api/v1/ytel/search-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
+                    entry["searched"]["ytel"] = s.json()
+                except Exception as e:
+                    entry["searched"]["ytel_error"] = str(e)
+                try:
+                    # If not explicit presence in raw text, just issue add
+                    a = await client.post(f"/api/v1/ytel/add-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
+                    entry["added"]["ytel"] = a.json()
+                except Exception as e:
+                    entry.setdefault("add_errors", {})["ytel"] = str(e)
+
+            # Convoso search/add
+            if conv_token:
+                try:
+                    s = await client.post(f"/api/v1/convoso/search-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1", "offset": 0, "limit": 10})
+                    entry["searched"]["convoso"] = s.json()
+                except Exception as e:
+                    entry["searched"]["convoso_error"] = str(e)
+                try:
+                    a = await client.post(f"/api/v1/convoso/add-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1"})
+                    entry["added"]["convoso"] = a.json()
+                except Exception as e:
+                    entry.setdefault("add_errors", {})["convoso"] = str(e)
+
+            # Genesys export-check/add/remove (if list configured)
+            if g_cid and g_csec and g_list:
+                try:
+                    c = await client.post(f"/api/v1/genesys/dnclists/{g_list}/check", json={"phone_numbers": [phone], "client_id": g_cid, "client_secret": g_csec})
+                    entry["searched"]["genesys"] = c.json()
+                except Exception as e:
+                    entry["searched"]["genesys_error"] = str(e)
+                try:
+                    a = await client.patch(f"/api/v1/genesys/dnclists/{g_list}/phonenumbers", json={"action": "Add", "phone_numbers": [phone], "expiration_date_time": "", "client_id": g_cid, "client_secret": g_csec})
+                    entry["added"]["genesys"] = a.json()
+                except Exception as e:
+                    entry.setdefault("add_errors", {})["genesys"] = str(e)
+
+            # Log attempt rows (best-effort)
+            try:
+                from ...core.propagation import track_provider_attempt
+                org_for_log = int(getattr(principal, "organization_id", 0) or 0)
+                for provider_key in ("ytel", "convoso", "genesys"):
+                    if provider_key in entry.get("searched", {}) or provider_key in entry.get("added", {}):
+                        await track_provider_attempt(
+                            db,
+                            organization_id=org_for_log,
+                            service_key=provider_key,
+                            phone_e164=str(phone),
+                            actor_user_id=int(getattr(principal, "user_id", 0) or 0),
+                            request_context={"action": "orchestrate"},
+                            call=None,
+                        )
+            except Exception:
+                pass
+
+            # Ensure an org DNC entry exists
+            try:
+                exists = db.query(DNCEntry).filter_by(organization_id=int(getattr(principal, "organization_id", 0) or 0), phone_e164=phone, active=True).first()
+                if not exists:
+                    e = DNCEntry(
+                        organization_id=int(getattr(principal, "organization_id", 0) or 0),
+                        phone_e164=phone,
+                        reason="orchestrated",
+                        channel="voice",
+                        source="orchestrate_api",
+                        created_by_user_id=int(getattr(principal, "user_id", 0) or 0),
+                    )
+                    db.add(e)
+                    db.commit()
+            except Exception:
+                pass
+
+            results.append(entry)
+
+    return {"success": True, "count": len(results), "results": results}
 
 
 # Org Services
