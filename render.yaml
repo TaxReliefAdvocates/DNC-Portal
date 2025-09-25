@@ -40,6 +40,22 @@ services:
         value: VNlTiJWla6qapMjlzlquvgWD5JT2DKSIQaqUrHIVKk6y
       - key: RINGCENTRAL_JWT
         value: eyJraWQiOiI4NzYyZjU5OGQwNTk0NGRiODZiZjVjYTk3ODA0NzYwOCIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJhdWQiOiJodHRwczovL3BsYXRmb3JtLnJpbmdjZW50cmFsLmNvbS9yZXN0YXBpL29hdXRoL3Rva2VuIiwic3ViIjoiNjM2NjM4OTcwMDciLCJpc3MiOiJodHRwczovL3BsYXRmb3JtLnJpbmdjZW50cmFsLmNvbSIsImV4cCI6MzkwNTE4NzM0OSwiaWF0IjoxNzU3NzAzNzAyLCJqdGkiOiJJeWhTTlZiT1FHQ0ZLZnNWYlVXOTB3In0.T3OLsRHBpm9e0Kc-SsERMWevhRH-KS2wXLbkuMC2dxD2xCBhEEF81tVKqvXInwgJPpuUjymmw2ot4IgU9BIItrNN0-loo66Q8_WAITZezmdNwSJN09VCrDfXVT1lQDo0jUANBPmKLE8IPv9kg51V_Q2htTAVHIC-5Wfe4lyZ5HPYy6R_-iMB7GV72tCdeCKkz9D0wsKppaf0U48UVRGTx1FjaYXjMnLZ5orwPiHoFbrqF6F1kjrr6raotYmJRDE09YQVginFj5FtFNXwWlCff9NooVgK4z9U5jRMzY6yK4pY-XXXcSh4DeVC5W7O7SS6uvzothF535EtfXojRpfeuw
+      - key: CONVOSO_AUTH_TOKEN
+        value: swai20svbj229p1f3cozei7uxbsbvyne
+      - key: CONVOSO_TOKEN_LEADS
+        value: phoq164rreu46tstut4eoth7zrenccsr
+      - key: CONVOSO_CAMPAIGN_ID
+        value: 0
+      - key: GENESYS_CLIENT_ID
+        value: efc1134d-8252-4aea-a995-47b1dc0c5fba
+      - key: GENESYS_CLIENT_SECRET
+        value: o2Tqu6dXnLKvI3UAg5iRkzb6MwGvXrlUrzO1kaGguCY
+      - key: LOGICS_BASIC_AUTH_B64
+        value: NDkxN2ZhMGNlNDY5NDUyOWE5Yjk3ZWFkMWE2MGM5MzI6YTc3YThlNTAtZTllYS00MTg1LThiMGUtYzI0YjQ2OGIyYTM4
+      - key: LOGICS_COOKIE
+        value: ASP.NET_SessionId=e04ypl1ejflolgjoracmzi5p
+      - key: ENABLE_PROVIDERS
+        value: true
 
   - type: web
     name: dnc-portal-frontend
