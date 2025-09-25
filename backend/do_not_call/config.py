@@ -153,9 +153,22 @@ class Settings(BaseSettings):
     logics_basic_auth_b64: Optional[str] = None
     logics_cookie: Optional[str] = None
     
+    # Additional environment variables from .env
+    test_phone_number: Optional[str] = None
+    test_phone_code: Optional[str] = None
+    ytel_campaign_id: Optional[str] = None
+    ytel_list_id: Optional[str] = None
+    ytel_first_name: Optional[str] = None
+    ytel_last_name: Optional[str] = None
+    convoso_token_leads: Optional[str] = None
+    convoso_campaign_id: Optional[str] = None
+    ringcentral_dnc_status: Optional[str] = None
+    logics_update_status_id: Optional[str] = None
+    genesys_dnclist_id: Optional[str] = None
+    
     class Config:
         env_file = ".env"
-        case_sensitive = True
+        case_sensitive = False
 
 
 # Create settings instance
