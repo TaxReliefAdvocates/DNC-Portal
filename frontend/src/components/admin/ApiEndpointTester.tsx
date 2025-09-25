@@ -210,7 +210,7 @@ export const ApiEndpointTester: React.FC = () => {
             {list.map(ep => {
               const r = results[ep.id]
               const isWrite = ['POST','PUT','PATCH'].includes(ep.method)
-              const isReadWithQuery = ['GET','DELETE'].includes(ep.method) && ep.url.includes('?')
+              const hasQuery = ep.url.includes('?')
               const defaultBody = JSON.stringify(resolveBodyPlaceholders(ep.requestBodyExample ?? { phoneNumber: '{phoneNumber}' }), null, 2)
               return (
                 <Card key={ep.id}>
@@ -223,7 +223,7 @@ export const ApiEndpointTester: React.FC = () => {
                   <CardContent>
                     {ep.description && <div className="text-sm text-gray-600 mb-2">{ep.description}</div>}
                     <div className="text-xs font-mono break-all bg-gray-50 border rounded p-2 mb-2">{substitutePathParams(ep.url)}</div>
-                    {isReadWithQuery && (
+                    {hasQuery && (
                       <div className="mb-2 space-y-1">
                         <div className="text-xs text-gray-600">Query Parameters</div>
                         {parseQueryParams(ep.url).map((key) => (
