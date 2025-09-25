@@ -108,6 +108,58 @@ async def run():
 		g_token = env("GENESYS_BEARER_TOKEN")
 		g_q = f"?bearer_token={g_token}" if g_token else (f"?client_id={g_client_id}&client_secret={g_client_secret}" if g_client_id and g_client_secret else "")
 		pp("Genesys list-all-dnc", await call(client, "POST", f"/api/v1/genesys/list-all-dnc{g_q}", json_body={"page": 1, "per_page": 50}))
+
+		# Genesys DNC list add/check/remove if list id provided
+		g_list_id = env("GENESYS_DNCLIST_ID")
+		if g_list_id:
+			# Add number
+			pp(
+				"Genesys dnclists add",
+				await call(
+					client,
+					"PATCH",
+					f"/api/v1/genesys/dnclists/{g_list_id}/phonenumbers",
+					json_body={
+						"action": "Add",
+						"phone_numbers": [PHONE_NUMBER],
+						"expiration_date_time": "",
+						"client_id": g_client_id,
+						"client_secret": g_client_secret,
+					},
+				),
+			)
+			# Check presence via export
+			pp(
+				"Genesys dnclists check",
+				await call(
+					client,
+					"POST",
+					f"/api/v1/genesys/dnclists/{g_list_id}/check",
+					json_body={
+						"phone_numbers": [PHONE_NUMBER],
+						"client_id": g_client_id,
+						"client_secret": g_client_secret,
+					},
+				),
+			)
+			# Remove number
+			pp(
+				"Genesys dnclists remove",
+				await call(
+					client,
+					"PATCH",
+					f"/api/v1/genesys/dnclists/{g_list_id}/phonenumbers",
+					json_body={
+						"action": "Remove",
+						"phone_numbers": [PHONE_NUMBER],
+						"expiration_date_time": "",
+						"client_id": g_client_id,
+						"client_secret": g_client_secret,
+					},
+				),
+			)
+		else:
+			pp("Genesys dnclists (skipped: set GENESYS_DNCLIST_ID)", {"skipped": True})
 		pp("Genesys add-dnc (coming soon)", await call(client, "POST", "/api/v1/genesys/add-dnc-coming-soon", json_body={}))
 		pp("Genesys search-dnc (coming soon)", await call(client, "POST", "/api/v1/genesys/search-dnc-coming-soon", json_body={}))
 		pp("Genesys delete-dnc (coming soon)", await call(client, "POST", "/api/v1/genesys/delete-dnc-coming-soon", json_body={}))
