@@ -41,6 +41,7 @@ export const ApiEndpointTester: React.FC = () => {
   const [lastSync, setLastSync] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [specBaseUrl, setSpecBaseUrl] = useState<string | undefined>(undefined)
+  const [customBodies, setCustomBodies] = useState<Record<string, string>>({})
 
   const substitutePathParams = (path: string) => path.replace(/\{[^/}]+\}/g, encodeURIComponent(testValue || ''))
 
@@ -105,8 +106,15 @@ export const ApiEndpointTester: React.FC = () => {
   const runStep = async (title: string, method: Method, urlOrPath: string, headers?: Record<string,string>, body?: any): Promise<StepResult> => {
     const started = performance.now()
     try {
-      const resolvedBody = resolveBodyPlaceholders(body)
-      const payload = resolvedBody !== undefined ? (typeof resolvedBody === 'string' ? resolvedBody : JSON.stringify(resolvedBody)) : undefined
+      // prefer custom JSON body if provided for write methods
+      let resolvedBody: any = body
+      if (['POST','PUT','PATCH'].includes(method)) {
+        const custom = customBodies[urlOrPath]
+        if (custom && custom.trim().length) {
+          try { resolvedBody = JSON.parse(custom) } catch { /* ignore parse error, fall back to default */ }
+        }
+      }
+      const payload = resolvedBody !== undefined ? (typeof resolvedBody === 'string' ? resolvedBody : JSON.stringify(resolveBodyPlaceholders(resolvedBody))) : undefined
       const resp = await fetch(buildUrl(urlOrPath), { method, headers, body: payload })
       const txt = await resp.text()
       let data: any = txt
@@ -173,6 +181,8 @@ export const ApiEndpointTester: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {list.map(ep => {
               const r = results[ep.id]
+              const isWrite = ['POST','PUT','PATCH'].includes(ep.method)
+              const defaultBody = JSON.stringify(resolveBodyPlaceholders(ep.requestBodyExample ?? { phoneNumber: '{phoneNumber}' }), null, 2)
               return (
                 <Card key={ep.id}>
                   <CardHeader>
@@ -184,6 +194,17 @@ export const ApiEndpointTester: React.FC = () => {
                   <CardContent>
                     {ep.description && <div className="text-sm text-gray-600 mb-2">{ep.description}</div>}
                     <div className="text-xs font-mono break-all bg-gray-50 border rounded p-2 mb-2">{substitutePathParams(ep.url)}</div>
+                    {isWrite && (
+                      <div className="mb-2">
+                        <div className="text-xs text-gray-600 mb-1">Request JSON Body</div>
+                        <textarea
+                          className="w-full text-xs font-mono border rounded p-2 bg-white"
+                          rows={6}
+                          defaultValue={defaultBody}
+                          onChange={(e)=> setCustomBodies(prev=> ({ ...prev, [ep.url]: e.target.value }))}
+                        />
+                      </div>
+                    )}
                     <div className="flex items-center justify-end gap-2">
                       <Button onClick={()=>testEndpoint(ep)} disabled={!!loading[ep.id]}>{loading[ep.id]? 'Testing…' : 'Test'}</Button>
                     </div>
@@ -231,7 +252,7 @@ function deepReplace(value: any, map: Record<string,string>): any {
   if (Array.isArray(value)) return value.map(v => deepReplace(v, map))
   if (value && typeof value === 'object') {
     const obj: any = {}
-    Object.entries(value).forEach(([k,v]) => { obj[k] = deepReplace(v, map) })
+    Object.entries(value).forEach(([k,v]) => { obj[k] = deepReplace(v, map as any) })
     return obj
   }
   return value
