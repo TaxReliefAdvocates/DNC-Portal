@@ -38,63 +38,81 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const runCheck = async (phone: string) => {
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc/orchestrate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ mode: 'search', phone_numbers: [phone] })
-      })
-      if (resp.ok) {
-        const data = await resp.json()
-        const rr = Array.isArray(data.results) ? data.results[0] : null
-        const providers: Record<string, any> = {}
-        // Federal DNC summary
-        if (rr?.freednc) providers.dnc = { listed: Boolean(rr.freednc.is_dnc) }
-        // Genesys present mapping
-        try {
-          const present = rr?.searched?.genesys?.data?.present || rr?.searched?.genesys?.present
-          if (present && typeof present === 'object') {
-            providers.genesys = { listed: Boolean(present[phone]) }
-          }
-        } catch {}
-        // Map other providers from orchestrate response
-        try { providers.ringcentral = { listed: rr?.searched?.ringcentral?.listed === true } } catch {}
-        try { providers.convoso = { listed: rr?.searched?.convoso?.listed === true } } catch {}
-        try { providers.ytel = { listed: rr?.searched?.ytel?.listed === true } } catch {}
-        setResults((r)=>({
-          ...r,
-          [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } }
-        }))
-        setErr(null)
-        // Ensure Logics (TPS) detection by doing a direct case lookup (provider endpoint)
-        await recheckLogics(phone)
-        // If Genesys is still undefined from orchestrate, attempt a direct check using first list
-        if (!providers.genesys) {
-          try {
-            const listsResp = await fetch(`${API_BASE_URL}/api/v1/genesys/list-all-dnc`, { method: 'POST', headers: { ...getDemoHeaders() } })
-            if (listsResp.ok) {
-              const lists = await listsResp.json()
-              const firstId = lists?.data?.entities?.[0]?.id
-              if (firstId) {
-                const chk = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/${firstId}/check`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-                  body: JSON.stringify({ phone_numbers: [phone] })
-                })
-                if (chk.ok) {
-                  const cj = await chk.json()
-                  const present = cj?.data?.present || cj?.present
-                  setResults((r)=>{
-                    const prev = r[phone] || { phone_number: phone, providers: {} as any }
-                    return { ...r, [phone]: { ...prev, providers: { ...prev.providers, genesys: { listed: Boolean(present?.[phone]) } } } }
-                  })
-                }
-              }
-            }
-          } catch {}
+      const providers: Record<string, any> = {}
+      // 1) Federal DNC via FreeDNC service
+      try {
+        const fr = await fetch(`${API_BASE_URL}/api/check_number`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+        if (fr.ok) {
+          const fj = await fr.json()
+          providers.dnc = { listed: Boolean(fj?.is_dnc) }
         }
-      } else {
-        setErr('Backend request failed')
-      }
+      } catch {}
+
+      // 2) RingCentral list-all and search for number
+      try {
+        await fetch(`${API_BASE_URL}/api/v1/ringcentral/auth`, { method:'POST', headers: { ...getDemoHeaders() } })
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/list-all-dnc`, { method:'POST', headers: { ...getDemoHeaders() } })
+        if (rc.ok) {
+          const rj = await rc.json()
+          const recs = rj?.data?.records || rj?.data || []
+          const target = phone.startsWith('+') ? phone : `+${phone}`
+          const found = Array.isArray(recs) && recs.some((x:any)=> String(x?.phoneNumber||'') === target)
+          providers.ringcentral = { listed: found }
+        }
+      } catch {}
+
+      // 3) Convoso search-dnc
+      try {
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone, phone_code: '1', offset: 0, limit: 10 }) })
+        if (cv.ok) {
+          const cj = await cv.json()
+          let total = 0
+          try {
+            const raw = cj?.data?.raw
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : null
+            total = parsed?.data?.total ?? 0
+          } catch {}
+          providers.convoso = { listed: Number(total) > 0 }
+        }
+      } catch {}
+
+      // 4) Ytel search-dnc
+      try {
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+        if (yt.ok) {
+          const yj = await yt.json()
+          const raw: string = yj?.data?.raw || ''
+          const listed = typeof raw === 'string' && raw.includes('PHONE NUMBER IN DNC')
+          providers.ytel = { listed }
+        }
+      } catch {}
+
+      // 5) Logics direct
+      await recheckLogics(phone)
+
+      // 6) Genesys list + check
+      try {
+        const listsResp = await fetch(`${API_BASE_URL}/api/v1/genesys/list-all-dnc`, { method: 'POST', headers: { ...getDemoHeaders() } })
+        if (listsResp.ok) {
+          const lists = await listsResp.json()
+          const firstId = lists?.data?.entities?.[0]?.id
+          if (firstId) {
+            const chk = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/${firstId}/check`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+              body: JSON.stringify({ phone_numbers: [phone] })
+            })
+            if (chk.ok) {
+              const cj = await chk.json()
+              const present = cj?.data?.present || cj?.present
+              providers.genesys = { listed: Boolean(present?.[phone]) }
+            }
+          }
+        }
+      } catch {}
+
+      setResults((r)=>({ ...r, [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } } }))
+      setErr(null)
     } catch (e) {
       setErr('Cannot reach backend (check that it is running)')
     } finally {
