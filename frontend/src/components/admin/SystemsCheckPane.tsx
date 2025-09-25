@@ -65,8 +65,33 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } }
         }))
         setErr(null)
-        // Ensure Logics (TPS) detection by doing a direct case lookup
+        // Ensure Logics (TPS) detection by doing a direct case lookup (provider endpoint)
         await recheckLogics(phone)
+        // If Genesys is still undefined from orchestrate, attempt a direct check using first list
+        if (!providers.genesys) {
+          try {
+            const listsResp = await fetch(`${API_BASE_URL}/api/v1/genesys/list-all-dnc`, { method: 'POST', headers: { ...getDemoHeaders() } })
+            if (listsResp.ok) {
+              const lists = await listsResp.json()
+              const firstId = lists?.data?.entities?.[0]?.id
+              if (firstId) {
+                const chk = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/${firstId}/check`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+                  body: JSON.stringify({ phone_numbers: [phone] })
+                })
+                if (chk.ok) {
+                  const cj = await chk.json()
+                  const present = cj?.data?.present || cj?.present
+                  setResults((r)=>{
+                    const prev = r[phone] || { phone_number: phone, providers: {} as any }
+                    return { ...r, [phone]: { ...prev, providers: { ...prev.providers, genesys: { listed: Boolean(present?.[phone]) } } } }
+                  })
+                }
+              }
+            }
+          } catch {}
+        }
       } else {
         setErr('Backend request failed')
       }
@@ -145,16 +170,30 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/cases_by_phone`, {
+      // Prefer provider endpoint which is proven in tests
+      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })
       })
       if (!resp.ok) return
       const data = await resp.json()
+      // Provider returns under data.raw JSON string; support both shapes
+      let cases: any[] = []
+      try {
+        const raw = data?.data?.raw
+        if (typeof raw === 'string') {
+          const parsed = JSON.parse(raw)
+          cases = parsed?.data?.entries || parsed?.Data || []
+        }
+      } catch {}
+      if (!Array.isArray(cases) || !cases.length) {
+        try {
+          cases = Array.isArray(data?.cases) ? data.cases : []
+        } catch {}
+      }
       setResults((r)=>{
         const prev = r[phone] || { phone_number: phone, providers: {} as any }
-        const cases = Array.isArray(data.cases) ? data.cases : []
         return { ...r, [phone]: { ...prev, providers: { ...prev.providers, logics: { listed: cases.length>0, count: cases.length, cases } } } }
       })
     } catch {}
