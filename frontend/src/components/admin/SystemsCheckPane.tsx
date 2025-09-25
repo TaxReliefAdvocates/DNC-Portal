@@ -61,9 +61,16 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }
       } catch {}
 
-      // 3) Convoso search-dnc
+      // 3) Convoso search-dnc (ensure auth token passed if set in localStorage)
       try {
-        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone, phone_code: '1', offset: 0, limit: 10 }) })
+        const demo = localStorage.getItem('persist:do-not-call-root')
+        let token: string | undefined
+        if (demo) {
+          try { token = JSON.parse(JSON.parse(demo).systemSettings || '{}').convosoAuthToken } catch {}
+        }
+        const body: any = { phone_number: phone, phone_code: '1', offset: 0, limit: 10 }
+        const url = `${API_BASE_URL}/api/v1/convoso/search-dnc${token ? `?auth_token=${encodeURIComponent(token)}` : ''}`
+        const cv = await fetch(url, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify(body) })
         if (cv.ok) {
           const cj = await cv.json()
           let total = 0
@@ -76,9 +83,17 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }
       } catch {}
 
-      // 4) Ytel search-dnc
+      // 4) Ytel search-dnc (ensure creds passed if present in settings cache)
       try {
-        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+        const demo = localStorage.getItem('persist:do-not-call-root')
+        let user: string | undefined
+        let password: string | undefined
+        try { const parsed = demo ? JSON.parse(demo) : null; const sys = parsed ? JSON.parse(parsed.systemSettings || '{}') : null; user = sys?.ytelUser; password = sys?.ytelPassword } catch {}
+        const qs = new URLSearchParams()
+        if (user) qs.set('user', user)
+        if (password) qs.set('password', password)
+        const endpoint = `${API_BASE_URL}/api/v1/ytel/search-dnc${qs.toString() ? `?${qs.toString()}` : ''}`
+        const yt = await fetch(endpoint, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
         if (yt.ok) {
           const yj = await yt.json()
           const raw: string = yj?.data?.raw || ''
