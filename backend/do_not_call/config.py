@@ -124,7 +124,7 @@ class Settings(BaseSettings):
     RETRY_DELAY: int = 5  # seconds
 
     # Provider integrations (feature flagged)
-    ENABLE_PROVIDERS: bool = False
+    ENABLE_PROVIDERS: bool = True
 
     # Provider credentials (copied without altering semantics)
     # Ytel
