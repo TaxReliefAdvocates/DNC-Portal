@@ -105,3 +105,15 @@ async def upload_dnc_placeholder(_: UploadDNCListRequest):
 @router.post("/search-by-phone-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
 async def search_by_phone_placeholder(_: SearchByPhoneRequest):
     return ComingSoonResponse()
+
+
+@router.get("/debug-env")
+async def debug_env():
+    """Debug endpoint to check environment variables"""
+    return {
+        "ringcentral_jwt_assertion": bool(settings.ringcentral_jwt_assertion),
+        "ringcentral_jwt": bool(getattr(settings, 'ringcentral_jwt', None)),
+        "ringcentral_client_id": bool(settings.ringcentral_client_id),
+        "ringcentral_client_secret": bool(settings.ringcentral_client_secret),
+        "ringcentral_basic_b64": bool(settings.ringcentral_basic_b64),
+    }
