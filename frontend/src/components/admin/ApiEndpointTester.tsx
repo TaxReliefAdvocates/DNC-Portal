@@ -313,10 +313,10 @@ function buildProviderEndpoints(): Endpoint[] {
     { id:'POST-/api/cases_by_phone', name:'Cases By Phone (TPS)', url:'/api/cases_by_phone', method:'POST', tags:['Core'], headers: json, requestBodyExample: { phone_number: '{phoneNumber}' } },
     { id:'POST-/api/run_automation', name:'Run DNC Automation (stub)', url:'/api/run_automation', method:'POST', tags:['Core'], headers: json, requestBodyExample: { phone_number: '{phoneNumber}' } },
     { id:'POST-/api/cookies/refresh', name:'Refresh FreeDNC Cookies', url:'/api/cookies/refresh', method:'POST', tags:['Core'] },
-    // Ytel
-    { id:'POST-/api/v1/ytel/dnc/add', name:'Ytel Add DNC', url:'/api/v1/ytel/dnc/add', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
-    { id:'POST-/api/v1/ytel/dnc/search', name:'Ytel Search DNC', url:'/api/v1/ytel/dnc/search', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
-    { id:'POST-/api/v1/ytel/dnc/remove', name:'Ytel Remove DNC', url:'/api/v1/ytel/dnc/remove', method:'POST', tags:['Ytel'], headers: json, requestBodyExample: body },
+    // Ytel uses query params
+    { id:'POST-/api/v1/ytel/dnc/add', name:'Ytel Add DNC', url:'/api/v1/ytel/dnc/add?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
+    { id:'POST-/api/v1/ytel/dnc/search', name:'Ytel Search DNC', url:'/api/v1/ytel/dnc/search?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
+    { id:'POST-/api/v1/ytel/dnc/remove', name:'Ytel Remove DNC', url:'/api/v1/ytel/dnc/remove?phoneNumber={phoneNumber}', method:'POST', tags:['Ytel'] },
     // Convoso
     { id:'POST-/api/v1/convoso/dnc/add', name:'Convoso Add DNC', url:'/api/v1/convoso/dnc/add', method:'POST', tags:['Convoso'], headers: json, requestBodyExample: body },
     { id:'GET-/api/v1/convoso/dnc/search', name:'Convoso Search DNC', url:'/api/v1/convoso/dnc/search?phoneNumber={phoneNumber}', method:'GET', tags:['Convoso'] },

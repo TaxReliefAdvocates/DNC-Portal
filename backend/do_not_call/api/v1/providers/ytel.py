@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -17,21 +17,25 @@ class PhoneRequest(BaseModel):
     phoneNumber: str | None = Field(None, description="Phone number in E.164 format or US digits")
     phone_number: str | None = Field(None, description="Alternate Field: phone_number")
 
-def _resolve_phone(payload: PhoneRequest | None) -> str:
-    val = (payload.phoneNumber if payload else None) or (payload.phone_number if payload else None) or ""
-    return val
+def _resolve_phone_inputs(phoneNumber: str | None = None, phone_number: str | None = None, body: PhoneRequest | None = None) -> str:
+    return (phoneNumber or phone_number or (body.phoneNumber if body else None) or (body.phone_number if body else None) or "")
 
 
 @router.post("/ytel/dnc/add")
-async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_add(
+    phoneNumber: str | None = Query(None, alias="phoneNumber"),
+    phone_number: str | None = Query(None, alias="phone_number"),
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(get_principal),
+):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone_inputs(phoneNumber, phone_number))
     if not phone:
-        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
+        raise HTTPException(status_code=400, detail="Missing or invalid query parameter: phone_number or phoneNumber")
     client = YtelClient()
     summary = await track_provider_attempt(
         db,
@@ -47,15 +51,20 @@ async def ytel_add(body: PhoneRequest, db: Session = Depends(get_db), principal:
 
 
 @router.post("/ytel/dnc/search")
-async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_search(
+    phoneNumber: str | None = Query(None, alias="phoneNumber"),
+    phone_number: str | None = Query(None, alias="phone_number"),
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(get_principal),
+):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone_inputs(phoneNumber, phone_number))
     if not phone:
-        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
+        raise HTTPException(status_code=400, detail="Missing or invalid query parameter: phone_number or phoneNumber")
     client = YtelClient()
     res = await client.check_status(phone)
     await track_provider_attempt(
@@ -70,15 +79,20 @@ async def ytel_search(body: PhoneRequest, db: Session = Depends(get_db), princip
 
 
 @router.post("/ytel/dnc/remove")
-async def ytel_remove(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+async def ytel_remove(
+    phoneNumber: str | None = Query(None, alias="phoneNumber"),
+    phone_number: str | None = Query(None, alias="phone_number"),
+    db: Session = Depends(get_db),
+    principal: Principal = Depends(get_principal),
+):
     try:
         org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
         set_rls_org(db, org_id)
     except Exception:
         pass
-    phone = normalize_phone_to_e164_digits(_resolve_phone(body))
+    phone = normalize_phone_to_e164_digits(_resolve_phone_inputs(phoneNumber, phone_number))
     if not phone:
-        raise HTTPException(status_code=400, detail="Missing or invalid JSON body. Expected {'phoneNumber': 'digits'}")
+        raise HTTPException(status_code=400, detail="Missing or invalid query parameter: phone_number or phoneNumber")
     client = YtelClient()
     summary = await track_provider_attempt(
         db,
