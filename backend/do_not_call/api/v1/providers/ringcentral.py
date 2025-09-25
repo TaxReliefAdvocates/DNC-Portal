@@ -23,12 +23,6 @@ async def ringcentral_get_token(assertion: Optional[str] = None, client_basic_b6
     # Prefer explicit assertion, then settings.ringcentral_jwt_assertion, then legacy settings.ringcentral_jwt
     jwt_assertion = assertion or settings.ringcentral_jwt_assertion or getattr(settings, 'ringcentral_jwt', None)
     
-    # Debug logging
-    logger.info(f"RingCentral JWT Debug - assertion: {assertion}")
-    logger.info(f"RingCentral JWT Debug - settings.ringcentral_jwt_assertion: {settings.ringcentral_jwt_assertion}")
-    logger.info(f"RingCentral JWT Debug - settings.ringcentral_jwt: {getattr(settings, 'ringcentral_jwt', None)}")
-    logger.info(f"RingCentral JWT Debug - final jwt_assertion: {jwt_assertion}")
-    
     if not jwt_assertion:
         raise HTTPException(status_code=400, detail="RingCentral JWT assertion required.")
     headers: Dict[str, str] = {"Content-Type": "application/x-www-form-urlencoded"}
