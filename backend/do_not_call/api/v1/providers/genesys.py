@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from loguru import logger
 
 from .common import (
@@ -14,6 +14,7 @@ from .common import (
 )
 from do_not_call.config import settings
 from .http_client import HttpClient
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -48,6 +49,72 @@ async def list_all_dnc(request: ListAllDNCRequest, bearer_token: Optional[str] =
 	async with HttpClient(base_url=api_base) as http:
 		resp = await http.get("/api/v2/outbound/dnclists", headers=headers)
 		return DNCOperationResponse(success=True, message="Listed DNC lists (Genesys)", data=resp.json())
+
+
+class GenesysPatchPhoneNumbersRequest(BaseModel):
+	action: str  # "Add" | "Remove"
+	phone_numbers: List[str]
+	expiration_date_time: Optional[str] = None  # ISO8601 or empty string
+	bearer_token: Optional[str] = None
+	client_id: Optional[str] = None
+	client_secret: Optional[str] = None
+
+
+@router.patch("/dnclists/{list_id}/phonenumbers", response_model=DNCOperationResponse)
+async def patch_dnclist_phone_numbers(list_id: str, req: GenesysPatchPhoneNumbersRequest):
+	# Acquire token
+	token = req.bearer_token or (await genesys_get_token(req.client_id, req.client_secret))
+	api_base = settings.genesys_api_base.rstrip("/")
+	headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+	payload: Dict[str, Any] = {
+		"action": req.action,
+		"phoneNumbers": req.phone_numbers,
+	}
+	# Genesys accepts empty string or ISO timestamp; pass only if provided
+	if req.expiration_date_time is not None:
+		payload["expirationDateTime"] = req.expiration_date_time
+	url = f"/api/v2/outbound/dnclists/{list_id}/phonenumbers"
+	async with HttpClient(base_url=api_base) as http:
+		resp = await http.patch(url, json=payload, headers=headers)
+		data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+		return DNCOperationResponse(success=True, message="Patched DNC list phone numbers (Genesys)", data=data)
+
+
+class GenesysExportCheckRequest(BaseModel):
+	phone_numbers: List[str]
+	bearer_token: Optional[str] = None
+	client_id: Optional[str] = None
+	client_secret: Optional[str] = None
+
+
+@router.post("/dnclists/{list_id}/check", response_model=DNCOperationResponse)
+async def check_numbers_in_dnclist(list_id: str, req: GenesysExportCheckRequest):
+	# Acquire token
+	token = req.bearer_token or (await genesys_get_token(req.client_id, req.client_secret))
+	api_base = settings.genesys_api_base.rstrip("/")
+	headers = {"Authorization": f"Bearer {token}"}
+	url = f"/api/v2/outbound/dnclists/{list_id}/export"
+	async with HttpClient(base_url=api_base) as http:
+		resp = await http.get(url, headers=headers)
+		content_type = resp.headers.get("content-type", "").lower()
+		result: Dict[str, Any] = {}
+		text = resp.text
+		# Try to parse JSON first if returned
+		if content_type.startswith("application/json"):
+			try:
+				data = resp.json()
+				# If API returns a URL to download, try following it
+				download_url = data.get("url") or data.get("downloadUri") or data.get("downloadUrl")
+				if isinstance(download_url, str):
+					resp2 = await http.get(download_url)
+					text = resp2.text
+			except Exception:
+				pass
+		# Now perform simple containment check against text content (CSV or newline list)
+		present: Dict[str, bool] = {}
+		for num in req.phone_numbers:
+			present[num] = num in text
+		return DNCOperationResponse(success=True, message="Checked numbers against DNC list (Genesys)", data={"present": present})
 
 
 @router.post("/add-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
