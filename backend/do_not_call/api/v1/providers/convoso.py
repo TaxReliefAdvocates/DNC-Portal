@@ -1,115 +1,119 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
+from typing import Optional
+from loguru import logger
 
-from ....core.database import get_db, set_rls_org
-from ....core.auth import get_principal, Principal
-from ....core.utils import normalize_phone_to_e164_digits
-from ....core.propagation import track_provider_attempt
-from ....core.crm_clients.convoso import ConvosoClient
-
+from .common import (
+	AddToDNCRequest,
+	SearchDNCRequest,
+	ListAllDNCRequest,
+	DeleteFromDNCRequest,
+	UploadDNCListRequest,
+	SearchByPhoneRequest,
+	DNCOperationResponse,
+	ComingSoonResponse,
+)
+from do_not_call.config import settings
+from .http_client import HttpClient
 
 router = APIRouter()
 
 
-class PhoneRequest(BaseModel):
-    phoneNumber: str = Field(..., description="Phone number in E.164 format or US digits")
+def get_token(token: Optional[str] = None) -> str:
+	final = token or settings.convoso_auth_token
+	if not final:
+		raise HTTPException(status_code=400, detail="Convoso auth_token required. Provide 'auth_token' or set CONVOSO_AUTH_TOKEN.")
+	return final
 
 
-@router.post("/convoso/dnc/add")
-async def convoso_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = ConvosoClient()
-    summary = await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="convoso",
-        phone_e164=phone,
-        request_context={"op": "add"},
-        call=lambda: client.remove_phone_number(phone),
-    )
-    if summary.get("status") == "failed":
-        raise HTTPException(status_code=502, detail=summary.get("error"))
-    return {"success": True, "provider": "convoso", "phoneNumber": phone}
+@router.post("/auth", response_model=DNCOperationResponse)
+async def auth(auth_token: Optional[str] = None):
+	"""
+	Placeholder: In Convoso, an auth_token is provided (e.g., via panel/cookies). Echo back for clarity.
+	"""
+	if not auth_token and not settings.convoso_auth_token:
+		raise HTTPException(status_code=400, detail="auth_token required")
+	return DNCOperationResponse(success=True, message="Using Convoso auth_token", data={"auth_token": auth_token or settings.convoso_auth_token})
 
 
-@router.get("/convoso/dnc/search")
-async def convoso_search(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = ConvosoClient()
-    try:
-        res = await client.check_status(phone)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="convoso",
-        phone_e164=phone,
-        request_context={"op": "search"},
-        call=None,
-    )
-    return res
+@router.post("/auth-coming-soon", tags=["Coming Soon"])  # Backward placeholder
+async def convoso_auth_placeholder():
+	return ComingSoonResponse()
 
 
-@router.delete("/convoso/dnc/delete")
-async def convoso_delete(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = ConvosoClient()
-    summary = await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="convoso",
-        phone_e164=phone,
-        request_context={"op": "delete"},
-        call=lambda: client.delete_phone_number(phone),
-    )
-    if summary.get("status") == "failed":
-        raise HTTPException(status_code=502, detail=summary.get("error"))
-    return {"success": True, "provider": "convoso", "phoneNumber": phone}
+@router.post("/add-dnc", response_model=DNCOperationResponse)
+async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None):
+	token = get_token(auth_token)
+	url = "https://api.convoso.com/v1/dnc/insert"
+	params = {"auth_token": token, "phone_number": request.phone_number}
+	if request.phone_code:
+		params["phone_code"] = request.phone_code
+	async with HttpClient() as http:
+		resp = await http.get(url, params=params)
+		text = resp.text
+		logger.info(f"Convoso add_to_dnc response: {text}")
+		return DNCOperationResponse(success=True, message="Added to DNC (Convoso)", data={"raw": text})
 
 
-@router.get("/convoso/leads/search")
-async def convoso_leads_search(phoneNumber: str = Query(...), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = ConvosoClient()
-    res = await client.search_leads_by_phone(phone)
-    await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="convoso",
-        phone_e164=phone,
-        request_context={"op": "leads_search"},
-        call=None,
-    )
-    return res
+@router.post("/search-dnc", response_model=DNCOperationResponse)
+async def search_dnc(request: SearchDNCRequest, auth_token: Optional[str] = None):
+	token = get_token(auth_token)
+	url = "https://api.convoso.com/v1/dnc/search"
+	params = {
+		"auth_token": token,
+		"phone_number": request.phone_number,
+		"offset": request.offset or 0,
+		"limit": request.limit or 10,
+	}
+	if request.phone_code:
+		params["phone_code"] = request.phone_code
+	async with HttpClient() as http:
+		resp = await http.get(url, params=params)
+		text = resp.text
+		logger.info(f"Convoso search_dnc response: {text}")
+		return DNCOperationResponse(success=True, message="Searched DNC (Convoso)", data={"raw": text})
 
 
+@router.post("/list-all-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def list_all_dnc_placeholder(_: ListAllDNCRequest):
+	return ComingSoonResponse()
+
+
+@router.post("/delete-dnc", response_model=DNCOperationResponse)
+async def delete_from_dnc(request: DeleteFromDNCRequest, auth_token: Optional[str] = None):
+	token = get_token(auth_token)
+	url = "https://api.convoso.com/v1/dnc/delete"
+	params = {
+		"auth_token": token,
+		"campaign_id": request.campaign_id or 0,
+	}
+	if request.phone_number:
+		params["phone_number"] = request.phone_number
+	if request.phone_code:
+		params["phone_code"] = request.phone_code
+	async with HttpClient() as http:
+		resp = await http.get(url, params=params)
+		text = resp.text
+		logger.info(f"Convoso delete_dnc response: {text}")
+		return DNCOperationResponse(success=True, message="Deleted from DNC (Convoso)", data={"raw": text})
+
+
+@router.post("/upload-dnc-list-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def upload_dnc_placeholder(_: UploadDNCListRequest):
+	return ComingSoonResponse()
+
+
+@router.post("/search-by-phone", response_model=DNCOperationResponse)
+async def search_by_phone(request: SearchByPhoneRequest, auth_token: Optional[str] = None):
+	token = get_token(auth_token)
+	url = "https://api.convoso.com/v1/leads/search"
+	params = {
+		"auth_token": token,
+		"offset": 0,
+		"limit": 10,
+		"phone_number": request.phone_number,
+	}
+	async with HttpClient() as http:
+		resp = await http.get(url, params=params)
+		text = resp.text
+		logger.info(f"Convoso search_by_phone response: {text}")
+		return DNCOperationResponse(success=True, message="Searched by phone (Convoso)", data={"raw": text})

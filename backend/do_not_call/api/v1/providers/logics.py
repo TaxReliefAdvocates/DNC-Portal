@@ -1,54 +1,76 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
+from typing import Optional
+from loguru import logger
+import base64
 
-from ....core.database import get_db, set_rls_org
-from ....core.auth import get_principal, Principal
-from ....core.utils import normalize_phone_to_e164_digits
-from ....core.propagation import track_provider_attempt
-from ....core.tps_api import TPSApiClient
-
+from .common import (
+	AddToDNCRequest,
+	SearchDNCRequest,
+	ListAllDNCRequest,
+	DeleteFromDNCRequest,
+	UploadDNCListRequest,
+	SearchByPhoneRequest,
+	DNCOperationResponse,
+	ComingSoonResponse,
+)
+from do_not_call.config import settings
+from .http_client import HttpClient
 
 router = APIRouter()
 
 
-class PhoneRequest(BaseModel):
-    phoneNumber: str = Field(...)
+def get_basic_auth() -> str:
+	if not settings.logics_basic_auth_b64:
+		raise HTTPException(status_code=400, detail="Logics basic auth (base64) not configured")
+	return settings.logics_basic_auth_b64
 
 
-@router.post("/logics/dnc/add")
-async def logics_add(body: PhoneRequest, statusId: int = Query(0), db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = TPSApiClient()
-    # Resolve cases and update first found as DNC
-    cases = await client.find_cases_by_phone(phone)
-    if not cases:
-        raise HTTPException(status_code=404, detail="No case found for phone")
-    case_id = cases[0].get("CaseID")
-    summary = await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="logics",
-        phone_e164=phone,
-        request_context={"op": "add", "case_id": case_id, "status_id": statusId},
-        call=lambda: client.update_case_status(int(case_id), int(statusId or 0)),
-    )
-    if summary.get("status") == "failed":
-        raise HTTPException(status_code=502, detail=summary.get("error"))
-    return {"success": True, "provider": "logics", "phoneNumber": phone, "caseId": case_id}
+@router.post("/add-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def add_dnc_placeholder(_: AddToDNCRequest):
+	return ComingSoonResponse()
 
 
-@router.get("/logics/dnc/search")
-async def logics_search(phoneNumber: str = Query(...)):
-    client = TPSApiClient()
-    cases = await client.find_cases_by_phone(phoneNumber)
-    return {"success": True, "phoneNumber": phoneNumber, "count": len(cases), "cases": cases}
+@router.post("/search-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def search_dnc_placeholder(_: SearchDNCRequest):
+	return ComingSoonResponse()
 
 
+@router.post("/list-all-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def list_all_dnc_placeholder(_: ListAllDNCRequest):
+	return ComingSoonResponse()
+
+
+@router.post("/delete-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def delete_dnc_placeholder(_: DeleteFromDNCRequest):
+	return ComingSoonResponse()
+
+
+class LogicsUpdateCaseRequest(UploadDNCListRequest):
+	case_id: int
+	status_id: int
+
+
+@router.post("/update-case", response_model=DNCOperationResponse)
+async def update_case(req: LogicsUpdateCaseRequest, basic_auth_b64: Optional[str] = None, cookie: Optional[str] = None):
+	b64 = basic_auth_b64 or get_basic_auth()
+	headers = {"Content-Type": "application/json", "Authorization": f"Basic {b64}"}
+	if cookie or settings.logics_cookie:
+		headers["Cookie"] = cookie or settings.logics_cookie
+	url = "https://tps.logiqs.com/publicapi/V3/UpdateCase/UpdateCase"
+	payload = {"CaseID": req.case_id, "StatusID": req.status_id}
+	async with HttpClient() as http:
+		resp = await http.post(url, json=payload, headers=headers)
+		return DNCOperationResponse(success=True, message="Updated case (Logics)", data=resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text})
+
+
+@router.post("/search-by-phone", response_model=DNCOperationResponse)
+async def search_by_phone(request: SearchByPhoneRequest, basic_auth_b64: Optional[str] = None, cookie: Optional[str] = None):
+	b64 = basic_auth_b64 or get_basic_auth()
+	headers = {"Authorization": f"Basic {b64}"}
+	if cookie or settings.logics_cookie:
+		headers["Cookie"] = cookie or settings.logics_cookie
+	url = f"https://tps.logiqs.com/publicapi/V3/Find/FindCaseByPhone"
+	params = {"phone": request.phone_number}
+	async with HttpClient() as http:
+		resp = await http.get(url, headers=headers, params=params)
+		return DNCOperationResponse(success=True, message="Searched by phone (Logics)", data=resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text})

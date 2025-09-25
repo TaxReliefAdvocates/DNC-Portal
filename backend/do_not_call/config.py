@@ -101,6 +101,8 @@ class Settings(BaseSettings):
     TPS_API_VERIFY_SSL: bool = True
     # Some deployments require Basic auth header for V3 endpoints
     TPS_API_BASIC_AUTH: Optional[str] = None  # e.g. "Basic base64(user:pass)"
+    # Optional cookie (e.g., ASP.NET_SessionId) if TPS requires it
+    TPS_API_COOKIE: Optional[str] = None
 
     # Entra ID / Microsoft Identity Platform
     ENTRA_TENANT_ID: Optional[str] = None
@@ -120,6 +122,34 @@ class Settings(BaseSettings):
     BATCH_SIZE: int = 100
     MAX_RETRIES: int = 3
     RETRY_DELAY: int = 5  # seconds
+
+    # Provider integrations (feature flagged)
+    ENABLE_PROVIDERS: bool = False
+
+    # Provider credentials (copied without altering semantics)
+    # Ytel
+    ytel_user: Optional[str] = None
+    ytel_password: Optional[str] = None
+
+    # Convoso
+    convoso_auth_token: Optional[str] = None
+    convoso_leads_auth_token: Optional[str] = None
+
+    # RingCentral
+    ringcentral_client_id: Optional[str] = None
+    ringcentral_client_secret: Optional[str] = None
+    ringcentral_jwt_assertion: Optional[str] = None
+    ringcentral_basic_b64: Optional[str] = None
+
+    # Genesys
+    genesys_client_id: Optional[str] = None
+    genesys_client_secret: Optional[str] = None
+    genesys_region_login_base: str = "https://login.usw2.pure.cloud"
+    genesys_api_base: str = "https://api.usw2.pure.cloud"
+
+    # Logics
+    logics_basic_auth_b64: Optional[str] = None
+    logics_cookie: Optional[str] = None
     
     class Config:
         env_file = ".env"

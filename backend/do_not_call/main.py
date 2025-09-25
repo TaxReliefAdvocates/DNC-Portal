@@ -10,7 +10,11 @@ from .core.logging_middleware import JsonRequestLogger
 
 from .config import settings
 from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron
-# Provider routers removed per scope reduction (keep only FreeDNC & Postgres-backed endpoints)
+from .api.v1.providers import ringcentral as ringcentral_provider
+from .api.v1.providers import ytel as ytel_provider
+from .api.v1.providers import convoso as convoso_provider
+from .api.v1.providers import genesys as genesys_provider
+from .api.v1.providers import logics as logics_provider
 from .core.database import SessionLocal
 from .core.database import init_db, close_db
 
@@ -118,7 +122,12 @@ app.include_router(
     responses={404: {"description": "Not found"}},
 )
 
-# (intentionally not mounting provider routers)
+if settings.ENABLE_PROVIDERS:
+    app.include_router(ringcentral_provider.router, prefix="/api/v1/ringcentral", tags=["RingCentral"])
+    app.include_router(ytel_provider.router, prefix="/api/v1/ytel", tags=["Ytel"])
+    app.include_router(convoso_provider.router, prefix="/api/v1/convoso", tags=["Convoso"])
+    app.include_router(genesys_provider.router, prefix="/api/v1/genesys", tags=["Genesys"])
+    app.include_router(logics_provider.router, prefix="/api/v1/logics", tags=["Logics"])
 
 app.include_router(
     consent.router,

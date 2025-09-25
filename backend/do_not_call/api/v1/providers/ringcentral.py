@@ -1,75 +1,100 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
+from typing import Optional, Dict, Any
+from loguru import logger
+import base64
 
-from ....core.database import get_db, set_rls_org
-from ....core.auth import get_principal, Principal
-from ....core.utils import normalize_phone_to_e164_digits
-from ....core.propagation import track_provider_attempt
-from ....core.crm_clients.ringcentral import RingCentralService
-
+from .common import (
+	AddToDNCRequest,
+	SearchDNCRequest,
+	ListAllDNCRequest,
+	DeleteFromDNCRequest,
+	UploadDNCListRequest,
+	SearchByPhoneRequest,
+	DNCOperationResponse,
+	ComingSoonResponse,
+)
+from do_not_call.config import settings
+from .http_client import HttpClient
 
 router = APIRouter()
 
 
-class PhoneRequest(BaseModel):
-    phoneNumber: str = Field(...)
+async def ringcentral_get_token(assertion: Optional[str] = None, client_basic_b64: Optional[str] = None) -> str:
+	jwt_assertion = assertion or settings.ringcentral_jwt_assertion
+	if not jwt_assertion:
+		raise HTTPException(status_code=400, detail="RingCentral JWT assertion required.")
+	headers: Dict[str, str] = {"Content-Type": "application/x-www-form-urlencoded"}
+	basic_b64 = client_basic_b64 or settings.ringcentral_basic_b64
+	if not basic_b64 and settings.ringcentral_client_id and settings.ringcentral_client_secret:
+		creds = f"{settings.ringcentral_client_id}:{settings.ringcentral_client_secret}".encode()
+		basic_b64 = base64.b64encode(creds).decode()
+	if basic_b64:
+		headers["Authorization"] = f"Basic {basic_b64}"
+	async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+		data = {
+			"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+			"assertion": jwt_assertion,
+		}
+		resp = await http.post("/restapi/oauth/token", data=data, headers=headers)
+		json = resp.json()
+		access_token = json.get("access_token")
+		if not access_token:
+			logger.error(f"RingCentral token response missing access_token: {json}")
+			raise HTTPException(status_code=500, detail="Failed to obtain RingCentral access token")
+		return access_token
 
 
-@router.post("/ringcentral/auth")
-async def ringcentral_auth():
-    client = RingCentralService()
-    st = await client.auth_status()
-    if not st.get("authenticated"):
-        raise HTTPException(status_code=400, detail=st.get("error") or "Auth failed")
-    return st
+@router.post("/auth", response_model=DNCOperationResponse)
+async def auth(assertion: Optional[str] = None, client_basic_b64: Optional[str] = None):
+	token = await ringcentral_get_token(assertion, client_basic_b64)
+	return DNCOperationResponse(success=True, message="Obtained RingCentral token", data={"access_token": token})
 
 
-@router.post("/ringcentral/dnc/add")
-async def ringcentral_add(body: PhoneRequest, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    try:
-        org_id = None if principal.role == "superadmin" else getattr(principal, "organization_id", None)
-        set_rls_org(db, org_id)
-    except Exception:
-        pass
-    phone = normalize_phone_to_e164_digits(body.phoneNumber)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Invalid phoneNumber")
-    client = RingCentralService()
-    summary = await track_provider_attempt(
-        db,
-        organization_id=int(getattr(principal, "organization_id", 0) or 0),
-        service_key="ringcentral",
-        phone_e164=phone,
-        request_context={"op": "add"},
-        call=lambda: client.remove_phone_number(phone),
-    )
-    if summary.get("status") == "failed":
-        raise HTTPException(status_code=502, detail=summary.get("error"))
-    return {"success": True, "provider": "ringcentral", "phoneNumber": phone}
+@router.post("/add-dnc", response_model=DNCOperationResponse)
+async def add_to_dnc(request: AddToDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+	token = bearer_token or await ringcentral_get_token(assertion)
+	headers = {"Authorization": f"Bearer {token}", "accept": "application/json", "content-type": "application/json"}
+	payload = {"phoneNumber": f"+{request.phone_code or ''}{request.phone_number}", "status": "Blocked"}
+	async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+		resp = await http.post("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", json=payload, headers=headers)
+		return DNCOperationResponse(success=True, message="Added to DNC (RingCentral)", data=resp.json())
 
 
-@router.get("/ringcentral/dnc/list")
-async def ringcentral_list():
-    client = RingCentralService()
-    try:
-        return await client.list_blocked_numbers()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+@router.post("/delete-dnc", response_model=DNCOperationResponse)
+async def delete_from_dnc(request: DeleteFromDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+	if not request.resource_id:
+		raise HTTPException(status_code=400, detail="resource_id is required for RingCentral delete")
+	token = bearer_token or await ringcentral_get_token(assertion)
+	headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+	url = f"/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers/{request.resource_id}"
+	async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+		resp = await http.delete(url, headers=headers)
+		return DNCOperationResponse(success=True, message="Deleted from DNC (RingCentral)", data={"status_code": resp.status_code})
 
 
-@router.get("/ringcentral/dnc/search")
-async def ringcentral_search(phoneNumber: str = Query(...)):
-    client = RingCentralService()
-    return await client.search_blocked_number(phoneNumber)
+@router.post("/list-all-dnc", response_model=DNCOperationResponse)
+async def list_all_dnc(request: ListAllDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+	token = bearer_token or await ringcentral_get_token(assertion)
+	headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+	params = {"page": request.page, "perPage": request.per_page}
+	if request.status:
+		params["status"] = request.status
+	async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+		resp = await http.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
+		data = resp.json()
+		return DNCOperationResponse(success=True, message="Listed DNC entries (RingCentral)", data=data)
 
 
-@router.delete("/ringcentral/dnc/delete")
-async def ringcentral_delete(phoneNumber: str = Query(...)):
-    client = RingCentralService()
-    ok = await client.remove_blocked_number(phoneNumber)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Phone number not found")
-    return {"success": True}
+@router.post("/search-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def search_dnc_placeholder(_: SearchDNCRequest):
+	return ComingSoonResponse()
 
 
+@router.post("/upload-dnc-list-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def upload_dnc_placeholder(_: UploadDNCListRequest):
+	return ComingSoonResponse()
+
+
+@router.post("/search-by-phone-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
+async def search_by_phone_placeholder(_: SearchByPhoneRequest):
+	return ComingSoonResponse()
