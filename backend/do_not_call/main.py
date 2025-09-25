@@ -100,10 +100,16 @@ app.add_middleware(JsonRequestLogger)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://dnc-frontend.onrender.com",
+        "https://dnc-portal-frontend.onrender.com", 
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "*"  # Keep wildcard for development
+    ],
     allow_origin_regex=None,
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["X-Correlation-Id"]
 )
