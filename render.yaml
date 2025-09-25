@@ -46,7 +46,7 @@ services:
         value: YTJmcTJhOTZuVnRlTER0bzRUNmFPMTpWTmxUaUpXbGE2cWFwTWpsemxxdXZnV0Q1SlQyREtTSVFhcVVySElWS2s2eQ==
       - key: CONVOSO_AUTH_TOKEN
         value: swai20svbj229p1f3cozei7uxbsbvyne
-      - key: CONVOSO_TOKEN_LEADS
+      - key: CONVOSO_LEADS_AUTH_TOKEN
         value: phoq164rreu46tstut4eoth7zrenccsr
       - key: CONVOSO_CAMPAIGN_ID
         value: 0
