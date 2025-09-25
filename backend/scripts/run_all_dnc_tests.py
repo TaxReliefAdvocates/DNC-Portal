@@ -46,7 +46,12 @@ async def call(client: httpx.AsyncClient, method: str, url: str, *, json_body: O
 
 
 async def run():
-	load_dotenv()  # Load .env if present
+	# Load env from backend/.env first (works when run from repo root or backend)
+	backend_env = ROOT / ".env"
+	if backend_env.exists():
+		load_dotenv(backend_env)
+	# Also load from current working directory .env (optional override)
+	load_dotenv()
 	transport = ASGITransport(app=app)
 	async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
 		# Ytel
@@ -96,10 +101,12 @@ async def run():
 
 		# Genesys
 		g_token: Optional[str] = env("GENESYS_BEARER_TOKEN")
-		if not g_token and env("GENESYS_CLIENT_ID") and env("GENESYS_CLIENT_SECRET"):
-			pp("Genesys auth", await call(client, "POST", f"/api/v1/genesys/auth?client_id={env('GENESYS_CLIENT_ID')}&client_secret={env('GENESYS_CLIENT_SECRET')}"))
+		g_client_id = env("GENESYS_CLIENT_ID")
+		g_client_secret = env("GENESYS_CLIENT_SECRET")
+		if not g_token and g_client_id and g_client_secret:
+			pp("Genesys auth", await call(client, "POST", f"/api/v1/genesys/auth?client_id={g_client_id}&client_secret={g_client_secret}"))
 		g_token = env("GENESYS_BEARER_TOKEN")
-		g_q = f"?bearer_token={g_token}" if g_token else ""
+		g_q = f"?bearer_token={g_token}" if g_token else (f"?client_id={g_client_id}&client_secret={g_client_secret}" if g_client_id and g_client_secret else "")
 		pp("Genesys list-all-dnc", await call(client, "POST", f"/api/v1/genesys/list-all-dnc{g_q}", json_body={"page": 1, "per_page": 50}))
 		pp("Genesys add-dnc (coming soon)", await call(client, "POST", "/api/v1/genesys/add-dnc-coming-soon", json_body={}))
 		pp("Genesys search-dnc (coming soon)", await call(client, "POST", "/api/v1/genesys/search-dnc-coming-soon", json_body={}))
