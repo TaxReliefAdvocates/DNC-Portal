@@ -57,9 +57,9 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           }
         } catch {}
         // Map other providers from orchestrate response
-        try { providers.ringcentral = { listed: Boolean(rr?.searched?.ringcentral?.listed) } } catch {}
-        try { providers.convoso = { listed: Boolean(rr?.searched?.convoso?.listed) } } catch {}
-        try { providers.ytel = { listed: Boolean(rr?.searched?.ytel?.listed) } } catch {}
+        try { providers.ringcentral = { listed: rr?.searched?.ringcentral?.listed === true } } catch {}
+        try { providers.convoso = { listed: rr?.searched?.convoso?.listed === true } } catch {}
+        try { providers.ytel = { listed: rr?.searched?.ytel?.listed === true } } catch {}
         setResults((r)=>({
           ...r,
           [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } }
@@ -145,7 +145,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
+      const resp = await fetch(`${API_BASE_URL}/api/cases_by_phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })
