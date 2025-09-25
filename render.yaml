@@ -32,7 +32,7 @@ services:
         value: false
       - key: YTEL_USER
         value: "103"
-      - key: YTEL_PASS
+      - key: YTEL_PASSWORD
         value: "bHSQPgE7J6nLzX"
       - key: RINGCENTRAL_CLIENT_ID
         value: a2fq2a96nVteLDto4T6aO1
