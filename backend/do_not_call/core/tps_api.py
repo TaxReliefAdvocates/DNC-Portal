@@ -80,6 +80,8 @@ class TPSApiClient:
                 # If provided, include Basic Authorization header for V3 search
                 if settings.TPS_API_BASIC_AUTH:
                     headers["Authorization"] = settings.TPS_API_BASIC_AUTH
+                if settings.TPS_API_COOKIE:
+                    headers["Cookie"] = settings.TPS_API_COOKIE
                 async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
                     async with session.get(url, params=params, timeout=30) as resp:
                         text = await resp.text()
@@ -92,6 +94,8 @@ class TPSApiClient:
                     headers = {}
                     if settings.TPS_API_BASIC_AUTH:
                         headers["Authorization"] = settings.TPS_API_BASIC_AUTH
+                    if settings.TPS_API_COOKIE:
+                        headers["Cookie"] = settings.TPS_API_COOKIE
                     async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
                         async with session.get(url, params=params, timeout=30) as resp:
                             text = await resp.text()

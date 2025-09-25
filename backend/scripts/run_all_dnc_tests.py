@@ -14,7 +14,13 @@ if str(ROOT) not in sys.path:
 import httpx
 from httpx import ASGITransport
 
-from app.main import app
+# Conditional import for local in-process testing
+BASE_URL = os.getenv("BASE_URL") or os.getenv("DNC_BASE_URL")
+if not BASE_URL:
+    try:
+        from do_not_call.main import app  # our local FastAPI app
+    except Exception:
+        from app.main import app  # fallback if path differs
 
 
 PHONE_NUMBER = os.getenv("TEST_PHONE_NUMBER", "5618189087")
@@ -52,8 +58,12 @@ async def run():
 		load_dotenv(backend_env)
 	# Also load from current working directory .env (optional override)
 	load_dotenv()
-	transport = ASGITransport(app=app)
-	async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+	if BASE_URL:
+		client_ctx = httpx.AsyncClient(base_url=BASE_URL.rstrip("/"))
+	else:
+		transport = ASGITransport(app=app)
+		client_ctx = httpx.AsyncClient(transport=transport, base_url="http://test")
+	async with client_ctx as client:
 		# Ytel
 		y_user = env("YTEL_USER")
 		y_pass = env("YTEL_PASSWORD") or env("YTEL_PASS")
@@ -98,6 +108,19 @@ async def run():
 			pp("RingCentral delete-dnc (skipped: set RINGCENTRAL_RESOURCE_ID to test)", {"skipped": True})
 		pp("RingCentral search-dnc (coming soon)", await call(client, "POST", "/api/v1/ringcentral/search-dnc-coming-soon", json_body={}))
 		pp("RingCentral upload-dnc-list (coming soon)", await call(client, "POST", "/api/v1/ringcentral/upload-dnc-list-coming-soon", json_body={}))
+
+		# RingCentral blocked entry GET if resource id provided; prefer assertion to mint token
+		rc_resource_id = rc_resource_id or env("RINGCENTRAL_RESOURCE_ID")
+		rc_assertion_q = env("RINGCENTRAL_JWT") or env("RINGCENTRAL_JWT_ASSERTION")
+		if rc_resource_id and rc_assertion_q:
+			pp(
+				"RingCentral get blocked entry",
+				await call(
+					client,
+					"GET",
+					f"/api/v1/ringcentral/blocked/{rc_resource_id}?assertion={rc_assertion_q}",
+				),
+			)
 
 		# Genesys
 		g_token: Optional[str] = env("GENESYS_BEARER_TOKEN")
