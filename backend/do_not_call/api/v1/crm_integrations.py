@@ -30,7 +30,7 @@ router = APIRouter()
 async def crm_statuses(db: Session = Depends(get_db)):
     # Placeholder: return empty list for dashboard summary until implemented
     return []
-@router.get("/ringcentral/dnc/list", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
+@router.get("/ringcentral/dnc/list", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_list_blocked(db: Session = Depends(get_db)):
     """List blocked numbers on RingCentral (first page)."""
     from ...config import settings
@@ -95,7 +95,7 @@ def _provider_enabled(db: Session, key: str) -> bool:
     return True if row is None else bool(row.enabled)
 
 
-@router.post("/ringcentral/dnc/add", response_model=BaseDNCOperationResponse, tags=["RingCentral"])
+@router.post("/ringcentral/dnc/add", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_block_number(phone_number: str, label: str = "API Block", db: Session = Depends(get_db)):
     if not _provider_enabled(db, "ringcentral"):
         raise HTTPException(status_code=403, detail="RingCentral integration disabled")
@@ -113,7 +113,7 @@ async def ringcentral_block_number(phone_number: str, label: str = "API Block", 
     result = summary
     return BaseDNCOperationResponse(success=True, message='Added to blocked list', phone_number=phone_number, operation='add', service_name='ringcentral', details=result)
 
-@router.get("/ringcentral/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse, tags=["RingCentral"])
+@router.get("/ringcentral/dnc/search/{phone_number}", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_search_blocked(phone_number: str, db: Session = Depends(get_db)):
     """Search RingCentral blocked list for a phone number using JWT-auth client."""
     client = RingCentralService()
@@ -134,7 +134,7 @@ async def ringcentral_search_blocked(phone_number: str, db: Session = Depends(ge
         entry = [{ 'phone_number': r.get('phoneNumber'), 'status': r.get('status','Blocked').lower(), 'service_specific_id': r.get('id'), 'date_added': None }]
     return BaseDNCSearchResponse(success=True, found=found, total_count=1 if found else 0, entries=entry, service_name='ringcentral')
 
-@router.get("/ringcentral/dnc/check/{phone_number}", tags=["RingCentral"])
+@router.get("/ringcentral/dnc/check/{phone_number}", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_check(phone_number: str):
     client = RingCentralService()
     st = await client.check_status(phone_number)
@@ -452,7 +452,7 @@ async def get_supported_crm_systems():
 
 
 # RingCentral helpers
-@router.delete("/ringcentral/dnc/remove/{blocked_id}", response_model=BaseDNCOperationResponse, tags=["RingCentral"])
+@router.delete("/ringcentral/dnc/remove/{blocked_id}", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_delete_blocked(blocked_id: str):
     from ...config import settings
     import httpx
@@ -465,62 +465,62 @@ async def ringcentral_delete_blocked(blocked_id: str):
         return BaseDNCOperationResponse(success=True, message='Removed from blocked list', phone_number='n/a', operation='remove', service_name='ringcentral', details={'blocked_id': blocked_id})
 
 
-@router.get("/ringcentral/capabilities", tags=["RingCentral"])
+@router.get("/ringcentral/capabilities", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_capabilities():
     return { 'add': True, 'remove': True, 'search': True, 'list': True, 'check': True }
 
-@router.get("/ringcentral/auth/status", tags=["RingCentral"])
+@router.get("/ringcentral/auth/status", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_auth_status():
     client = RingCentralService()
     return await client.auth_status()
 
 # Ytel unified endpoints and capability reporting
-@router.get("/ytel/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse, tags=["Ytel"])
+@router.get("/ytel/dnc/search/{phone_number}", include_in_schema=False, tags=["Ytel"])
 async def ytel_search_not_supported(phone_number: str):
     raise HTTPException(status_code=501, detail="Ytel does not support DNC search")
 
-@router.delete("/ytel/dnc/remove/{phone_number}", response_model=BaseDNCOperationResponse, tags=["Ytel"])
+@router.delete("/ytel/dnc/remove/{phone_number}", include_in_schema=False, tags=["Ytel"])
 async def ytel_remove_not_supported(phone_number: str):
     raise HTTPException(status_code=501, detail="Ytel does not support DNC removal")
 
-@router.get("/ytel/dnc/list", response_model=BaseDNCSearchResponse, tags=["Ytel"])
+@router.get("/ytel/dnc/list", include_in_schema=False, tags=["Ytel"])
 async def ytel_list_not_supported():
     raise HTTPException(status_code=501, detail="Ytel does not support listing DNC entries")
 
-@router.get("/ytel/dnc/check/{phone_number}", tags=["Ytel"])
+@router.get("/ytel/dnc/check/{phone_number}", include_in_schema=False, tags=["Ytel"])
 async def ytel_check_support(phone_number: str):
     return { 'on_dnc': None, 'service': 'ytel', 'supported': False }
 
-@router.get("/ytel/capabilities", tags=["Ytel"])
+@router.get("/ytel/capabilities", include_in_schema=False, tags=["Ytel"])
 async def ytel_capabilities():
     return { 'add': True, 'remove': False, 'search': False, 'list': False, 'check': False }
 
 # Genesys unified endpoints (placeholders)
-@router.post("/genesys/dnc/add", response_model=BaseDNCOperationResponse, tags=["Genesys"])
+@router.post("/genesys/dnc/add", include_in_schema=False, tags=["Genesys"])
 async def genesys_add(phone_number: str):
     raise HTTPException(status_code=501, detail="Genesys DNC add not implemented yet")
 
-@router.get("/genesys/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse, tags=["Genesys"])
+@router.get("/genesys/dnc/search/{phone_number}", include_in_schema=False, tags=["Genesys"])
 async def genesys_search(phone_number: str):
     raise HTTPException(status_code=501, detail="Genesys DNC search not implemented yet")
 
-@router.delete("/genesys/dnc/remove/{phone_number}", response_model=BaseDNCOperationResponse, tags=["Genesys"])
+@router.delete("/genesys/dnc/remove/{phone_number}", include_in_schema=False, tags=["Genesys"])
 async def genesys_remove(phone_number: str):
     raise HTTPException(status_code=501, detail="Genesys DNC removal not implemented yet")
 
-@router.get("/genesys/dnc/check/{phone_number}", tags=["Genesys"])
+@router.get("/genesys/dnc/check/{phone_number}", include_in_schema=False, tags=["Genesys"])
 async def genesys_check(phone_number: str):
     return { 'on_dnc': None, 'service': 'genesys', 'supported': False }
 
-@router.get("/genesys/dnc/list", response_model=BaseDNCSearchResponse, tags=["Genesys"])
+@router.get("/genesys/dnc/list", include_in_schema=False, tags=["Genesys"])
 async def genesys_list(offset: int = 0, limit: int = 100):
     raise HTTPException(status_code=501, detail="Genesys DNC list not implemented yet")
 
-@router.get("/genesys/capabilities", tags=["Genesys"])
+@router.get("/genesys/capabilities", include_in_schema=False, tags=["Genesys"])
 async def genesys_capabilities():
     return { 'add': False, 'remove': False, 'search': False, 'list': False, 'check': False }
 
-@router.put("/ringcentral/blocked/{blocked_id}", tags=["RingCentral"])
+@router.put("/ringcentral/blocked/{blocked_id}", include_in_schema=False, tags=["RingCentral"])
 async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status: str = "Blocked", label: str | None = None):
     from ...config import settings
     import httpx
@@ -537,7 +537,7 @@ async def ringcentral_update_blocked(blocked_id: str, phone_number: str, status:
 
 
 # Convoso DNC helpers
-@router.post("/convoso/dnc/add", response_model=BaseDNCOperationResponse, tags=["Convoso"])
+@router.post("/convoso/dnc/add", include_in_schema=False, tags=["Convoso"])
 async def convoso_dnc_insert(phone_number: str, db: Session = Depends(get_db)):
     if not _provider_enabled(db, "convoso"):
         raise HTTPException(status_code=403, detail="Convoso integration disabled")
@@ -552,7 +552,7 @@ async def convoso_dnc_insert(phone_number: str, db: Session = Depends(get_db)):
         details=res,
     )
 
-@router.get("/convoso/dnc/search/{phone_number}", response_model=BaseDNCSearchResponse, tags=["Convoso"])
+@router.get("/convoso/dnc/search/{phone_number}", include_in_schema=False, tags=["Convoso"])
 async def convoso_dnc_search(
     phone_number: str,
     phone_code: int = Query(1, description="Country code, defaults to 1"),
@@ -589,7 +589,7 @@ async def convoso_dnc_search(
         # Surface upstream error as a 502 with message
         raise HTTPException(status_code=502, detail=str(e))
 
-@router.delete("/convoso/dnc/remove/{phone_number}", response_model=BaseDNCOperationResponse, tags=["Convoso"])
+@router.delete("/convoso/dnc/remove/{phone_number}", include_in_schema=False, tags=["Convoso"])
 async def convoso_dnc_delete(phone_number: str, db: Session = Depends(get_db)):
     if not _provider_enabled(db, "convoso"):
         raise HTTPException(status_code=403, detail="Convoso integration disabled")
@@ -597,7 +597,7 @@ async def convoso_dnc_delete(phone_number: str, db: Session = Depends(get_db)):
     res = await client.delete_phone_number(phone_number)
     return BaseDNCOperationResponse(success=True, message="Removed from DNC", phone_number=phone_number, operation="remove", service_name="convoso", details=res)
 
-@router.get("/convoso/dnc/check/{phone_number}", tags=["Convoso"])
+@router.get("/convoso/dnc/check/{phone_number}", include_in_schema=False, tags=["Convoso"])
 async def convoso_dnc_check(phone_number: str):
     client = ConvosoClient()
     res = await client.check_status(phone_number)
@@ -606,7 +606,7 @@ async def convoso_dnc_check(phone_number: str):
 
 
 # Ytel modern v4 helpers
-@router.post("/ytel/dnc/add", response_model=BaseDNCOperationResponse, tags=["Ytel"])
+@router.post("/ytel/dnc/add", include_in_schema=False, tags=["Ytel"])
 async def ytel_add_dnc(phone_number: str, db: Session = Depends(get_db)):
     if not _provider_enabled(db, "ytel"):
         raise HTTPException(status_code=403, detail="Ytel integration disabled")
@@ -614,7 +614,7 @@ async def ytel_add_dnc(phone_number: str, db: Session = Depends(get_db)):
     res = await client.remove_phone_number(phone_number)
     return BaseDNCOperationResponse(success=True, message='Added to DNC', phone_number=phone_number, operation='add', service_name='ytel', details=res)
 
-@router.post("/ytel/dnc/bulk", tags=["Ytel"])
+@router.post("/ytel/dnc/bulk", include_in_schema=False, tags=["Ytel"])
 async def ytel_bulk_upload(file_path: str):
     """Upload a CSV file to Ytel v4 bulk DNC (server-side path)."""
     from ...config import settings
@@ -631,19 +631,19 @@ async def ytel_bulk_upload(file_path: str):
 
 
 # Logics (TPS) helpers
-@router.post("/logics/dnc/update-case", tags=["Logics"])
+@router.post("/logics/dnc/update-case", include_in_schema=False, tags=["Logics"])
 async def logics_update_case(case_id: int, status_id: int, db: Session = Depends(get_db)):
     if not _provider_enabled(db, "logics"):
         raise HTTPException(status_code=403, detail="Logics integration disabled")
     client = TPSApiClient()
     return await client.update_case_status(case_id, status_id)
 
-@router.get("/logics/dnc/cases-by-status", tags=["Logics"])
+@router.get("/logics/dnc/cases-by-status", include_in_schema=False, tags=["Logics"])
 async def logics_cases_by_status(status_id: int):
     client = TPSApiClient()
     return await client.get_cases_by_status(status_id)
 
-@router.get("/logics/dnc/cases-by-phone", tags=["Logics"])
+@router.get("/logics/dnc/cases-by-phone", include_in_schema=False, tags=["Logics"])
 async def logics_cases_by_phone(phone_number: str):
     """Search TPS/Logics cases by phone number.
 
