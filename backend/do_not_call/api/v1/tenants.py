@@ -21,8 +21,6 @@ from ...config import settings
 from sqlalchemy import inspect, text
 import anyio
 import httpx
-from httpx import ASGITransport
-from ...main import app as fastapi_app
 from ...api.v1.providers.ringcentral import ringcentral_get_token
 
 router = APIRouter()
@@ -469,63 +467,97 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
     g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
     # RingCentral uses JWT assertion in settings; we'll search blocked list
 
-    async def _in_app_client():
-        transport = ASGITransport(app=fastapi_app)
-        return httpx.AsyncClient(transport=transport, base_url="http://test")
-
     results: list[dict] = []
-    async with await _in_app_client() as client:
-        for raw in numbers:
+    for raw in numbers:
             # Normalize to E.164 digits using existing utility
             phone = normalize_phone_to_e164_digits(raw)
             entry: dict = {"phone_e164": phone, "searched": {}, "added": {}, "freednc": None}
 
-            # FreeDNC check
+            # FreeDNC check via service
             try:
-                fr = await client.post("/api/check_number", json={"phone_number": phone})
-                entry["freednc"] = fr.json()
+                from ...core.dnc_service import dnc_service
+                d = await dnc_service.check_federal_dnc(phone)
+                entry["freednc"] = d
             except Exception as e:
                 entry["freednc_error"] = str(e)
 
             # Ytel search → add if needed (only when mode==push)
             if y_user and y_pass:
                 try:
-                    s = await client.post(f"/api/v1/ytel/search-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
-                    entry["searched"]["ytel"] = s.json()
+                    base = "https://tra.ytel.com/x5/api/non_agent.php"
+                    params = {
+                        "function": "add_lead",
+                        "user": y_user,
+                        "pass": y_pass,
+                        "source": "dncfilter",
+                        "phone_number": phone,
+                        "dnc_check": "Y",
+                        "campaign_dnc_check": "Y",
+                        "duplicate_check": "Y",
+                    }
+                    rs = await httpx.get(base, params=params, timeout=30.0)
+                    txt = rs.text or ""
+                    listed = "PHONE NUMBER IN DNC" in txt
+                    entry.setdefault("searched", {}).setdefault("ytel", {})["listed"] = listed
                 except Exception as e:
-                    entry["searched"]["ytel_error"] = str(e)
+                    entry.setdefault("searched", {}).setdefault("ytel", {})["error"] = str(e)
                 if do_adds:
                     try:
-                        a = await client.post(f"/api/v1/ytel/add-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
-                        entry["added"]["ytel"] = a.json()
+                        base = "https://tra.ytel.com/x5/api/non_agent.php"
+                        params = {
+                            "function": "update_lead",
+                            "user": y_user,
+                            "pass": y_pass,
+                            "source": "dncfilter",
+                            "status": "DNC",
+                            "phone_number": phone,
+                            "ADDTODNC": "BOTH",
+                        }
+                        await httpx.get(base, params=params, timeout=30.0)
+                        entry.setdefault("added", {})["ytel"] = {"ok": True}
                     except Exception as e:
                         entry.setdefault("add_errors", {})["ytel"] = str(e)
 
             # Convoso search/add (only add when mode==push)
             if conv_token:
                 try:
-                    s = await client.post(f"/api/v1/convoso/search-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1", "offset": 0, "limit": 10})
-                    entry["searched"]["convoso"] = s.json()
+                    url = "https://api.convoso.com/v1/dnc/search"
+                    params = {"auth_token": conv_token, "phone_number": phone, "phone_code": "1", "offset": 0, "limit": 10}
+                    r = await httpx.get(url, params=params, timeout=30.0)
+                    js = r.json() if r.headers.get("content-type","" ).startswith("application/json") else {}
+                    total = ((js or {}).get("data") or {}).get("total", 0)
+                    entry.setdefault("searched", {}).setdefault("convoso", {})["listed"] = bool(total and int(total) > 0)
                 except Exception as e:
-                    entry["searched"]["convoso_error"] = str(e)
+                    entry.setdefault("searched", {}).setdefault("convoso", {})["error"] = str(e)
                 if do_adds:
                     try:
-                        a = await client.post(f"/api/v1/convoso/add-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1"})
-                        entry["added"]["convoso"] = a.json()
+                        url = "https://api.convoso.com/v1/dnc/insert"
+                        params = {"auth_token": conv_token, "phone_number": phone, "phone_code": "1"}
+                        await httpx.get(url, params=params, timeout=30.0)
+                        entry.setdefault("added", {})["convoso"] = {"ok": True}
                     except Exception as e:
                         entry.setdefault("add_errors", {})["convoso"] = str(e)
 
             # Genesys export-check/add (only add when mode==push)
             if g_cid and g_csec and g_list:
                 try:
-                    c = await client.post(f"/api/v1/genesys/dnclists/{g_list}/check", json={"phone_numbers": [phone], "client_id": g_cid, "client_secret": g_csec})
-                    entry["searched"]["genesys"] = c.json()
+                    login_base = (getattr(cfg, "genesys_region_login_base", None) or "https://login.usw2.pure.cloud").rstrip("/")
+                    api_base = (getattr(cfg, "genesys_api_base", None) or "https://api.usw2.pure.cloud").rstrip("/")
+                    tok = (await httpx.post(f"{login_base}/oauth/token", data={"grant_type":"client_credentials","client_id": g_cid, "client_secret": g_csec}, headers={"Content-Type":"application/x-www-form-urlencoded"}, timeout=30.0)).json().get("access_token")
+                    headers = {"Authorization": f"Bearer {tok}"}
+                    r = await httpx.get(f"{api_base}/api/v2/outbound/dnclists/{g_list}/export", headers=headers, timeout=30.0)
+                    text_blob = r.text or ""
+                    entry.setdefault("searched", {}).setdefault("genesys", {})["present"] = { phone: (phone in text_blob) }
                 except Exception as e:
-                    entry["searched"]["genesys_error"] = str(e)
+                    entry.setdefault("searched", {}).setdefault("genesys", {})["error"] = str(e)
                 if do_adds:
                     try:
-                        a = await client.patch(f"/api/v1/genesys/dnclists/{g_list}/phonenumbers", json={"action": "Add", "phone_numbers": [phone], "expiration_date_time": "", "client_id": g_cid, "client_secret": g_csec})
-                        entry["added"]["genesys"] = a.json()
+                        login_base = (getattr(cfg, "genesys_region_login_base", None) or "https://login.usw2.pure.cloud").rstrip("/")
+                        api_base = (getattr(cfg, "genesys_api_base", None) or "https://api.usw2.pure.cloud").rstrip("/")
+                        tok = (await httpx.post(f"{login_base}/oauth/token", data={"grant_type":"client_credentials","client_id": g_cid, "client_secret": g_csec}, headers={"Content-Type":"application/x-www-form-urlencoded"}, timeout=30.0)).json().get("access_token")
+                        headers = {"Authorization": f"Bearer {tok}", "Content-Type":"application/json"}
+                        await httpx.patch(f"{api_base}/api/v2/outbound/dnclists/{g_list}/phonenumbers", headers=headers, json={"action":"Add", "phoneNumbers":[phone], "expirationDateTime":""}, timeout=30.0)
+                        entry.setdefault("added", {})["genesys"] = {"ok": True}
                     except Exception as e:
                         entry.setdefault("add_errors", {})["genesys"] = str(e)
 
