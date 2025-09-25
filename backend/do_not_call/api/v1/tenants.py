@@ -453,6 +453,8 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
         pass
 
     numbers = payload.get("phone_numbers") or []
+    mode = str(payload.get("mode", "push")).lower()  # "search" or "push"
+    do_adds = mode == "push"
     if not isinstance(numbers, list) or not numbers:
         raise HTTPException(status_code=400, detail="phone_numbers array required")
 
@@ -483,45 +485,47 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
             except Exception as e:
                 entry["freednc_error"] = str(e)
 
-            # Ytel search → add if needed
+            # Ytel search → add if needed (only when mode==push)
             if y_user and y_pass:
                 try:
                     s = await client.post(f"/api/v1/ytel/search-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
                     entry["searched"]["ytel"] = s.json()
                 except Exception as e:
                     entry["searched"]["ytel_error"] = str(e)
-                try:
-                    # If not explicit presence in raw text, just issue add
-                    a = await client.post(f"/api/v1/ytel/add-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
-                    entry["added"]["ytel"] = a.json()
-                except Exception as e:
-                    entry.setdefault("add_errors", {})["ytel"] = str(e)
+                if do_adds:
+                    try:
+                        a = await client.post(f"/api/v1/ytel/add-dnc?user={y_user}&password={y_pass}", json={"phone_number": phone})
+                        entry["added"]["ytel"] = a.json()
+                    except Exception as e:
+                        entry.setdefault("add_errors", {})["ytel"] = str(e)
 
-            # Convoso search/add
+            # Convoso search/add (only add when mode==push)
             if conv_token:
                 try:
                     s = await client.post(f"/api/v1/convoso/search-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1", "offset": 0, "limit": 10})
                     entry["searched"]["convoso"] = s.json()
                 except Exception as e:
                     entry["searched"]["convoso_error"] = str(e)
-                try:
-                    a = await client.post(f"/api/v1/convoso/add-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1"})
-                    entry["added"]["convoso"] = a.json()
-                except Exception as e:
-                    entry.setdefault("add_errors", {})["convoso"] = str(e)
+                if do_adds:
+                    try:
+                        a = await client.post(f"/api/v1/convoso/add-dnc?auth_token={conv_token}", json={"phone_number": phone, "phone_code": "1"})
+                        entry["added"]["convoso"] = a.json()
+                    except Exception as e:
+                        entry.setdefault("add_errors", {})["convoso"] = str(e)
 
-            # Genesys export-check/add/remove (if list configured)
+            # Genesys export-check/add (only add when mode==push)
             if g_cid and g_csec and g_list:
                 try:
                     c = await client.post(f"/api/v1/genesys/dnclists/{g_list}/check", json={"phone_numbers": [phone], "client_id": g_cid, "client_secret": g_csec})
                     entry["searched"]["genesys"] = c.json()
                 except Exception as e:
                     entry["searched"]["genesys_error"] = str(e)
-                try:
-                    a = await client.patch(f"/api/v1/genesys/dnclists/{g_list}/phonenumbers", json={"action": "Add", "phone_numbers": [phone], "expiration_date_time": "", "client_id": g_cid, "client_secret": g_csec})
-                    entry["added"]["genesys"] = a.json()
-                except Exception as e:
-                    entry.setdefault("add_errors", {})["genesys"] = str(e)
+                if do_adds:
+                    try:
+                        a = await client.patch(f"/api/v1/genesys/dnclists/{g_list}/phonenumbers", json={"action": "Add", "phone_numbers": [phone], "expiration_date_time": "", "client_id": g_cid, "client_secret": g_csec})
+                        entry["added"]["genesys"] = a.json()
+                    except Exception as e:
+                        entry.setdefault("add_errors", {})["genesys"] = str(e)
 
             # Log attempt rows (best-effort)
             try:
