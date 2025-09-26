@@ -24,6 +24,13 @@ def get_token(token: Optional[str] = None) -> str:
 		raise HTTPException(status_code=400, detail="Convoso auth_token required. Provide 'auth_token' or set CONVOSO_AUTH_TOKEN.")
 	return final
 
+def get_leads_token(token: Optional[str] = None) -> str:
+	"""Get token specifically for leads API endpoints"""
+	final = token or getattr(settings, 'convoso_token_leads', None) or settings.convoso_auth_token
+	if not final:
+		raise HTTPException(status_code=400, detail="Convoso leads token required. Provide 'auth_token' or set CONVOSO_TOKEN_LEADS.")
+	return final
+
 
 @router.post("/auth", response_model=DNCOperationResponse)
 async def auth(auth_token: Optional[str] = None):
@@ -103,7 +110,7 @@ async def list_all_dnc(request: ListAllDNCRequest, auth_token: Optional[str] = N
 	Retrieve all DNC numbers from Convoso.
 	This will be our master DNC list for syncing across all providers.
 	"""
-	token = get_token(auth_token)
+	token = get_leads_token(auth_token)
 	url = "https://api.convoso.com/v1/leads/search"
 	params = {
 		"auth_token": token,
@@ -180,7 +187,7 @@ async def search_by_phone(request: SearchByPhoneRequest, auth_token: Optional[st
 	Search for leads by phone number in Convoso.
 	This helps identify if a number has multiple lead records that need to be updated to DNC status.
 	"""
-	token = get_token(auth_token)
+	token = get_leads_token(auth_token)
 	url = "https://api.convoso.com/v1/leads/search"
 	params = {
 		"auth_token": token,

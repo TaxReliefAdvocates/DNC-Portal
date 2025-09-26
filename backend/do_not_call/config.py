@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     CONVOSO_API_KEY: Optional[str] = None
     CONVOSO_BASE_URL: str = "https://api.convoso.com"
     CONVOSO_AUTH_TOKEN: Optional[str] = None
+    CONVOSO_TOKEN_LEADS: Optional[str] = None
     CONVOSO_COOKIE: str = "APIUBUNTUBACKEND=apiapp127"
     
     YTEL_API_KEY: Optional[str] = None
