@@ -15,8 +15,12 @@ def get_database_url():
     pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
     missing_vars = [var for var in pg_vars if not os.getenv(var)]
     
+    # Log all environment variables for debugging
+    logger.info(f"Environment check - PGHOST: {bool(os.getenv('PGHOST'))}, PGUSER: {bool(os.getenv('PGUSER'))}, PGPASSWORD: {bool(os.getenv('PGPASSWORD'))}, PGDATABASE: {bool(os.getenv('PGDATABASE'))}")
+    
     if missing_vars:
         logger.info(f"Missing PG environment variables: {missing_vars}, falling back to DATABASE_URL")
+        logger.info(f"DATABASE_URL from settings: {settings.DATABASE_URL}")
         return settings.DATABASE_URL
     
     host = os.getenv('PGHOST')
