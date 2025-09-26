@@ -11,12 +11,6 @@ from ..config import settings
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
     """Get database URL, preferring individual PG env vars over DATABASE_URL"""
-    # Temporary SQLite database to get the app running
-    # We'll switch back to PostgreSQL once the app is working
-    sqlite_url = "sqlite:///./do_not_call.db"
-    logger.info("Using temporary SQLite database to get app running")
-    return sqlite_url
-    
     # Check if individual PostgreSQL environment variables are set
     pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
     missing_vars = [var for var in pg_vars if not os.getenv(var)]
