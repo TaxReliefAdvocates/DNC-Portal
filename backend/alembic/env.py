@@ -36,7 +36,7 @@ def get_url():
         port = os.getenv('PGPORT', '5432')
         
         # Construct URL with explicit password authentication
-        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require"
+        return f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode=require"
     
     # Fall back to DATABASE_URL from settings or env var
     return os.getenv("DATABASE_URL", settings.DATABASE_URL)
