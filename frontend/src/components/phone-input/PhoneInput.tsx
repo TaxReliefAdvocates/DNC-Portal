@@ -65,7 +65,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
       await onNumbersSubmit(phoneNumbers, data.notes)
       
       setSuccess(`Successfully submitted ${phoneNumbers.length} phone numbers`)
-      reset()
+      // Don't reset form - let user run checks again or manually clear
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -277,7 +277,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({ onNumbersSubmit, isLoadi
               disabled={isSubmitting || isLoading}
               className="flex-shrink-0 whitespace-nowrap"
             >
-              Reset
+              Clear
             </Button>
           </div>
         </form>
