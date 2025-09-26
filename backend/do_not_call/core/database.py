@@ -74,15 +74,8 @@ def get_database_url():
 
 # Create database engine with production-safe defaults
 database_url = get_database_url()
-if database_url.startswith("sqlite"):
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-else:
-    # Standard PostgreSQL connection
-    engine = create_engine(
+# Force PostgreSQL connection - no SQLite fallback
+engine = create_engine(
         database_url,
         pool_pre_ping=True,
         pool_recycle=1800,  # recycle every 30 minutes
