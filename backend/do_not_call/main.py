@@ -208,7 +208,11 @@ async def debug_env():
         "pg_password": bool(os.getenv('PGPASSWORD')),
         "pg_database": bool(os.getenv('PGDATABASE')),
         "pg_port": os.getenv('PGPORT'),
-        "database_url": settings.DATABASE_URL
+        "database_url": settings.DATABASE_URL,
+        "ytel_user_env": bool(os.getenv('YTEL_USER')),
+        "ytel_password_env": bool(os.getenv('YTEL_PASSWORD')),
+        "ytel_user_value": os.getenv('YTEL_USER'),
+        "ytel_password_value": os.getenv('YTEL_PASSWORD')
     }
 
 # Custom OpenAPI description block
