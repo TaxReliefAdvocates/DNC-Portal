@@ -13,8 +13,7 @@ services:
       poetry run uvicorn do_not_call.main:app --host 0.0.0.0 --port $PORT
     envVars:
       # Database Configuration
-      - key: DATABASE_URL
-        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&gssencmode=disable"
+      # Remove DATABASE_URL to force use of individual PG variables
       - key: PGHOST
         value: "dnc.postgres.database.azure.com"
       - key: PGUSER
@@ -25,6 +24,8 @@ services:
         value: "postgres"
       - key: PGPASSWORD
         value: "TPSZen2025@!"
+      - key: PGSSLMODE
+        value: "require"
 
       # Azure Database Configuration
       - key: AZURE_DB_CLIENT_ID
