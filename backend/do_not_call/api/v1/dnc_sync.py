@@ -10,6 +10,7 @@ from ...core.models import MasterDNCEntry, DNCSyncStatus, DNCSyncJob, MasterDNCE
 from ...core.auth import Principal, require_role
 from .providers.convoso import list_all_dnc, add_to_dnc as convoso_add_to_dnc
 from .providers.ringcentral import add_to_dnc as rc_add_to_dnc
+from .providers.genesys import patch_dnclist_phone_numbers as genesys_add_to_dnc
 from .providers.ytel import add_to_dnc as ytel_add_to_dnc
 from .providers.logics import update_case as logics_update_case
 from .common import AddToDNCRequest, SearchByPhoneRequest, LogicsUpdateCaseRequest
@@ -294,9 +295,15 @@ async def sync_to_provider(phone_number: str, provider: str, sync_status: DNCSyn
         elif provider == "ytel":
             response = await ytel_add_to_dnc(AddToDNCRequest(phone_number=phone_number))
         elif provider == "genesys":
-            # Genesys add-to-dnc is not implemented yet, skip
-            logger.warning(f"Genesys add-to-dnc not implemented, skipping {phone_number}")
-            return False
+            # Use the patch_dnclist_phone_numbers function
+            from .providers.genesys import GenesysPatchPhoneNumbersRequest
+            list_id = "d4a6a02e-4ab9-495b-a141-4c65aee551db"  # Default DNC list ID
+            genesys_req = GenesysPatchPhoneNumbersRequest(
+                action="Add",
+                phone_numbers=[phone_number],
+                expiration_date_time=""
+            )
+            response = await genesys_add_to_dnc(list_id, genesys_req)
         elif provider == "logics":
             # For Logics, we need to search for the case first
             from .providers.logics import search_by_phone
