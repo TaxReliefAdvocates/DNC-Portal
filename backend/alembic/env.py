@@ -26,7 +26,19 @@ from do_not_call.config import settings  # noqa: E402
 target_metadata = Base.metadata
 
 def get_url():
-    # Use env var if provided, else settings.DATABASE_URL
+    """Get database URL, preferring individual PG env vars over DATABASE_URL"""
+    # Check if individual PostgreSQL environment variables are set
+    if all(os.getenv(var) for var in ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']):
+        host = os.getenv('PGHOST')
+        user = os.getenv('PGUSER')
+        password = os.getenv('PGPASSWORD')
+        database = os.getenv('PGDATABASE')
+        port = os.getenv('PGPORT', '5432')
+        
+        # Construct URL with explicit password authentication
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require&authentication=password&gssencmode=disable"
+    
+    # Fall back to DATABASE_URL from settings or env var
     return os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
 

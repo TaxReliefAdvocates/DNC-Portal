@@ -4,20 +4,39 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from loguru import logger
 from typing import Generator
+import os
 
 from ..config import settings
 
+# Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
+def get_database_url():
+    """Get database URL, preferring individual PG env vars over DATABASE_URL"""
+    # Check if individual PostgreSQL environment variables are set
+    if all(os.getenv(var) for var in ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']):
+        host = os.getenv('PGHOST')
+        user = os.getenv('PGUSER')
+        password = os.getenv('PGPASSWORD')
+        database = os.getenv('PGDATABASE')
+        port = os.getenv('PGPORT', '5432')
+        
+        # Construct URL with explicit password authentication
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require&authentication=password&gssencmode=disable"
+    
+    # Fall back to DATABASE_URL from settings
+    return settings.DATABASE_URL
+
 # Create database engine with production-safe defaults
-if settings.DATABASE_URL.startswith("sqlite"):
+database_url = get_database_url()
+if database_url.startswith("sqlite"):
     engine = create_engine(
-        settings.DATABASE_URL,
+        database_url,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
 else:
     # Standard PostgreSQL connection
     engine = create_engine(
-        settings.DATABASE_URL,
+        database_url,
         pool_pre_ping=True,
         pool_recycle=1800,  # recycle every 30 minutes
     )
