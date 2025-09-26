@@ -665,3 +665,132 @@ class PropagationAttemptResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# DNC Sync System Models
+
+class MasterDNCEntry(Base):
+    """Master DNC list table to store DNC numbers from Convoso for cross-provider sync"""
+    __tablename__ = "master_dnc_entries"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    phone_number = Column(String(20), unique=True, index=True, nullable=False)
+    convoso_lead_id = Column(String(50), nullable=True)  # Lead ID from Convoso
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    email = Column(String(255), nullable=True)
+    campaign_name = Column(String(255), nullable=True)
+    status = Column(String(20), default="DNC", nullable=False)  # DNC, DNCL, etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)  # When last synced from Convoso
+    
+    # Relationships
+    sync_statuses = relationship("DNCSyncStatus", back_populates="dnc_entry", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<MasterDNCEntry(id={self.id}, phone_number='{self.phone_number}', status='{self.status}')>"
+
+
+class DNCSyncStatus(Base):
+    """Track sync status of DNC numbers across different providers"""
+    __tablename__ = "dnc_sync_statuses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    dnc_entry_id = Column(Integer, ForeignKey("master_dnc_entries.id"), nullable=False)
+    provider = Column(String(50), nullable=False)  # ringcentral, genesys, ytel, logics
+    status = Column(String(20), default="pending", nullable=False)  # pending, synced, failed, skipped
+    provider_id = Column(String(100), nullable=True)  # ID in the provider system
+    error_message = Column(Text, nullable=True)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    synced_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    # Relationships
+    dnc_entry = relationship("MasterDNCEntry", back_populates="sync_statuses")
+    
+    # Unique constraint to prevent duplicate sync attempts
+    __table_args__ = (
+        UniqueConstraint('dnc_entry_id', 'provider', name='uq_dnc_entry_provider'),
+        Index('idx_dnc_sync_provider_status', 'provider', 'status'),
+    )
+    
+    def __repr__(self):
+        return f"<DNCSyncStatus(id={self.id}, provider='{self.provider}', status='{self.status}')>"
+
+
+class DNCSyncJob(Base):
+    """Track DNC sync jobs and their status"""
+    __tablename__ = "dnc_sync_jobs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    job_type = Column(String(50), nullable=False)  # full_sync, incremental_sync, manual_sync
+    status = Column(String(20), default="pending", nullable=False)  # pending, running, completed, failed
+    total_entries = Column(Integer, default=0, nullable=False)
+    processed_entries = Column(Integer, default=0, nullable=False)
+    successful_syncs = Column(Integer, default=0, nullable=False)
+    failed_syncs = Column(Integer, default=0, nullable=False)
+    skipped_syncs = Column(Integer, default=0, nullable=False)
+    error_message = Column(Text, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    def __repr__(self):
+        return f"<DNCSyncJob(id={self.id}, job_type='{self.job_type}', status='{self.status}')>"
+
+
+# Pydantic models for API responses
+
+class MasterDNCEntryResponse(BaseModel):
+    id: int
+    phone_number: str
+    convoso_lead_id: str | None
+    first_name: str | None
+    last_name: str | None
+    email: str | None
+    campaign_name: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    last_synced_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class DNCSyncStatusResponse(BaseModel):
+    id: int
+    dnc_entry_id: int
+    provider: str
+    status: str
+    provider_id: str | None
+    error_message: str | None
+    last_attempt_at: datetime | None
+    synced_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DNCSyncJobResponse(BaseModel):
+    id: int
+    job_type: str
+    status: str
+    total_entries: int
+    processed_entries: int
+    successful_syncs: int
+    failed_syncs: int
+    skipped_syncs: int
+    error_message: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

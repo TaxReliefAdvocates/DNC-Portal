@@ -12,12 +12,13 @@ import { AdminDncRequests } from './AdminDncRequests'
 import { AdminSystemsCheck } from './AdminSystemsCheck'
 import { AdminPropagationMonitor } from './AdminPropagationMonitor'
 import { ApiEndpointTester } from './ApiEndpointTester'
+import AdminSync from './AdminSync'
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch()
   const { phoneNumbers } = useAppSelector((state) => state.phoneNumbers)
   const { crmStatuses, stats } = useAppSelector((state) => state.crmStatus)
-  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'>('pending')
+  const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'|'sync'>('pending')
 
   // Organization/user defaults (matches other admin panes)
   const organizationId = 1
@@ -126,6 +127,7 @@ export const AdminDashboard: React.FC = () => {
             { key: 'samples', label: 'Samples & Gaps' },
             { key: 'overview', label: 'Overview' },
             { key: 'tester', label: 'Tester' },
+            { key: 'sync', label: 'Sync' },
           ].map(t => (
             <button
               key={t.key}
@@ -325,6 +327,10 @@ export const AdminDashboard: React.FC = () => {
 
       {activeTab === 'tester' && (
         <ApiEndpointTester />
+      )}
+
+      {activeTab === 'sync' && (
+        <AdminSync />
       )}
     </div>
   )

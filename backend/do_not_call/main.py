@@ -9,7 +9,7 @@ from loguru import logger
 from .core.logging_middleware import JsonRequestLogger
 
 from .config import settings
-from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron
+from .api.v1 import phone_numbers, crm_integrations, consent, reports, dnc_processor, free_dnc_api, tenants, cron, dnc_sync
 from .api.v1.providers import ringcentral as ringcentral_provider
 from .api.v1.providers import ytel as ytel_provider
 from .api.v1.providers import convoso as convoso_provider
@@ -174,6 +174,13 @@ app.include_router(
     cron.router,
     prefix="/api/v1/cron",
     tags=["Scheduled Jobs"],
+    responses={404: {"description": "Not found"}},
+)
+
+app.include_router(
+    dnc_sync.router,
+    prefix="/api/v1/dnc-sync",
+    tags=["DNC Sync"],
     responses={404: {"description": "Not found"}},
 )
 
