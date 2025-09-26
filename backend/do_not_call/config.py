@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # Database
-    DATABASE_URL: str = "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
+    DATABASE_URL: str = "sqlite:///./do_not_call.db"  # fallback for local development
     
     # API
     API_V1_STR: str = "/api/v1"
