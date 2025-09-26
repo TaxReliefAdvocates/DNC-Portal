@@ -8,9 +8,8 @@ from loguru import logger
 from ...core.database import get_db
 from ...core.models import MasterDNCEntry, DNCSyncStatus, DNCSyncJob, MasterDNCEntryResponse, DNCSyncStatusResponse, DNCSyncJobResponse
 from ...core.auth import Principal, require_role
-from .providers.convoso import list_all_dnc
+from .providers.convoso import list_all_dnc, add_to_dnc as convoso_add_to_dnc
 from .providers.ringcentral import add_to_dnc as rc_add_to_dnc
-from .providers.genesys import add_to_dnc as genesys_add_to_dnc
 from .providers.ytel import add_to_dnc as ytel_add_to_dnc
 from .providers.logics import update_case as logics_update_case
 from .common import AddToDNCRequest, SearchByPhoneRequest, LogicsUpdateCaseRequest
@@ -290,17 +289,22 @@ async def sync_to_provider(phone_number: str, provider: str, sync_status: DNCSyn
     try:
         if provider == "ringcentral":
             response = await rc_add_to_dnc(AddToDNCRequest(phone_number=phone_number))
-        elif provider == "genesys":
-            response = await genesys_add_to_dnc(AddToDNCRequest(phone_number=phone_number))
+        elif provider == "convoso":
+            response = await convoso_add_to_dnc(AddToDNCRequest(phone_number=phone_number))
         elif provider == "ytel":
             response = await ytel_add_to_dnc(AddToDNCRequest(phone_number=phone_number))
+        elif provider == "genesys":
+            # Genesys add-to-dnc is not implemented yet, skip
+            logger.warning(f"Genesys add-to-dnc not implemented, skipping {phone_number}")
+            return False
         elif provider == "logics":
             # For Logics, we need to search for the case first
             from .providers.logics import search_by_phone
             search_response = await search_by_phone(SearchByPhoneRequest(phone_number=phone_number))
-            if search_response.success and search_response.data.get("cases"):
-                case_id = search_response.data["cases"][0]["CaseID"]
-                response = await logics_update_case(LogicsUpdateCaseRequest(caseId=case_id, statusId=2))
+            if search_response.success and search_response.data.get("is_found"):
+                # Logics add-to-dnc is not implemented yet, skip
+                logger.warning(f"Logics add-to-dnc not implemented, skipping {phone_number}")
+                return False
             else:
                 return False
         else:
