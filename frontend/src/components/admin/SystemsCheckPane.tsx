@@ -57,8 +57,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (rc.ok) {
           const rj = await rc.json()
-          const found = rj?.data?.is_on_dnc || false
-          providers.ringcentral = { listed: found }
+          const isOnDnc = rj?.data?.is_on_dnc
+          // Handle unknown status (null) as unknown
+          if (isOnDnc === null) {
+            providers.ringcentral = { listed: null, status: 'unknown' }
+          } else {
+            providers.ringcentral = { listed: isOnDnc || false }
+          }
         }
       } catch {}
 
@@ -71,8 +76,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (cv.ok) {
           const cj = await cv.json()
-          const found = cj?.data?.is_on_dnc || false
-          providers.convoso = { listed: found }
+          const isOnDnc = cj?.data?.is_on_dnc
+          // Handle unknown status (null) as unknown
+          if (isOnDnc === null) {
+            providers.convoso = { listed: null, status: 'unknown' }
+          } else {
+            providers.convoso = { listed: isOnDnc || false }
+          }
         }
       } catch {}
 
@@ -85,8 +95,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (yt.ok) {
           const yj = await yt.json()
-          const found = yj?.data?.is_on_dnc || false
-          providers.ytel = { listed: found }
+          const isOnDnc = yj?.data?.is_on_dnc
+          // Handle unknown status (null) as unknown
+          if (isOnDnc === null) {
+            providers.ytel = { listed: null, status: 'unknown' }
+          } else {
+            providers.ytel = { listed: isOnDnc || false }
+          }
         }
       } catch {}
 
@@ -102,8 +117,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (gs.ok) {
           const gj = await gs.json()
-          const found = gj?.data?.is_on_dnc || false
-          providers.genesys = { listed: found }
+          const isOnDnc = gj?.data?.is_on_dnc
+          // Handle unknown status (null) as unknown
+          if (isOnDnc === null) {
+            providers.genesys = { listed: null, status: 'unknown' }
+          } else {
+            providers.genesys = { listed: isOnDnc || false }
+          }
         }
       } catch {}
 
@@ -127,7 +147,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
     return <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown{extra ? ` • ${extra}` : ''}</span>
   }
 
-  const push = async (provider: 'ringcentral'|'convoso'|'ytel'|'logics', phone: string) => {
+  const push = async (provider: 'ringcentral'|'convoso'|'ytel'|'logics'|'genesys', phone: string) => {
     setPushing(`${provider}:${phone}`)
     try {
       // record attempt start
@@ -139,28 +159,34 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/dnc/add`, { 
+        await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/convoso/dnc/add`, { 
+        await fetch(`${API_BASE_URL}/api/v1/providers/convoso/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/ytel/dnc/add`, { 
+        await fetch(`${API_BASE_URL}/api/v1/providers/ytel/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
+        })
+      } else if (provider === 'genesys') {
+        await fetch(`${API_BASE_URL}/api/v1/providers/genesys/add-dnc-coming-soon`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${API_BASE_URL}/api/v1/providers/logics/dnc/update-case`, { 
+          await fetch(`${API_BASE_URL}/api/v1/providers/logics/update-case`, { 
             method:'POST', 
             headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
             body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
@@ -200,18 +226,18 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/providers/logics/dnc/search`, {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/providers/logics/search-by-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phoneNumber: phone })
+        body: JSON.stringify({ phone_number: phone })
       })
       if (!resp.ok) return
       const data = await resp.json()
-      const found = data?.data?.found || data?.found || false
-      const cases = data?.data?.cases || data?.cases || []
+      const isFound = data?.data?.is_found || false
+      const cases = data?.data?.raw_response?.Data || []
       setResults((r)=>{
         const prev = r[phone] || { phone_number: phone, providers: {} as any }
-        return { ...r, [phone]: { ...prev, providers: { ...prev.providers, logics: { listed: found, count: cases.length, cases } } } }
+        return { ...r, [phone]: { ...prev, providers: { ...prev.providers, logics: { listed: isFound, count: cases.length, cases } } } }
       })
     } catch {}
   }
@@ -260,14 +286,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                     <div className="font-medium">RingCentral</div>
                     <div className="flex items-center gap-2">
                       {cell(providers.ringcentral?.listed)}
-                      {!providers.ringcentral?.listed && <Button size="sm" variant="outline" onClick={()=>push('ringcentral', n)} disabled={pushing===`ringcentral:${n}`}>Push</Button>}
+                      {(providers.ringcentral?.listed === false || providers.ringcentral?.listed === null) && <Button size="sm" variant="outline" onClick={()=>push('ringcentral', n)} disabled={pushing===`ringcentral:${n}`}>Push</Button>}
                     </div>
                   </div>
                   <div className="flex items-center justify-between border rounded p-2">
                     <div className="font-medium">Convoso</div>
                     <div className="flex items-center gap-2">
                       {cell(providers.convoso?.listed)}
-                      {!providers.convoso?.listed && <Button size="sm" variant="outline" onClick={()=>push('convoso', n)} disabled={pushing===`convoso:${n}`}>Push</Button>}
+                      {(providers.convoso?.listed === false || providers.convoso?.listed === null) && <Button size="sm" variant="outline" onClick={()=>push('convoso', n)} disabled={pushing===`convoso:${n}`}>Push</Button>}
                     </div>
                   </div>
                   <div className="flex items-center justify-between border rounded p-2">
@@ -295,14 +321,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                     <div className="flex items-center gap-2">
                       {cell(providers.genesys?.listed)}
                       {/* Per-provider push for Genesys requires list id; use the big button below */}
-                      <Button size="sm" variant="outline" disabled title="Use 'Put on DNC List (all remaining)' for Genesys">Push</Button>
+                      {(providers.genesys?.listed === false || providers.genesys?.listed === null) && <Button size="sm" variant="outline" onClick={()=>push('genesys', n)} disabled={pushing===`genesys:${n}`}>Push</Button>}
                     </div>
                   </div>
                   <div className="flex items-center justify-between border rounded p-2">
                     <div className="font-medium">Ytel</div>
                     <div className="flex items-center gap-2">
                       {cell(providers.ytel?.listed, 'read N/A')}
-                      <Button size="sm" variant="outline" onClick={()=>push('ytel', n)} disabled={pushing===`ytel:${n}`}>Push</Button>
+                      {(providers.ytel?.listed === false || providers.ytel?.listed === null) && <Button size="sm" variant="outline" onClick={()=>push('ytel', n)} disabled={pushing===`ytel:${n}`}>Push</Button>}
                     </div>
                   </div>
                 </div>
