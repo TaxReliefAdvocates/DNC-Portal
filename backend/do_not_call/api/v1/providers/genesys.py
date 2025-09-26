@@ -143,7 +143,7 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
 		export_url = f"/api/v2/outbound/dnclists/{dnc_list_id}/export"
 		
 		async with HttpClient(base_url=api_base) as http:
-			# Call the export endpoint directly
+			# Call the export endpoint to get the download URI
 			resp = await http.get(export_url, headers=headers)
 			
 			if resp.status_code == 404:
@@ -159,16 +159,34 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
 					}
 				)
 			
-			# Parse the CSV response to check if the number is in the list
-			is_on_dnc = False
-			
+			# Parse the JSON response to get the download URI
 			try:
-				csv_content = resp.text
-				# Simple CSV parsing - look for the phone number in the content
+				export_data = resp.json()
+				download_uri = export_data.get("uri")
+				
+				if not download_uri:
+					return DNCOperationResponse(
+						success=True, 
+						message=f"Number {target_number} status UNKNOWN (No download URI available)", 
+						data={
+							"phone_number": target_number,
+							"is_on_dnc": None,
+							"status": "unknown",
+							"error": "No download URI available"
+						}
+					)
+				
+				# Now download the CSV using the URI
+				csv_resp = await http.get(download_uri, headers=headers)
+				csv_content = csv_resp.text
+				
+				# Parse the CSV response to check if the number is in the list
+				is_on_dnc = False
 				if target_number in csv_content:
 					is_on_dnc = True
+					
 			except Exception as e:
-				logger.error(f"Error parsing Genesys CSV response: {e}")
+				logger.error(f"Error parsing Genesys response: {e}")
 				# Return unknown status on parsing error
 				return DNCOperationResponse(
 					success=True, 
