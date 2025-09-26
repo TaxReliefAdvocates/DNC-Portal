@@ -13,7 +13,8 @@ from .providers.ringcentral import add_to_dnc as rc_add_to_dnc
 from .providers.genesys import patch_dnclist_phone_numbers as genesys_add_to_dnc
 from .providers.ytel import add_to_dnc as ytel_add_to_dnc
 from .providers.logics import update_case as logics_update_case
-from .providers.common import AddToDNCRequest, SearchByPhoneRequest, LogicsUpdateCaseRequest
+from .providers.common import AddToDNCRequest, SearchByPhoneRequest
+from .providers.logics import LogicsUpdateCaseRequest
 
 router = APIRouter()
 
