@@ -193,6 +193,7 @@ async def health():
 @app.get("/debug-env", tags=["Debug"])
 async def debug_env():
     """Debug endpoint to check environment variables"""
+    import os
     return {
         "convoso_auth_token": bool(settings.convoso_auth_token),
         "ytel_user": bool(settings.ytel_user),
@@ -201,7 +202,13 @@ async def debug_env():
         "genesys_client_secret": bool(settings.genesys_client_secret),
         "logics_basic_auth_b64": bool(settings.logics_basic_auth_b64),
         "ringcentral_jwt_assertion": bool(settings.ringcentral_jwt_assertion),
-        "enable_providers": settings.ENABLE_PROVIDERS
+        "enable_providers": settings.ENABLE_PROVIDERS,
+        "pg_host": bool(os.getenv('PGHOST')),
+        "pg_user": bool(os.getenv('PGUSER')),
+        "pg_password": bool(os.getenv('PGPASSWORD')),
+        "pg_database": bool(os.getenv('PGDATABASE')),
+        "pg_port": os.getenv('PGPORT'),
+        "database_url": settings.DATABASE_URL
     }
 
 # Custom OpenAPI description block
