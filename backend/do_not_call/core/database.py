@@ -10,34 +10,31 @@ from ..config import settings
 
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL, preferring DATABASE_URL env var over individual PG vars"""
-    # Check if DATABASE_URL environment variable is set (highest priority)
+    """Get database URL, trying different authentication methods for Azure PostgreSQL"""
+    # Try multiple approaches to connect to Azure PostgreSQL
+    
+    # Approach 1: Force password authentication with explicit parameters
     if os.getenv('DATABASE_URL'):
         logger.info("Using DATABASE_URL from environment variables")
         return os.getenv('DATABASE_URL')
     
-    # Check if individual PostgreSQL environment variables are set
+    # Approach 2: Try with explicit password authentication parameters
     pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
-    missing_vars = [var for var in pg_vars if not os.getenv(var)]
+    if all(os.getenv(var) for var in pg_vars):
+        host = os.getenv('PGHOST')
+        user = os.getenv('PGUSER')
+        password = os.getenv('PGPASSWORD')
+        database = os.getenv('PGDATABASE')
+        port = os.getenv('PGPORT', '5432')
+        
+        # Try with explicit password authentication and disable Azure AD
+        db_url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require&authentication=password&gssencmode=disable"
+        logger.info(f"Using PG environment variables with explicit password auth: {host}:{port}/{database}")
+        return db_url
     
-    # Log all environment variables for debugging
-    logger.info(f"Environment check - DATABASE_URL: {bool(os.getenv('DATABASE_URL'))}, PGHOST: {bool(os.getenv('PGHOST'))}, PGUSER: {bool(os.getenv('PGUSER'))}, PGPASSWORD: {bool(os.getenv('PGPASSWORD'))}, PGDATABASE: {bool(os.getenv('PGDATABASE'))}")
-    
-    if missing_vars:
-        logger.info(f"Missing PG environment variables: {missing_vars}, falling back to DATABASE_URL from settings")
-        logger.info(f"DATABASE_URL from settings: {settings.DATABASE_URL}")
-        return settings.DATABASE_URL
-    
-    host = os.getenv('PGHOST')
-    user = os.getenv('PGUSER')
-    password = os.getenv('PGPASSWORD')
-    database = os.getenv('PGDATABASE')
-    port = os.getenv('PGPORT', '5432')
-    
-    # Construct URL with explicit password authentication
-    db_url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require"
-    logger.info(f"Using PG environment variables to connect to {host}:{port}/{database}")
-    return db_url
+    # Final fallback
+    logger.info("Falling back to DATABASE_URL from settings")
+    return settings.DATABASE_URL
 
 # Create database engine with production-safe defaults
 database_url = get_database_url()
