@@ -95,12 +95,12 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (yt.ok) {
           const yj = await yt.json()
-          const isOnDnc = yj?.data?.is_on_dnc
+          const isFound = yj?.data?.is_found
           // Handle unknown status (null) as unknown
-          if (isOnDnc === null) {
+          if (isFound === null) {
             providers.ytel = { listed: null, status: 'unknown' }
           } else {
-            providers.ytel = { listed: isOnDnc || false }
+            providers.ytel = { listed: isFound || false }
           }
         }
       } catch {}
@@ -327,7 +327,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                   <div className="flex items-center justify-between border rounded p-2">
                     <div className="font-medium">Ytel</div>
                     <div className="flex items-center gap-2">
-                      {cell(providers.ytel?.listed, 'read N/A')}
+                      {cell(providers.ytel?.listed, 'search')}
                       {(providers.ytel?.listed === false || providers.ytel?.listed === null) && <Button size="sm" variant="outline" onClick={()=>push('ytel', n)} disabled={pushing===`ytel:${n}`}>Push</Button>}
                     </div>
                   </div>
