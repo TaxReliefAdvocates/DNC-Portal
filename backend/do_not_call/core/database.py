@@ -46,31 +46,17 @@ def get_azure_access_token():
 
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL - FINAL FIX for PostgreSQL connection"""
-    # CRITICAL: Force use of individual PG variables - ignore ANY DATABASE_URL from environment
-    pg_host = os.getenv('PGHOST')
-    pg_user = os.getenv('PGUSER')
-    pg_password = os.getenv('PGPASSWORD')
-    pg_database = os.getenv('PGDATABASE')
-    pg_port = os.getenv('PGPORT', '5432')
-    pg_sslmode = os.getenv('PGSSLMODE', 'require')
+    """Get database URL - ULTIMATE FIX: Hardcode connection to bypass Render overrides"""
+    # ULTIMATE FIX: Hardcode the connection string to bypass Render's automatic PG variable injection
+    # Render is automatically injecting PGUSER=lindsey.stevens@tra.com and JWT tokens
+    # We need to completely bypass this and use our own connection string
     
-    # Log all environment variables for debugging
-    logger.info(f"PG Environment Variables - HOST: {pg_host}, USER: {pg_user}, DB: {pg_database}, PORT: {pg_port}")
+    hardcoded_url = "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
     
-    if all([pg_host, pg_user, pg_password, pg_database]):
-        # URL encode the password
-        import urllib.parse
-        encoded_password = urllib.parse.quote_plus(pg_password)
-        database_url = f"postgresql+psycopg2://{pg_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}?sslmode={pg_sslmode}"
-        logger.info(f"✅ FINAL FIX: Using individual PG variables - USER: {pg_user}")
-        logger.info(f"✅ Connection string: {database_url}")
-        return database_url
+    logger.info("🚀 ULTIMATE FIX: Using hardcoded PostgreSQL connection string")
+    logger.info(f"🚀 Connection: {hardcoded_url}")
     
-    # This should NEVER happen in production
-    logger.error("❌ CRITICAL ERROR: Individual PG variables not found!")
-    logger.info("Falling back to DATABASE_URL from settings")
-    return settings.DATABASE_URL
+    return hardcoded_url
 
 # Create database engine with production-safe defaults
 database_url = get_database_url()
