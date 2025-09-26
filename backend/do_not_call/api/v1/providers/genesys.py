@@ -127,40 +127,67 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
 	"""
 	Search for a specific phone number in Genesys DNC list.
 	Downloads and parses the CSV export to check if the number is on the DNC list.
+	Returns 'unknown' status if there are any errors.
 	"""
-	token = bearer_token or await genesys_get_token(client_id, client_secret)
-	headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-	api_base = settings.genesys_api_base.rstrip("/")
+	target_number = request.phone_number
 	
-	# First, get the DNC list ID (you mentioned d4a6a02e-4ab9-495b-a141-4c65aee551db)
-	dnc_list_id = settings.genesys_dnclist_id or "d4a6a02e-4ab9-495b-a141-4c65aee551db"
-	
-	# Export the DNC list as CSV
-	export_url = f"/api/v2/outbound/dnclists/{dnc_list_id}/export"
-	
-	async with HttpClient(base_url=api_base) as http:
-		resp = await http.get(export_url, headers=headers)
+	try:
+		token = bearer_token or await genesys_get_token(client_id, client_secret)
+		headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+		api_base = settings.genesys_api_base.rstrip("/")
 		
-		# Parse the CSV response to check if the number is in the list
-		is_on_dnc = False
-		target_number = request.phone_number
+		# First, get the DNC list ID (you mentioned d4a6a02e-4ab9-495b-a141-4c65aee551db)
+		dnc_list_id = settings.genesys_dnclist_id or "d4a6a02e-4ab9-495b-a141-4c65aee551db"
 		
-		try:
-			csv_content = resp.text
-			# Simple CSV parsing - look for the phone number in the content
-			if target_number in csv_content:
-				is_on_dnc = True
-		except Exception as e:
-			logger.error(f"Error parsing Genesys CSV response: {e}")
+		# Export the DNC list as CSV
+		export_url = f"/api/v2/outbound/dnclists/{dnc_list_id}/export"
 		
+		async with HttpClient(base_url=api_base) as http:
+			resp = await http.get(export_url, headers=headers)
+			
+			# Parse the CSV response to check if the number is in the list
+			is_on_dnc = False
+			
+			try:
+				csv_content = resp.text
+				# Simple CSV parsing - look for the phone number in the content
+				if target_number in csv_content:
+					is_on_dnc = True
+			except Exception as e:
+				logger.error(f"Error parsing Genesys CSV response: {e}")
+				# Return unknown status on parsing error
+				return DNCOperationResponse(
+					success=True, 
+					message=f"Number {target_number} status UNKNOWN (Genesys search error)", 
+					data={
+						"phone_number": target_number,
+						"is_on_dnc": None,  # None indicates unknown status
+						"status": "unknown",
+						"error": str(e)
+					}
+				)
+			
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {target_number} {'IS' if is_on_dnc else 'IS NOT'} on Genesys DNC list", 
+				data={
+					"phone_number": target_number,
+					"is_on_dnc": is_on_dnc,
+					"dnc_list_id": dnc_list_id,
+					"raw_response": csv_content[:500] + "..." if len(csv_content) > 500 else csv_content  # Truncate for logging
+				}
+			)
+	except Exception as e:
+		# Handle any errors (auth, network, etc.) by returning unknown status
+		logger.error(f"Genesys search error for {target_number}: {e}")
 		return DNCOperationResponse(
 			success=True, 
-			message=f"Number {target_number} {'IS' if is_on_dnc else 'IS NOT'} on Genesys DNC list", 
+			message=f"Number {target_number} status UNKNOWN (Genesys search error)", 
 			data={
 				"phone_number": target_number,
-				"is_on_dnc": is_on_dnc,
-				"dnc_list_id": dnc_list_id,
-				"raw_response": csv_content[:500] + "..." if len(csv_content) > 500 else csv_content  # Truncate for logging
+				"is_on_dnc": None,  # None indicates unknown status
+				"status": "unknown",
+				"error": str(e)
 			}
 		)
 

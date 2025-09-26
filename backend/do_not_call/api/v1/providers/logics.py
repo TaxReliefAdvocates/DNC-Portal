@@ -72,5 +72,40 @@ async def search_by_phone(request: SearchByPhoneRequest, basic_auth_b64: Optiona
 	url = f"https://tps.logiqs.com/publicapi/V3/Find/FindCaseByPhone"
 	params = {"phone": request.phone_number}
 	async with HttpClient() as http:
-		resp = await http.get(url, headers=headers, params=params)
-		return DNCOperationResponse(success=True, message="Searched by phone (Logics)", data=resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text})
+		try:
+			resp = await http.get(url, headers=headers, params=params)
+			data = resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text}
+			
+			# Check if the response indicates the number was found
+			is_found = False
+			if isinstance(data, dict):
+				# Check for success indicators in the response
+				if data.get("Success") is True and data.get("Data") is not None:
+					# Check if Data is a list with items or a non-empty object
+					data_list = data.get("Data", [])
+					if isinstance(data_list, list) and len(data_list) > 0:
+						is_found = True
+					elif isinstance(data_list, dict) and data_list:
+						is_found = True
+			
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} {'FOUND' if is_found else 'NOT FOUND'} in Logics database", 
+				data={
+					"phone_number": request.phone_number,
+					"is_found": is_found,
+					"raw_response": data
+				}
+			)
+		except Exception as e:
+			# Handle 404 and other errors gracefully
+			logger.error(f"Logics search error for {request.phone_number}: {e}")
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} NOT FOUND in Logics database (error occurred)", 
+				data={
+					"phone_number": request.phone_number,
+					"is_found": False,
+					"error": str(e)
+				}
+			)
