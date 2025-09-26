@@ -12,9 +12,9 @@ class HttpClient:
 
 	async def __aenter__(self):
 		if self.base_url:
-			self._client = httpx.AsyncClient(base_url=self.base_url, headers=self.headers, timeout=self.timeout)
+			self._client = httpx.AsyncClient(base_url=self.base_url, headers=self.headers, timeout=self.timeout, follow_redirects=True)
 		else:
-			self._client = httpx.AsyncClient(headers=self.headers, timeout=self.timeout)
+			self._client = httpx.AsyncClient(headers=self.headers, timeout=self.timeout, follow_redirects=True)
 		return self
 
 	async def __aexit__(self, exc_type, exc, tb):
