@@ -34,6 +34,13 @@ class SearchDNCRequest(BaseModel):
 	limit: Optional[int] = 50
 
 
+class SearchMultipleDNCRequest(BaseModel):
+	phone_numbers: List[str]
+	phone_code: Optional[str] = None
+	offset: Optional[int] = 0
+	limit: Optional[int] = 50
+
+
 class ListAllDNCRequest(BaseModel):
 	page: int = 1
 	per_page: int = 50

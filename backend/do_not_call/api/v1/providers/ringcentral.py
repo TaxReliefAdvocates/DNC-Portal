@@ -6,6 +6,7 @@ import base64
 from .common import (
     AddToDNCRequest,
     SearchDNCRequest,
+    SearchMultipleDNCRequest,
     ListAllDNCRequest,
     DeleteFromDNCRequest,
     UploadDNCListRequest,
@@ -97,7 +98,11 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
             records = data.get("records", [])
             for record in records:
                 phone_number = record.get("phoneNumber", "")
-                if phone_number == target_number:
+                # Normalize both numbers for comparison (remove +, spaces, dashes, etc.)
+                normalized_api_number = phone_number.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
+                normalized_target = target_number.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
+                
+                if normalized_api_number == normalized_target:
                     is_on_dnc = True
                     break
         except Exception as e:
@@ -109,6 +114,62 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
             data={
                 "phone_number": target_number,
                 "is_on_dnc": is_on_dnc,
+                "raw_response": data
+            }
+        )
+
+
+@router.post("/search-multiple-dnc", response_model=DNCOperationResponse)
+async def search_multiple_dnc(request: SearchMultipleDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+    """
+    Search for multiple phone numbers in RingCentral DNC list.
+    Returns results for each number indicating if it's found on the DNC list.
+    """
+    token = bearer_token or await ringcentral_get_token(assertion)
+    headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+    
+    # Get all DNC entries to search through
+    params = {"page": 1, "perPage": 1000}
+    async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+        resp = await http.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
+        data = resp.json()
+        
+        # Search for each phone number in the results
+        results = {}
+        dnc_numbers = set()
+        
+        try:
+            records = data.get("records", [])
+            for record in records:
+                phone_number = record.get("phoneNumber", "")
+                # Normalize the API number
+                normalized_api_number = phone_number.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
+                dnc_numbers.add(normalized_api_number)
+            
+            # Check each target number
+            for target_number in request.phone_numbers:
+                normalized_target = target_number.replace("+", "").replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
+                results[target_number] = {
+                    "is_on_dnc": normalized_target in dnc_numbers,
+                    "phone_number": target_number
+                }
+                
+        except Exception as e:
+            logger.error(f"Error parsing RingCentral response: {e}")
+            # Return error for all numbers
+            for target_number in request.phone_numbers:
+                results[target_number] = {
+                    "is_on_dnc": False,
+                    "phone_number": target_number,
+                    "error": str(e)
+                }
+        
+        return DNCOperationResponse(
+            success=True, 
+            message=f"Checked {len(request.phone_numbers)} numbers against RingCentral DNC list", 
+            data={
+                "results": results,
+                "total_checked": len(request.phone_numbers),
                 "raw_response": data
             }
         )
