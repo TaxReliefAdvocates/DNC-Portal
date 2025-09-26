@@ -14,7 +14,7 @@ services:
     envVars:
       # Database Configuration
       - key: DATABASE_URL
-        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&authentication=password"
+        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&authentication=password&gssencmode=disable"
       - key: PGHOST
         value: "dnc.postgres.database.azure.com"
       - key: PGUSER
@@ -25,6 +25,14 @@ services:
         value: "postgres"
       - key: PGPASSWORD
         value: "TPSZen2025@!"
+
+      # Azure Database Configuration
+      - key: AZURE_DB_CLIENT_ID
+        value: "a2a6c2c2-cb10-411e-a354-da61bfa4a3b2"
+      - key: AZURE_DB_CLIENT_SECRET
+        value: ""
+      - key: AZURE_DB_TENANT_ID
+        value: "185fc38c-2c1b-4307-a164-24a4072e83e1"
 
       # Application Settings
       - key: DEBUG
