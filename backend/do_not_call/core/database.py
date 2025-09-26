@@ -46,8 +46,8 @@ def get_azure_access_token():
 
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL - fix PostgreSQL connection properly"""
-    # FORCE use of individual PG variables - ignore any DATABASE_URL from environment
+    """Get database URL - FINAL FIX for PostgreSQL connection"""
+    # CRITICAL: Force use of individual PG variables - ignore ANY DATABASE_URL from environment
     pg_host = os.getenv('PGHOST')
     pg_user = os.getenv('PGUSER')
     pg_password = os.getenv('PGPASSWORD')
@@ -55,15 +55,20 @@ def get_database_url():
     pg_port = os.getenv('PGPORT', '5432')
     pg_sslmode = os.getenv('PGSSLMODE', 'require')
     
+    # Log all environment variables for debugging
+    logger.info(f"PG Environment Variables - HOST: {pg_host}, USER: {pg_user}, DB: {pg_database}, PORT: {pg_port}")
+    
     if all([pg_host, pg_user, pg_password, pg_database]):
         # URL encode the password
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(pg_password)
         database_url = f"postgresql+psycopg2://{pg_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}?sslmode={pg_sslmode}"
-        logger.info(f"FORCED use of individual PG variables: {database_url}")
+        logger.info(f"✅ FINAL FIX: Using individual PG variables - USER: {pg_user}")
+        logger.info(f"✅ Connection string: {database_url}")
         return database_url
     
-    # Fallback to settings
+    # This should NEVER happen in production
+    logger.error("❌ CRITICAL ERROR: Individual PG variables not found!")
     logger.info("Falling back to DATABASE_URL from settings")
     return settings.DATABASE_URL
 
