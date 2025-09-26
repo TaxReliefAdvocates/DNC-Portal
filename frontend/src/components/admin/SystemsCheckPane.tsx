@@ -177,7 +177,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'genesys') {
-        await fetch(`${API_BASE_URL}/api/v1/genesys/add-dnc-coming-soon`, { 
+        await fetch(`${API_BASE_URL}/api/v1/genesys/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
