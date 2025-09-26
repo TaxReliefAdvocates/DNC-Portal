@@ -5,9 +5,9 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from loguru import logger
 
-from ..core.database import get_db
-from ..core.models import MasterDNCEntry, DNCSyncStatus, DNCSyncJob, MasterDNCEntryResponse, DNCSyncStatusResponse, DNCSyncJobResponse
-from ..core.auth import Principal, require_role
+from ...core.database import get_db
+from ...core.models import MasterDNCEntry, DNCSyncStatus, DNCSyncJob, MasterDNCEntryResponse, DNCSyncStatusResponse, DNCSyncJobResponse
+from ...core.auth import Principal, require_role
 from .providers.convoso import list_all_dnc
 from .providers.ringcentral import add_to_dnc as rc_add_to_dnc
 from .providers.genesys import add_to_dnc as genesys_add_to_dnc
