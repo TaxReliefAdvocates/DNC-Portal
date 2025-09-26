@@ -47,13 +47,7 @@ def get_azure_access_token():
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
     """Get database URL - fix PostgreSQL connection properly"""
-    # Use the DATABASE_URL from environment variables
-    if os.getenv('DATABASE_URL'):
-        database_url = os.getenv('DATABASE_URL')
-        logger.info(f"Using DATABASE_URL from environment variables: {database_url}")
-        return database_url
-    
-    # Try to construct from individual PG variables
+    # FORCE use of individual PG variables - ignore any DATABASE_URL from environment
     pg_host = os.getenv('PGHOST')
     pg_user = os.getenv('PGUSER')
     pg_password = os.getenv('PGPASSWORD')
@@ -66,7 +60,7 @@ def get_database_url():
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(pg_password)
         database_url = f"postgresql+psycopg2://{pg_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}?sslmode={pg_sslmode}"
-        logger.info(f"Constructed DATABASE_URL from individual PG environment variables: {database_url}")
+        logger.info(f"FORCED use of individual PG variables: {database_url}")
         return database_url
     
     # Fallback to settings
