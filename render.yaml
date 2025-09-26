@@ -14,7 +14,7 @@ services:
     envVars:
       # Database Configuration
       - key: DATABASE_URL
-        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&authentication=password"
+        value: "postgresql+psycopg2://traadmin:TPSZen2025%40%21@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&gssencmode=disable"
       - key: PGHOST
         value: "dnc.postgres.database.azure.com"
       - key: PGUSER
