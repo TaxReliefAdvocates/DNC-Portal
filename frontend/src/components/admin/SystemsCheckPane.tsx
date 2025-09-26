@@ -50,7 +50,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 2) RingCentral search for number
       try {
-        const rc = await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/search-dnc`, { 
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
@@ -69,7 +69,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 3) Convoso search-dnc
       try {
-        const cv = await fetch(`${API_BASE_URL}/api/v1/providers/convoso/search-dnc`, { 
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
@@ -88,7 +88,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 4) Ytel search-dnc
       try {
-        const yt = await fetch(`${API_BASE_URL}/api/v1/providers/ytel/search-dnc`, { 
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
@@ -110,7 +110,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 6) Genesys search
       try {
-        const gs = await fetch(`${API_BASE_URL}/api/v1/providers/genesys/search-dnc`, { 
+        const gs = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
@@ -159,25 +159,25 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/add-dnc`, { 
+        await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/convoso/add-dnc`, { 
+        await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/ytel/add-dnc`, { 
+        await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'genesys') {
-        await fetch(`${API_BASE_URL}/api/v1/providers/genesys/add-dnc-coming-soon`, { 
+        await fetch(`${API_BASE_URL}/api/v1/genesys/add-dnc-coming-soon`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
@@ -186,7 +186,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${API_BASE_URL}/api/v1/providers/logics/update-case`, { 
+          await fetch(`${API_BASE_URL}/api/v1/logics/update-case`, { 
             method:'POST', 
             headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
             body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
@@ -226,7 +226,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
   const recheckLogics = async (phone: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/providers/logics/search-by-phone`, {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: phone })
