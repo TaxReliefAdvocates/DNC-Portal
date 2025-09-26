@@ -52,6 +52,22 @@ def get_database_url():
         logger.info("Using DATABASE_URL from environment variables")
         return os.getenv('DATABASE_URL')
     
+    # Try to construct from individual PG variables
+    pg_host = os.getenv('PGHOST')
+    pg_user = os.getenv('PGUSER')
+    pg_password = os.getenv('PGPASSWORD')
+    pg_database = os.getenv('PGDATABASE')
+    pg_port = os.getenv('PGPORT', '5432')
+    pg_sslmode = os.getenv('PGSSLMODE', 'require')
+    
+    if all([pg_host, pg_user, pg_password, pg_database]):
+        # URL encode the password
+        import urllib.parse
+        encoded_password = urllib.parse.quote_plus(pg_password)
+        database_url = f"postgresql+psycopg2://{pg_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}?sslmode={pg_sslmode}"
+        logger.info("Constructed DATABASE_URL from individual PG environment variables")
+        return database_url
+    
     # Fallback to settings
     logger.info("Falling back to DATABASE_URL from settings")
     return settings.DATABASE_URL
