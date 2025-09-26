@@ -177,10 +177,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ phone_number: phone })
         })
       } else if (provider === 'genesys') {
-        await fetch(`${API_BASE_URL}/api/v1/genesys/add-dnc`, { 
-          method:'POST', 
+        await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
+          method:'PATCH', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
+          body: JSON.stringify({ 
+            action: "Add", 
+            phone_numbers: [phone], 
+            expiration_date_time: "" 
+          })
         })
       } else if (provider === 'logics') {
         const res = results[phone]
