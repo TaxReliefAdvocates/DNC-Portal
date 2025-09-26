@@ -19,10 +19,9 @@ router = APIRouter()
 
 
 def get_ytel_credentials(user: Optional[str] = None, password: Optional[str] = None):
-	final_user = user or settings.ytel_user
-	final_pass = password or settings.ytel_password
-	if not final_user or not final_pass:
-		raise HTTPException(status_code=400, detail="Ytel credentials not configured. Provide 'user' and 'password' or set YTEL_USER/YTEL_PASSWORD in environment.")
+	# Hardcoded credentials since they don't change
+	final_user = user or "103"
+	final_pass = password or "bHSQPgE7J6nLzX"
 	return final_user, final_pass
 
 

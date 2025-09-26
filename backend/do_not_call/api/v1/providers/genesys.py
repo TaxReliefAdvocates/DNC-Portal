@@ -139,14 +139,14 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
 		# First, get the DNC list ID (you mentioned d4a6a02e-4ab9-495b-a141-4c65aee551db)
 		dnc_list_id = settings.genesys_dnclist_id or "d4a6a02e-4ab9-495b-a141-4c65aee551db"
 		
-		# First, call the platform endpoint to generate the download URI
-		platform_url = f"/platform/api/v2/outbound/dnclists/{dnc_list_id}/export"
+		# Use the direct export endpoint
+		export_url = f"/api/v2/outbound/dnclists/{dnc_list_id}/export"
 		
 		async with HttpClient(base_url=api_base) as http:
-			# Call platform endpoint to generate download URI
-			platform_resp = await http.get(platform_url, headers=headers)
+			# Call the export endpoint directly
+			resp = await http.get(export_url, headers=headers)
 			
-			if platform_resp.status_code == 404:
+			if resp.status_code == 404:
 				# DNC list is empty, return unknown status
 				return DNCOperationResponse(
 					success=True, 
@@ -158,25 +158,6 @@ async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = No
 						"error": "DNC list is empty"
 					}
 				)
-			
-			# Get the download URI from the platform response
-			platform_data = platform_resp.json()
-			download_uri = platform_data.get("downloadUri")
-			
-			if not download_uri:
-				return DNCOperationResponse(
-					success=True, 
-					message=f"Number {target_number} status UNKNOWN (No download URI available)", 
-					data={
-						"phone_number": target_number,
-						"is_on_dnc": None,
-						"status": "unknown",
-						"error": "No download URI available"
-					}
-				)
-			
-			# Now download the CSV using the generated URI
-			resp = await http.get(download_uri, headers=headers)
 			
 			# Parse the CSV response to check if the number is in the list
 			is_on_dnc = False
