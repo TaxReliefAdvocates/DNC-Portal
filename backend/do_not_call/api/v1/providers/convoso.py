@@ -97,9 +97,57 @@ async def search_dnc(request: SearchDNCRequest, auth_token: Optional[str] = None
 		)
 
 
-@router.post("/list-all-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
-async def list_all_dnc_placeholder(_: ListAllDNCRequest):
-	return ComingSoonResponse()
+@router.post("/list-all-dnc", response_model=DNCOperationResponse)
+async def list_all_dnc(request: ListAllDNCRequest, auth_token: Optional[str] = None):
+	"""
+	Retrieve all DNC numbers from Convoso.
+	This will be our master DNC list for syncing across all providers.
+	"""
+	token = get_token(auth_token)
+	url = "https://api.convoso.com/v1/leads/search"
+	params = {
+		"auth_token": token,
+		"status": "DNC",
+		"limit": 1000,  # Get up to 1000 DNC records
+		"offset": 0
+	}
+	
+	# Add cookie header for API access
+	headers = {
+		"Cookie": "APIUBUNTUBACKEND=apiapp111"
+	}
+	
+	async with HttpClient() as http:
+		resp = await http.get(url, params=params, headers=headers)
+		data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+		logger.info(f"Convoso list_all_dnc response: {len(str(data))} characters")
+		
+		# Extract phone numbers from the response
+		dnc_numbers = []
+		if isinstance(data, dict) and "data" in data:
+			entries = data["data"].get("entries", [])
+			for entry in entries:
+				if entry.get("status") == "DNC" and entry.get("phone_number"):
+					dnc_numbers.append({
+						"phone_number": entry["phone_number"],
+						"lead_id": entry.get("id"),
+						"status": entry.get("status"),
+						"created_at": entry.get("created_at"),
+						"modified_at": entry.get("modified_at"),
+						"campaign_name": entry.get("campaign_name"),
+						"first_name": entry.get("first_name"),
+						"last_name": entry.get("last_name")
+					})
+		
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Retrieved {len(dnc_numbers)} DNC numbers from Convoso", 
+			data={
+				"total_dnc_numbers": len(dnc_numbers),
+				"dnc_numbers": dnc_numbers,
+				"raw_response": data
+			}
+		)
 
 
 @router.post("/delete-dnc", response_model=DNCOperationResponse)
@@ -128,16 +176,62 @@ async def upload_dnc_placeholder(_: UploadDNCListRequest):
 
 @router.post("/search-by-phone", response_model=DNCOperationResponse)
 async def search_by_phone(request: SearchByPhoneRequest, auth_token: Optional[str] = None):
+	"""
+	Search for leads by phone number in Convoso.
+	This helps identify if a number has multiple lead records that need to be updated to DNC status.
+	"""
 	token = get_token(auth_token)
 	url = "https://api.convoso.com/v1/leads/search"
 	params = {
 		"auth_token": token,
 		"offset": 0,
-		"limit": 10,
+		"limit": 100,  # Get more results to find all leads with this number
 		"phone_number": request.phone_number,
 	}
+	
+	# Add cookie header for API access
+	headers = {
+		"Cookie": "APIUBUNTUBACKEND=apiapp111"
+	}
+	
 	async with HttpClient() as http:
-		resp = await http.get(url, params=params)
-		text = resp.text
-		logger.info(f"Convoso search_by_phone response: {text}")
-		return DNCOperationResponse(success=True, message="Searched by phone (Convoso)", data={"raw": text})
+		resp = await http.get(url, params=params, headers=headers)
+		data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+		logger.info(f"Convoso search_by_phone response: {len(str(data))} characters")
+		
+		# Extract leads from the response
+		leads = []
+		if isinstance(data, dict) and "data" in data:
+			entries = data["data"].get("entries", [])
+			for entry in entries:
+				if entry.get("phone_number") == request.phone_number:
+					leads.append({
+						"lead_id": entry.get("id"),
+						"phone_number": entry.get("phone_number"),
+						"status": entry.get("status"),
+						"first_name": entry.get("first_name"),
+						"last_name": entry.get("last_name"),
+						"email": entry.get("email"),
+						"campaign_name": entry.get("campaign_name"),
+						"created_at": entry.get("created_at"),
+						"modified_at": entry.get("modified_at"),
+						"called_count": entry.get("called_count"),
+						"last_called": entry.get("last_called")
+					})
+		
+		# Check if any leads are not already DNC
+		non_dnc_leads = [lead for lead in leads if lead["status"] != "DNC"]
+		
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Found {len(leads)} leads for phone number {request.phone_number}, {len(non_dnc_leads)} need DNC update", 
+			data={
+				"phone_number": request.phone_number,
+				"total_leads": len(leads),
+				"dnc_leads": len(leads) - len(non_dnc_leads),
+				"non_dnc_leads": len(non_dnc_leads),
+				"leads": leads,
+				"needs_dnc_update": non_dnc_leads,
+				"raw_response": data
+			}
+		)
