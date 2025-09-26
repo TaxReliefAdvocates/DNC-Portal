@@ -5,32 +5,60 @@ from sqlalchemy.pool import StaticPool
 from loguru import logger
 from typing import Generator
 import os
+import requests
+import json
 
 from ..config import settings
 
+def get_azure_access_token():
+    """Get Azure AD access token for PostgreSQL authentication"""
+    try:
+        client_id = os.getenv('AZURE_DB_CLIENT_ID')
+        client_secret = os.getenv('AZURE_DB_CLIENT_SECRET')
+        tenant_id = os.getenv('AZURE_DB_TENANT_ID')
+        
+        if not all([client_id, client_secret, tenant_id]):
+            logger.error("Missing Azure AD credentials")
+            return None
+            
+        # Get access token from Azure AD
+        token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+        
+        data = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'scope': 'https://ossrdbms-aad.database.windows.net/.default',
+            'grant_type': 'client_credentials'
+        }
+        
+        response = requests.post(token_url, data=data)
+        response.raise_for_status()
+        
+        token_data = response.json()
+        access_token = token_data.get('access_token')
+        
+        logger.info("Successfully obtained Azure AD access token")
+        return access_token
+        
+    except Exception as e:
+        logger.error(f"Failed to get Azure AD access token: {e}")
+        return None
+
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL, trying different authentication methods for Azure PostgreSQL"""
-    # Try multiple approaches to connect to Azure PostgreSQL
+    """Get database URL, using Azure AD authentication for Azure PostgreSQL"""
+    # Try Azure AD authentication first (required for Azure PostgreSQL)
+    azure_token = get_azure_access_token()
     
-    # Approach 1: Force password authentication with explicit parameters
+    if azure_token:
+        logger.info("Using Azure AD authentication for PostgreSQL")
+        # Use Azure AD token authentication
+        return f"postgresql+psycopg2://traadmin@dnc.postgres.database.azure.com:5432/postgres?sslmode=require&authentication=azure&azure_access_token={azure_token}"
+    
+    # Fallback to DATABASE_URL if Azure AD fails
     if os.getenv('DATABASE_URL'):
         logger.info("Using DATABASE_URL from environment variables")
         return os.getenv('DATABASE_URL')
-    
-    # Approach 2: Try with explicit password authentication parameters
-    pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
-    if all(os.getenv(var) for var in pg_vars):
-        host = os.getenv('PGHOST')
-        user = os.getenv('PGUSER')
-        password = os.getenv('PGPASSWORD')
-        database = os.getenv('PGDATABASE')
-        port = os.getenv('PGPORT', '5432')
-        
-        # Try with explicit password authentication and disable Azure AD
-        db_url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}?sslmode=require&authentication=password&gssencmode=disable"
-        logger.info(f"Using PG environment variables with explicit password auth: {host}:{port}/{database}")
-        return db_url
     
     # Final fallback
     logger.info("Falling back to DATABASE_URL from settings")
