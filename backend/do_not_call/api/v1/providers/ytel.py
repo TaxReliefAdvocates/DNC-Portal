@@ -59,6 +59,10 @@ async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, passw
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)
 async def search_dnc(request: SearchDNCRequest, user: Optional[str] = None, password: Optional[str] = None):
+	"""
+	Search for a specific phone number in Ytel DNC list.
+	Uses the DNC check function to determine if the number is on the DNC list.
+	"""
 	user, pwd = get_ytel_credentials(user, password)
 	base = "https://tra.ytel.com/x5/api/non_agent.php"
 	params = {
@@ -75,7 +79,33 @@ async def search_dnc(request: SearchDNCRequest, user: Optional[str] = None, pass
 		resp = await http.get(base, params=params)
 		text = resp.text
 		logger.info(f"Ytel search_dnc response: {text}")
-		return DNCOperationResponse(success=True, message="Searched DNC (Ytel)", data={"raw": text})
+		
+		# Parse the response to determine if the number is on DNC
+		is_on_dnc = False
+		target_number = request.phone_number
+		
+		try:
+			# Look for DNC indicators in the response
+			# Common patterns: "DNC", "BLOCKED", "NOT ALLOWED", etc.
+			dnc_indicators = ["DNC", "BLOCKED", "NOT ALLOWED", "DO NOT CALL", "dnc", "blocked"]
+			response_lower = text.lower()
+			
+			for indicator in dnc_indicators:
+				if indicator.lower() in response_lower:
+					is_on_dnc = True
+					break
+		except Exception as e:
+			logger.error(f"Error parsing Ytel response: {e}")
+		
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Number {target_number} {'IS' if is_on_dnc else 'IS NOT'} on Ytel DNC list", 
+			data={
+				"phone_number": target_number,
+				"is_on_dnc": is_on_dnc,
+				"raw_response": text
+			}
+		)
 
 
 @router.post("/list-all-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)

@@ -56,21 +56,45 @@ async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None)
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)
 async def search_dnc(request: SearchDNCRequest, auth_token: Optional[str] = None):
+	"""
+	Search for a specific phone number in Convoso DNC list.
+	Returns true/false if the number is found on the DNC list.
+	"""
 	token = get_token(auth_token)
 	url = "https://api.convoso.com/v1/dnc/search"
 	params = {
 		"auth_token": token,
 		"phone_number": request.phone_number,
-		"offset": request.offset or 0,
-		"limit": request.limit or 10,
+		"offset": 0,
+		"limit": 1000,  # Get more results to search through
 	}
 	if request.phone_code:
 		params["phone_code"] = request.phone_code
+	
 	async with HttpClient() as http:
 		resp = await http.get(url, params=params)
 		text = resp.text
 		logger.info(f"Convoso search_dnc response: {text}")
-		return DNCOperationResponse(success=True, message="Searched DNC (Convoso)", data={"raw": text})
+		
+		# Parse the response to check if the specific number is in the DNC list
+		is_on_dnc = False
+		try:
+			# The response should contain a list of DNC numbers
+			# We need to check if our target number is in that list
+			if request.phone_number in text:
+				is_on_dnc = True
+		except Exception as e:
+			logger.error(f"Error parsing Convoso response: {e}")
+		
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Number {request.phone_number} {'IS' if is_on_dnc else 'IS NOT'} on Convoso DNC list", 
+			data={
+				"phone_number": request.phone_number,
+				"is_on_dnc": is_on_dnc,
+				"raw_response": text
+			}
+		)
 
 
 @router.post("/list-all-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)

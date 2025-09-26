@@ -74,6 +74,46 @@ async def delete_from_dnc(request: DeleteFromDNCRequest, bearer_token: Optional[
         return DNCOperationResponse(success=True, message="Deleted from DNC (RingCentral)", data={"status_code": resp.status_code})
 
 
+@router.post("/search-dnc", response_model=DNCOperationResponse)
+async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+    """
+    Search for a specific phone number in RingCentral DNC list.
+    Returns true/false if the number is found on the DNC list.
+    """
+    token = bearer_token or await ringcentral_get_token(assertion)
+    headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+    
+    # Get all DNC entries to search through
+    params = {"page": 1, "perPage": 1000}  # Get more results to search through
+    async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+        resp = await http.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
+        data = resp.json()
+        
+        # Search for the specific phone number in the results
+        is_on_dnc = False
+        target_number = request.phone_number
+        
+        try:
+            records = data.get("records", [])
+            for record in records:
+                phone_number = record.get("phoneNumber", "")
+                if phone_number == target_number:
+                    is_on_dnc = True
+                    break
+        except Exception as e:
+            logger.error(f"Error parsing RingCentral response: {e}")
+        
+        return DNCOperationResponse(
+            success=True, 
+            message=f"Number {target_number} {'IS' if is_on_dnc else 'IS NOT'} on RingCentral DNC list", 
+            data={
+                "phone_number": target_number,
+                "is_on_dnc": is_on_dnc,
+                "raw_response": data
+            }
+        )
+
+
 @router.post("/list-all-dnc", response_model=DNCOperationResponse)
 async def list_all_dnc(request: ListAllDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
     token = bearer_token or await ringcentral_get_token(assertion)

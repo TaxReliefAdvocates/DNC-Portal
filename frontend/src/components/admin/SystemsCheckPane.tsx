@@ -50,42 +50,42 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 2) RingCentral search for number
       try {
-        const rc = await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/dnc/search`, { 
+        const rc = await fetch(`${API_BASE_URL}/api/v1/providers/ringcentral/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
         if (rc.ok) {
           const rj = await rc.json()
-          const found = rj?.data?.found || rj?.found || false
+          const found = rj?.data?.is_on_dnc || false
           providers.ringcentral = { listed: found }
         }
       } catch {}
 
       // 3) Convoso search-dnc
       try {
-        const cv = await fetch(`${API_BASE_URL}/api/v1/providers/convoso/dnc/search`, { 
+        const cv = await fetch(`${API_BASE_URL}/api/v1/providers/convoso/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
         if (cv.ok) {
           const cj = await cv.json()
-          const found = cj?.data?.found || cj?.found || false
+          const found = cj?.data?.is_on_dnc || false
           providers.convoso = { listed: found }
         }
       } catch {}
 
       // 4) Ytel search-dnc
       try {
-        const yt = await fetch(`${API_BASE_URL}/api/v1/providers/ytel/dnc/search`, { 
+        const yt = await fetch(`${API_BASE_URL}/api/v1/providers/ytel/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
         if (yt.ok) {
           const yj = await yt.json()
-          const found = yj?.data?.found || yj?.found || false
+          const found = yj?.data?.is_on_dnc || false
           providers.ytel = { listed: found }
         }
       } catch {}
@@ -95,14 +95,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       // 6) Genesys search
       try {
-        const gs = await fetch(`${API_BASE_URL}/api/v1/providers/genesys/dnc/search`, { 
+        const gs = await fetch(`${API_BASE_URL}/api/v1/providers/genesys/search-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phoneNumber: phone })
+          body: JSON.stringify({ phone_number: phone })
         })
         if (gs.ok) {
           const gj = await gs.json()
-          const found = gj?.data?.found || gj?.found || false
+          const found = gj?.data?.is_on_dnc || false
           providers.genesys = { listed: found }
         }
       } catch {}

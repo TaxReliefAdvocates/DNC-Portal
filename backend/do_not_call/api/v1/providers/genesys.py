@@ -122,9 +122,47 @@ async def add_dnc_placeholder(_: AddToDNCRequest):
 	return ComingSoonResponse()
 
 
-@router.post("/search-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
-async def search_dnc_placeholder(_: SearchDNCRequest):
-	return ComingSoonResponse()
+@router.post("/search-dnc", response_model=DNCOperationResponse)
+async def search_dnc(request: SearchDNCRequest, bearer_token: Optional[str] = None, client_id: Optional[str] = None, client_secret: Optional[str] = None):
+	"""
+	Search for a specific phone number in Genesys DNC list.
+	Downloads and parses the CSV export to check if the number is on the DNC list.
+	"""
+	token = bearer_token or await genesys_get_token(client_id, client_secret)
+	headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+	api_base = settings.genesys_api_base.rstrip("/")
+	
+	# First, get the DNC list ID (you mentioned d4a6a02e-4ab9-495b-a141-4c65aee551db)
+	dnc_list_id = settings.genesys_dnclist_id or "d4a6a02e-4ab9-495b-a141-4c65aee551db"
+	
+	# Export the DNC list as CSV
+	export_url = f"/api/v2/outbound/dnclists/{dnc_list_id}/export"
+	
+	async with HttpClient(base_url=api_base) as http:
+		resp = await http.get(export_url, headers=headers)
+		
+		# Parse the CSV response to check if the number is in the list
+		is_on_dnc = False
+		target_number = request.phone_number
+		
+		try:
+			csv_content = resp.text
+			# Simple CSV parsing - look for the phone number in the content
+			if target_number in csv_content:
+				is_on_dnc = True
+		except Exception as e:
+			logger.error(f"Error parsing Genesys CSV response: {e}")
+		
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Number {target_number} {'IS' if is_on_dnc else 'IS NOT'} on Genesys DNC list", 
+			data={
+				"phone_number": target_number,
+				"is_on_dnc": is_on_dnc,
+				"dnc_list_id": dnc_list_id,
+				"raw_response": csv_content[:500] + "..." if len(csv_content) > 500 else csv_content  # Truncate for logging
+			}
+		)
 
 
 @router.post("/delete-dnc-coming-soon", tags=["Coming Soon"], response_model=ComingSoonResponse)
