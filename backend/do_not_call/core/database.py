@@ -10,16 +10,21 @@ from ..config import settings
 
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL, preferring individual PG env vars over DATABASE_URL"""
+    """Get database URL, preferring DATABASE_URL env var over individual PG vars"""
+    # Check if DATABASE_URL environment variable is set (highest priority)
+    if os.getenv('DATABASE_URL'):
+        logger.info("Using DATABASE_URL from environment variables")
+        return os.getenv('DATABASE_URL')
+    
     # Check if individual PostgreSQL environment variables are set
     pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
     missing_vars = [var for var in pg_vars if not os.getenv(var)]
     
     # Log all environment variables for debugging
-    logger.info(f"Environment check - PGHOST: {bool(os.getenv('PGHOST'))}, PGUSER: {bool(os.getenv('PGUSER'))}, PGPASSWORD: {bool(os.getenv('PGPASSWORD'))}, PGDATABASE: {bool(os.getenv('PGDATABASE'))}")
+    logger.info(f"Environment check - DATABASE_URL: {bool(os.getenv('DATABASE_URL'))}, PGHOST: {bool(os.getenv('PGHOST'))}, PGUSER: {bool(os.getenv('PGUSER'))}, PGPASSWORD: {bool(os.getenv('PGPASSWORD'))}, PGDATABASE: {bool(os.getenv('PGDATABASE'))}")
     
     if missing_vars:
-        logger.info(f"Missing PG environment variables: {missing_vars}, falling back to DATABASE_URL")
+        logger.info(f"Missing PG environment variables: {missing_vars}, falling back to DATABASE_URL from settings")
         logger.info(f"DATABASE_URL from settings: {settings.DATABASE_URL}")
         return settings.DATABASE_URL
     
