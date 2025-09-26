@@ -46,17 +46,15 @@ def get_azure_access_token():
 
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
-    """Get database URL - using temporary SQLite to get app running"""
-    # TEMPORARY SOLUTION: Use SQLite to get the application running
-    # We'll fix the PostgreSQL connection issue separately
+    """Get database URL - fix PostgreSQL connection properly"""
+    # Use the DATABASE_URL from environment variables
+    if os.getenv('DATABASE_URL'):
+        logger.info("Using DATABASE_URL from environment variables")
+        return os.getenv('DATABASE_URL')
     
-    logger.info("Using temporary SQLite database to get application running")
-    return "sqlite:///./do_not_call.db"
-    
-    # TODO: Fix Azure PostgreSQL connection issue
-    # The Azure PostgreSQL server is configured to require Azure AD authentication
-    # but our attempts to use Azure AD tokens are still failing
-    # This suggests a deeper configuration issue with the Azure PostgreSQL server
+    # Fallback to settings
+    logger.info("Falling back to DATABASE_URL from settings")
+    return settings.DATABASE_URL
 
 # Create database engine with production-safe defaults
 database_url = get_database_url()
