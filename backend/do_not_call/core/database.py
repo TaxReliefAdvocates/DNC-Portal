@@ -49,8 +49,9 @@ def get_database_url():
     """Get database URL - fix PostgreSQL connection properly"""
     # Use the DATABASE_URL from environment variables
     if os.getenv('DATABASE_URL'):
-        logger.info("Using DATABASE_URL from environment variables")
-        return os.getenv('DATABASE_URL')
+        database_url = os.getenv('DATABASE_URL')
+        logger.info(f"Using DATABASE_URL from environment variables: {database_url}")
+        return database_url
     
     # Try to construct from individual PG variables
     pg_host = os.getenv('PGHOST')
@@ -65,7 +66,7 @@ def get_database_url():
         import urllib.parse
         encoded_password = urllib.parse.quote_plus(pg_password)
         database_url = f"postgresql+psycopg2://{pg_user}:{encoded_password}@{pg_host}:{pg_port}/{pg_database}?sslmode={pg_sslmode}"
-        logger.info("Constructed DATABASE_URL from individual PG environment variables")
+        logger.info(f"Constructed DATABASE_URL from individual PG environment variables: {database_url}")
         return database_url
     
     # Fallback to settings
