@@ -11,6 +11,12 @@ from ..config import settings
 # Construct DATABASE_URL from individual PostgreSQL environment variables if they exist
 def get_database_url():
     """Get database URL, preferring individual PG env vars over DATABASE_URL"""
+    # Temporary hardcoded connection that we know works
+    # We'll revert this once we debug the environment variable issue
+    hardcoded_url = "postgresql+psycopg2://traadmin:TPSZen2025@!@dnc.postgres.database.azure.com:5432/postgres?sslmode=require"
+    logger.info("Using temporary hardcoded database connection")
+    return hardcoded_url
+    
     # Check if individual PostgreSQL environment variables are set
     pg_vars = ['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE']
     missing_vars = [var for var in pg_vars if not os.getenv(var)]
