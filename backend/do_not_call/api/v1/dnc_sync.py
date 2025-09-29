@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/master-dnc", response_model=List[MasterDNCEntryResponse])
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def get_master_dnc_list(
     skip: int = 0,
     limit: int = 100,
@@ -33,7 +33,7 @@ async def get_master_dnc_list(
 
 
 @router.get("/sync-status", response_model=List[DNCSyncStatusResponse])
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def get_sync_status(
     provider: Optional[str] = None,
     status: Optional[str] = None,
@@ -55,7 +55,7 @@ async def get_sync_status(
 
 
 @router.get("/sync-jobs", response_model=List[DNCSyncJobResponse])
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def get_sync_jobs(
     skip: int = 0,
     limit: int = 50,
@@ -68,7 +68,7 @@ async def get_sync_jobs(
 
 
 @router.post("/sync-from-convoso")
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def sync_from_convoso(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -179,7 +179,7 @@ async def perform_convoso_sync(job_id: int, db: Session):
 
 
 @router.post("/sync-to-providers")
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def sync_to_providers(
     providers: List[str] = ["ringcentral", "genesys", "ytel", "logics"],
     background_tasks: BackgroundTasks = None,
@@ -334,7 +334,7 @@ async def sync_to_provider(phone_number: str, provider: str, sync_status: DNCSyn
 
 
 @router.get("/stats")
-@require_role(["owner", "admin", "superadmin"])
+@require_role("owner", "admin", "superadmin")
 async def get_sync_stats(
     db: Session = Depends(get_db),
     principal: Principal = Depends(Principal)
