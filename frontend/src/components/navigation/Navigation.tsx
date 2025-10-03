@@ -44,10 +44,13 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
           }
         }
         // Prefer backend-declared role
+        console.log('🔐 Auth headers being sent:', headers)
         const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/auth/me`, { headers })
         if (resp.ok) {
           const j = await resp.json()
+          console.log('🔐 Auth response:', j)
           const backendRole = String(j.role || '').toLowerCase()
+          console.log('🔐 Backend role:', backendRole)
           if (backendRole) {
             setResolvedRole(backendRole)
             if (!baseRole) setBaseRole(backendRole)

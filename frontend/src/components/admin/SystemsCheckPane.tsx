@@ -37,6 +37,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const [progress, setProgress] = useState<{ total: number, completed: number, failed: number, per: Record<string, { completed: number, failed: number }>, logs: string[] }>({ total: 0, completed: 0, failed: 0, per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 }, genesys: { completed: 0, failed: 0 } }, logs: [] })
 
   const runCheck = async (phone: string) => {
+    console.log('🔍 Starting DNC check for phone:', phone)
+    console.log('🔍 Demo headers:', getDemoHeaders())
     setLoading((s)=>({ ...s, [phone]: true }))
     try {
       const providers: Record<string, any> = {}
@@ -133,6 +135,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
       setErr(null)
       
       // Save search to history (temporarily disabled until backend deployment is updated)
+      console.log('🚫 Search history saving is DISABLED - should not make any calls')
       // try {
       //   await fetch(`${API_BASE_URL}/api/v1/search-history/save?user_id=1&organization_id=1&role=user`, {
       //     method: 'POST',

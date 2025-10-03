@@ -19,18 +19,24 @@ export const API_ENDPOINTS = {
 function getDemoHeaders(): Record<string, string> {
   try {
     const raw = localStorage.getItem('persist:do-not-call-root')
+    console.log('🔐 Raw localStorage data:', raw)
     if (!raw) return {}
     const parsed = JSON.parse(raw)
+    console.log('🔐 Parsed localStorage:', parsed)
     const demoAuth = parsed.demoAuth ? JSON.parse(parsed.demoAuth) : null
+    console.log('🔐 Demo auth data:', demoAuth)
     if (!demoAuth) return {}
     const { organizationId, userId, role } = demoAuth
     if (!organizationId || !userId || !role) return {}
-    return {
+    const headers = {
       'X-Org-Id': String(organizationId),
       'X-User-Id': String(userId),
       'X-Role': String(role),
     }
-  } catch {
+    console.log('🔐 Generated headers:', headers)
+    return headers
+  } catch (e) {
+    console.log('🔐 Error getting demo headers:', e)
     return {}
   }
 }
