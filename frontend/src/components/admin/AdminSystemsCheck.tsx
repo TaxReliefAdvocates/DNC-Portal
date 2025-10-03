@@ -55,15 +55,117 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     setResult(null)
     // Reset DNC block on new check
     setDncFlag(null); setDncError(null); setDncRaw(null)
+    
+    const providers: Record<string, any> = {}
+    
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/systems-check?phone_number=${encodeURIComponent(phone.trim())}`, { headers: { 'Content-Type': 'application/json', ...getDemoHeaders() } })
-      if (!resp.ok) throw new Error('Failed systems check')
-      const data = await resp.json()
-      setResult(data)
-      // Enrich Logics (TPS) with direct case lookup to ensure accuracy
-      await recheckLogics(data.phone_number)
+      // 1) FreeDNC API check
+      try {
+        const fj = await fetch(`${API_BASE_URL}/api/check_number`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (fj.ok) {
+          const fjData = await fj.json()
+          providers.dnc = { listed: Boolean(fjData?.is_dnc) }
+        }
+      } catch {}
+
+      // 2) RingCentral search for number
+      try {
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (rc.ok) {
+          const rj = await rc.json()
+          const isOnDnc = rj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ringcentral = { listed: null, status: 'unknown' }
+          } else {
+            providers.ringcentral = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 3) Convoso search-dnc
+      try {
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (cv.ok) {
+          const cj = await cv.json()
+          const isOnDnc = cj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.convoso = { listed: null, status: 'unknown' }
+          } else {
+            providers.convoso = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 4) Ytel search-dnc (two-step DNC check)
+      try {
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (yt.ok) {
+          const yj = await yt.json()
+          const isOnDnc = yj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ytel = { listed: null, status: 'unknown' }
+          } else {
+            providers.ytel = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 5) Logics search-by-phone
+      try {
+        const lj = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (lj.ok) {
+          const ljData = await lj.json()
+          const cases = ljData?.data?.cases || []
+          providers.logics = { 
+            listed: cases.length > 0, 
+            count: cases.length, 
+            cases: cases 
+          }
+        }
+      } catch {}
+
+      // 6) Genesys search-dnc
+      try {
+        const gj = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (gj.ok) {
+          const gjData = await gj.json()
+          const isOnDnc = gjData?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.genesys = { listed: null, status: 'unknown' }
+          } else {
+            providers.genesys = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      setResult({ phone_number: phone, providers })
+      
       // Also run DNC check, non-blocking
-      runDncCheck(data.phone_number)
+      runDncCheck(phone)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed systems check')
     } finally {
@@ -83,8 +185,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ringcentral')
     try {
-      const url = `${API_BASE_URL}/api/v1/ringcentral/block?phone_number=${encodeURIComponent(result.phone_number)}`
-      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: result.phone_number })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -97,8 +202,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('convoso')
     try {
-      const url = `${API_BASE_URL}/api/v1/convoso/dnc/insert?phone_number=${encodeURIComponent(result.phone_number)}`
-      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: result.phone_number })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -111,8 +219,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ytel')
     try {
-      const url = `${API_BASE_URL}/api/v1/ytel/dnc?phone_number=${encodeURIComponent(result.phone_number)}`
-      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: result.phone_number })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -127,8 +238,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!firstCaseId) return
     setPushing('logics')
     try {
-      const url = `${API_BASE_URL}/api/v1/logics/dnc/update-case?case_id=${encodeURIComponent(firstCaseId)}&status_id=2`
-      const resp = await fetch(url, { method:'POST', headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/add-to-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: result.phone_number })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -149,7 +263,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
 
   const recheckLogics = async (pn: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
         body: JSON.stringify({ phone_number: pn })
@@ -161,7 +275,7 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
       setResponses(prev => ({ ...prev, logics_lookup: { provider: 'logics_lookup', ok: true, status: 200, body: data, at: new Date().toISOString() } }))
       setResult((prev)=>{
         if (!prev) return prev
-        const cases = Array.isArray(data.cases) ? data.cases : []
+        const cases = Array.isArray(data?.data?.cases) ? data.data.cases : []
         return {
           ...prev,
           providers: {
@@ -177,8 +291,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/ringcentral/dnc/search/${encodeURIComponent(num)}`
-      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: num })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -190,8 +307,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/convoso/dnc/search/${encodeURIComponent(num)}`
-      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: num })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -203,8 +323,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     const num = (pn || phone || '').trim()
     if (!num) return
     try {
-      const url = `${API_BASE_URL}/api/v1/ytel/dnc/check/${encodeURIComponent(num)}`
-      const resp = await fetch(url, { headers: { ...getDemoHeaders() } })
+      const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+        method:'POST', 
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ phone_number: num })
+      })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
@@ -380,6 +503,14 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
                   <Button size="sm" variant="outline" onClick={pushYtel} disabled={pushing==='ytel'}>Push</Button>
                 </div>
               </div>
+              <div className="flex items-center justify-between border rounded p-2">
+                <div className="font-medium">Genesys</div>
+                <div className="flex items-center gap-2">
+                  {cell(providers.genesys?.listed)}
+                  <Button size="sm" variant="outline" onClick={()=>{}} disabled>Lookup</Button>
+                  <Button size="sm" variant="outline" onClick={()=>{}} disabled>Push</Button>
+                </div>
+              </div>
               {responses.ytel_lookup && (
                 <div className="text-xs text-gray-700 border rounded p-2 bg-gray-50">
                   <div className="mb-1">Lookup Response ({responses.ytel_lookup.status}) • {new Date(responses.ytel_lookup.at).toLocaleTimeString()}</div>
@@ -398,11 +529,11 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
             </div>
             <div className="mt-3 text-xs text-gray-600 space-y-1">
               <div><strong>Current behavior:</strong></div>
-              <div>• RingCentral: paginated blocked list search; “Listed” if found.</div>
-              <div>• Convoso: DNC search; “Listed” if found.</div>
-              <div>• Logics (TPS): “Listed” when cases are found by phone (count and first few returned).</div>
-              <div>• Ytel: no read API; shows “Unknown”.</div>
-              <div>• Genesys: placeholder for now.</div>
+              <div>• RingCentral: search blocked list; "Listed" if found on DNC.</div>
+              <div>• Convoso: search DNC leads; "Listed" if found on DNC.</div>
+              <div>• Logics (TPS): search cases by phone; "Listed" if cases found.</div>
+              <div>• Ytel: two-step DNC check; "Listed" if on DNC or global DNC.</div>
+              <div>• Genesys: search DNC list; "Listed" if found on DNC.</div>
             </div>
           </div>
         )}
