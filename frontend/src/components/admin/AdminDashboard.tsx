@@ -20,7 +20,6 @@ export const AdminDashboard: React.FC = () => {
   const { phoneNumbers } = useAppSelector((state) => state.phoneNumbers)
   const { crmStatuses, stats } = useAppSelector((state) => state.crmStatus)
   const [activeTab, setActiveTab] = useState<'overview'|'pending'|'propagation'|'systems'|'litigation'|'samples'|'tester'|'sync'>('pending')
-  const [selectedPhone, setSelectedPhone] = useState<string>('')
 
   // Organization/user defaults (matches other admin panes)
   const organizationId = 1
@@ -157,7 +156,7 @@ export const AdminDashboard: React.FC = () => {
             <AdminSystemsCheck />
           </div>
           <div>
-            <RecentSearches onPhoneSelect={(phone) => setSelectedPhone(phone)} />
+            <RecentSearches onPhoneSelect={(phone) => console.log('Selected phone:', phone)} />
           </div>
         </div>
       )}
