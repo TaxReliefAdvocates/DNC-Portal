@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from loguru import logger
+from pydantic import BaseModel
 
 from ...core.database import get_db
 from ...core.auth import Principal, require_role
@@ -34,10 +35,13 @@ async def get_recent_searches(
     return searches
 
 
+class SaveSearchRequest(BaseModel):
+    phone_number: str
+    search_results: dict
+
 @router.post("/save")
 async def save_search(
-    phone_number: str,
-    search_results: dict,
+    request: SaveSearchRequest,
     db: Session = Depends(get_db),
     principal: Principal = Depends(Principal)
 ):
@@ -55,8 +59,8 @@ async def save_search(
     search_entry = SearchHistory(
         user_id=user_id,
         organization_id=organization_id,
-        phone_number=phone_number,
-        search_results=search_results
+        phone_number=request.phone_number,
+        search_results=request.search_results
     )
     
     db.add(search_entry)

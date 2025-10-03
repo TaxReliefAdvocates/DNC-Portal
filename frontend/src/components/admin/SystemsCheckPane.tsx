@@ -321,10 +321,12 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
                         {providers.logics ? (
-                          providers.logics.listed ? (
-                            <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">True</span>
+                          providers.logics.cases?.[0]?.CaseID === "57" ? (
+                            <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                          ) : providers.logics.cases?.[0]?.CaseID ? (
+                            <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">Active Case</span>
                           ) : (
-                            <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">False</span>
+                            <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Found</span>
                           )
                         ) : (
                           <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
@@ -333,7 +335,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                           <span className="text-xs text-gray-600">{providers.logics.count} case(s)</span>
                         )}
                       </div>
-                      {providers.logics?.cases?.[0]?.CaseID && (
+                      {providers.logics?.cases?.[0]?.CaseID && providers.logics.cases[0].CaseID !== "57" && (
                         <Button 
                           size="sm" 
                           variant="outline" 
