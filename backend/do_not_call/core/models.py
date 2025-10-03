@@ -742,6 +742,27 @@ class DNCSyncJob(Base):
         return f"<DNCSyncJob(id={self.id}, job_type='{self.job_type}', status='{self.status}')>"
 
 
+class SearchHistory(Base):
+    """Search history table to track recent DNC searches per user"""
+    __tablename__ = "search_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    organization_id = Column(Integer, nullable=True, index=True)
+    phone_number = Column(String(20), nullable=False, index=True)
+    search_results = Column(JSON, nullable=True)  # Store the full search results
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Index for efficient queries
+    __table_args__ = (
+        Index('idx_user_created', 'user_id', 'created_at'),
+        Index('idx_org_created', 'organization_id', 'created_at'),
+    )
+
+    def __repr__(self):
+        return f"<SearchHistory(id={self.id}, user_id={self.user_id}, phone_number='{self.phone_number}')>"
+
+
 # Pydantic models for API responses
 
 class MasterDNCEntryResponse(BaseModel):
@@ -791,6 +812,18 @@ class DNCSyncJobResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SearchHistoryResponse(BaseModel):
+    id: int
+    user_id: int
+    organization_id: int | None
+    phone_number: str
+    search_results: Dict[str, Any] | None
+    created_at: datetime
 
     class Config:
         from_attributes = True

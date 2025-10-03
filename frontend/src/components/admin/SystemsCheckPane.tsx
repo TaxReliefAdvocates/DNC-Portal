@@ -32,6 +32,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [, setErr] = useState<string | null>(null)
   const [pushing, setPushing] = useState<string | null>(null)
+  const [showLogicsWarning, setShowLogicsWarning] = useState<{phone: string, caseId: string} | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [progress, setProgress] = useState<{ total: number, completed: number, failed: number, per: Record<string, { completed: number, failed: number }>, logs: string[] }>({ total: 0, completed: 0, failed: 0, per: { ringcentral: { completed: 0, failed: 0 }, convoso: { completed: 0, failed: 0 }, ytel: { completed: 0, failed: 0 }, logics: { completed: 0, failed: 0 }, genesys: { completed: 0, failed: 0 } }, logs: [] })
 
@@ -130,6 +131,20 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
 
       setResults((r)=>({ ...r, [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } } }))
       setErr(null)
+      
+      // Save search to history
+      try {
+        await fetch(`${API_BASE_URL}/api/v1/search-history/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({
+            phone_number: phone,
+            search_results: { phone_number: phone, providers }
+          })
+        })
+      } catch (e) {
+        console.warn('Failed to save search to history:', e)
+      }
     } catch (e) {
       setErr('Cannot reach backend (check that it is running)')
     } finally {
@@ -318,7 +333,17 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
                           <span className="text-xs text-gray-600">{providers.logics.count} case(s)</span>
                         )}
                       </div>
-                      {providers.logics?.cases?.[0]?.CaseID && <Button size="sm" variant="outline" onClick={()=>push('logics', n)} disabled={pushing===`logics:${n}`}>Push</Button>}
+                      {providers.logics?.cases?.[0]?.CaseID && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => setShowLogicsWarning({phone: n, caseId: providers.logics.cases[0].CaseID})} 
+                          disabled={pushing===`logics:${n}`}
+                          className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                        >
+                          Push
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between border rounded p-2">
@@ -371,7 +396,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }}
         disabled={pushing !== null}
       >
-        Put on DNC List (all remaining)
+        Add All Remaining Numbers to DNC Lists
       </Button>
     </div>
     {showModal && (
@@ -402,6 +427,42 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           </div>
           <div className="mt-3 max-h-40 overflow-y-auto text-xs bg-gray-50 border rounded p-2">
             {progress.logs.map((l, i)=> (<div key={i}>{l}</div>))}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Logics Warning Modal */}
+    {showLogicsWarning && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg max-w-md mx-4">
+          <h3 className="text-lg font-semibold text-red-600 mb-4">⚠️ SERIOUS WARNING</h3>
+          <p className="mb-4">
+            <strong>Phone:</strong> {showLogicsWarning.phone}<br/>
+            <strong>Case ID:</strong> {showLogicsWarning.caseId}
+          </p>
+          <p className="mb-4 text-gray-700">
+            <strong>Are you absolutely sure?</strong> Adding this number to DNC will <strong>END their case</strong> in Logics. 
+            This action cannot be undone and will permanently close their case.
+          </p>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowLogicsWarning(null)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                await push('logics', showLogicsWarning.phone)
+                setShowLogicsWarning(null)
+              }}
+              disabled={pushing === `logics:${showLogicsWarning.phone}`}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Yes, End Case
+            </Button>
           </div>
         </div>
       </div>
