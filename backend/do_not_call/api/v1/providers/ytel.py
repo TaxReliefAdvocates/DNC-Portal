@@ -117,7 +117,9 @@ async def search_dnc(request: SearchDNCRequest, user: Optional[str] = None, pass
 			if "LEADS FOUND IN THE SYSTEM" in lead_text:
 				lead_exists = True
 				# Check if the found lead is marked as DNC
-				if "DNC" in lead_text or "status.*DNC" in lead_text:
+				# Ytel returns format: |user|||phone|status_code|0
+				# Status codes: 996 = DNC, 999 = DNC, others = active
+				if "DNC" in lead_text or "status.*DNC" in lead_text or "|996|" in lead_text or "|999|" in lead_text:
 					is_on_dnc = True
 					status = "listed"
 				else:
