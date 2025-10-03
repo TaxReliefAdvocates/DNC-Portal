@@ -18,7 +18,7 @@ async def get_recent_searches(
     principal: Principal = Depends(Principal)
 ):
     """Get recent search history for the current user"""
-    require_role("owner", "admin", "superadmin")(principal)
+    require_role("owner", "admin", "superadmin", "user")(principal)
     
     # Get user ID from principal
     user_id = getattr(principal, 'user_id', None)
@@ -46,7 +46,7 @@ async def save_search(
     principal: Principal = Depends(Principal)
 ):
     """Save a search to history"""
-    require_role("owner", "admin", "superadmin")(principal)
+    require_role("owner", "admin", "superadmin", "user")(principal)
     
     # Get user ID and organization ID from principal
     user_id = getattr(principal, 'user_id', None)

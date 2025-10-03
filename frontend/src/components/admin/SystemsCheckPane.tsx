@@ -166,6 +166,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
   const push = async (provider: 'ringcentral'|'convoso'|'ytel'|'logics'|'genesys', phone: string) => {
     setPushing(`${provider}:${phone}`)
     try {
+      console.log(`Pushing ${phone} to ${provider}...`)
+      
       // record attempt start
       try {
         await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
@@ -175,25 +177,28 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
       if (provider === 'ringcentral') {
-        await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
+        const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
+        console.log(`RingCentral response: ${resp.status}`)
       } else if (provider === 'convoso') {
-        await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
+        const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
+        console.log(`Convoso response: ${resp.status}`)
       } else if (provider === 'ytel') {
-        await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
+        const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
           method:'POST', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ phone_number: phone })
         })
+        console.log(`Ytel response: ${resp.status}`)
       } else if (provider === 'genesys') {
-        await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
+        const resp = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
           method:'PATCH', 
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({ 
@@ -202,17 +207,20 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
             expiration_date_time: "" 
           })
         })
+        console.log(`Genesys response: ${resp.status}`)
       } else if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
-          await fetch(`${API_BASE_URL}/api/v1/logics/update-case`, { 
+          const resp = await fetch(`${API_BASE_URL}/api/v1/logics/update-case`, { 
             method:'POST', 
             headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
             body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
           })
+          console.log(`Logics response: ${resp.status}`)
         }
       }
+      console.log(`Successfully pushed ${phone} to ${provider}`)
       await runCheck(phone)
       setProgress((p)=>({
         ...p,
@@ -228,6 +236,8 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
       } catch {}
     } catch (e) {
+      console.error(`Failed to push ${phone} to ${provider}:`, e)
+      alert(`Failed to push ${phone} to ${provider}: ${(e as Error)?.message || 'Unknown error'}`)
       setProgress((p)=>({
         ...p,
         failed: p.failed + 1,
