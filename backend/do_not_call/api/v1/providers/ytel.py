@@ -59,51 +59,99 @@ async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, passw
 @router.post("/search-dnc", response_model=DNCOperationResponse)
 async def search_dnc(request: SearchDNCRequest, user: Optional[str] = None, password: Optional[str] = None):
 	"""
-	Search for a specific phone number in Ytel system.
-	Uses the update_lead function with no_update=Y to search for existing leads.
+	Two-step DNC check for Ytel:
+	1. Check if lead exists
+	2. If no lead, check global DNC status
 	"""
 	user, pwd = get_ytel_credentials(user, password)
 	base = "https://tra.ytel.com/x5/api/non_agent.php"
-	params = {
+	target_number = request.phone_number
+	
+	# Step 1: Check if lead exists
+	lead_params = {
 		"function": "update_lead",
 		"user": user,
 		"pass": pwd,
 		"source": "dncfilter",
-		"phone_number": request.phone_number,
+		"phone_number": target_number,
 		"no_update": "Y",
 		"search_method": "PHONE_NUMBER",
 	}
+	
 	async with HttpClient() as http:
-		resp = await http.get(base, params=params)
-		text = resp.text
-		logger.info(f"Ytel search_dnc response: {text}")
+		# Step 1: Check for existing lead
+		lead_resp = await http.get(base, params=lead_params)
+		lead_text = lead_resp.text
+		logger.info(f"Ytel lead check response: {lead_text}")
 		
-		# Parse the response to determine if the lead was found
-		is_found = False
-		target_number = request.phone_number
+		lead_exists = False
+		is_on_dnc = False
+		status = "unknown"
 		
 		try:
-			# Look for success indicators in the response
-			# "LEADS FOUND IN THE SYSTEM" = found
-			# "NO MATCHES FOUND IN THE SYSTEM" = not found
-			if "LEADS FOUND IN THE SYSTEM" in text:
-				is_found = True
-			elif "NO MATCHES FOUND IN THE SYSTEM" in text:
-				is_found = False
+			if "LEADS FOUND IN THE SYSTEM" in lead_text:
+				lead_exists = True
+				# Check if the found lead is marked as DNC
+				if "DNC" in lead_text or "status.*DNC" in lead_text:
+					is_on_dnc = True
+					status = "listed"
+				else:
+					is_on_dnc = False
+					status = "not_listed"
+			elif "NO MATCHES FOUND IN THE SYSTEM" in lead_text:
+				lead_exists = False
+				# Step 2: No lead found, check global DNC status using add_lead with duplicate_check
+				dnc_params = {
+					"function": "add_lead",
+					"user": user,
+					"pass": pwd,
+					"source": "dncfilter",
+					"phone_number": target_number,
+					"duplicate_check": "Y",  # This will check if number is on DNC
+					"status": "DNC"
+				}
+				
+				dnc_resp = await http.get(base, params=dnc_params)
+				dnc_text = dnc_resp.text
+				logger.info(f"Ytel DNC check response: {dnc_text}")
+				
+				# Parse DNC check response
+				if "DNC" in dnc_text or "ALREADY EXISTS" in dnc_text:
+					is_on_dnc = True
+					status = "listed"
+				else:
+					is_on_dnc = False
+					status = "not_listed"
 			else:
 				# If we can't parse, assume not found
-				is_found = False
+				lead_exists = False
+				is_on_dnc = False
+				status = "unknown"
+				
 		except Exception as e:
 			logger.error(f"Error parsing Ytel response: {e}")
-			is_found = False
+			lead_exists = False
+			is_on_dnc = False
+			status = "unknown"
+		
+		# Determine final message
+		if status == "listed":
+			message = f"Number {target_number} is ON DNC list"
+		elif status == "not_listed":
+			message = f"Number {target_number} is NOT on DNC list"
+		else:
+			message = f"Number {target_number} DNC status UNKNOWN"
 		
 		return DNCOperationResponse(
 			success=True, 
-			message=f"Number {target_number} {'FOUND' if is_found else 'NOT FOUND'} in Ytel system", 
+			message=message,
 			data={
 				"phone_number": target_number,
-				"is_found": is_found,
-				"raw_response": text
+				"is_on_dnc": is_on_dnc,
+				"status": status,
+				"lead_exists": lead_exists,
+				"lead_response": lead_text,
+				"dnc_response": dnc_text if not lead_exists else None
 			}
 		)
 

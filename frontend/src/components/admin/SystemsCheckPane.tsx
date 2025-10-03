@@ -86,7 +86,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }
       } catch {}
 
-      // 4) Ytel search-dnc
+      // 4) Ytel search-dnc (two-step DNC check)
       try {
         const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
           method:'POST', 
@@ -95,12 +95,13 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         })
         if (yt.ok) {
           const yj = await yt.json()
-          const isFound = yj?.data?.is_found
+          const isOnDnc = yj?.data?.is_on_dnc
+          const status = yj?.data?.status
           // Handle unknown status (null) as unknown
-          if (isFound === null) {
+          if (isOnDnc === null || status === 'unknown') {
             providers.ytel = { listed: null, status: 'unknown' }
           } else {
-            providers.ytel = { listed: isFound || false }
+            providers.ytel = { listed: isOnDnc || false, status: status }
           }
         }
       } catch {}
