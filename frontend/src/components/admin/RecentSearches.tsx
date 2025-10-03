@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { API_BASE_URL } from '../../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 
@@ -12,23 +11,6 @@ interface SearchHistoryItem {
   created_at: string
 }
 
-const getDemoHeaders = (): Record<string, string> => {
-  try {
-    const raw = localStorage.getItem('persist:do-not-call-root')
-    if (!raw) return {}
-    const state = JSON.parse(raw)
-    const demoAuth = state.demoAuth ? JSON.parse(state.demoAuth) : null
-    if (!demoAuth) return {}
-    return {
-      'X-Org-Id': String(demoAuth.organizationId),
-      'X-User-Id': String(demoAuth.userId),
-      'X-Role': demoAuth.role || 'admin',
-      'Authorization': `Bearer ${demoAuth.token || 'demo-token'}`
-    }
-  } catch {
-    return {}
-  }
-}
 
 interface Props {
   onPhoneSelect?: (phone: string) => void
