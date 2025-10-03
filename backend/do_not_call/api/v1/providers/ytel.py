@@ -53,7 +53,32 @@ async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, passw
 		resp = await http.get(base, params=params)
 		text = resp.text
 		logger.info(f"Ytel add_to_dnc response: {text}")
-		return DNCOperationResponse(success=True, message="Added to DNC (Ytel)", data={"raw": text})
+		
+		# Parse Ytel response to provide meaningful feedback
+		if "Already on GLOBAL DNC" in text:
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} is already on Ytel DNC list", 
+				data={"raw": text, "already_on_dnc": True}
+			)
+		elif "LEADS FOUND IN THE SYSTEM" in text:
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} added to Ytel DNC list", 
+				data={"raw": text, "added_to_dnc": True}
+			)
+		elif "NO MATCHES FOUND IN THE SYSTEM" in text:
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} added to Ytel global DNC (no existing lead)", 
+				data={"raw": text, "added_to_global_dnc": True}
+			)
+		else:
+			return DNCOperationResponse(
+				success=True, 
+				message=f"Number {request.phone_number} processed by Ytel", 
+				data={"raw": text}
+			)
 
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)

@@ -200,6 +200,15 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ phone_number: phone })
         })
         console.log(`Ytel response: ${resp.status}`)
+        if (resp.ok) {
+          const ytelResponse = await resp.json()
+          console.log(`Ytel message: ${ytelResponse.message}`)
+          if (ytelResponse.data?.already_on_dnc) {
+            alert(`ℹ️ ${ytelResponse.message}`)
+          } else if (ytelResponse.data?.added_to_dnc || ytelResponse.data?.added_to_global_dnc) {
+            alert(`✅ ${ytelResponse.message}`)
+          }
+        }
       } else if (provider === 'genesys') {
         const resp = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
           method:'PATCH', 
