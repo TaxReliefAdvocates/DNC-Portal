@@ -134,7 +134,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
       
       // Save search to history
       try {
-        await fetch(`${API_BASE_URL}/api/v1/search-history/save`, {
+        await fetch(`${API_BASE_URL}/api/v1/search-history/save?user_id=1&organization_id=1&role=user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
           body: JSON.stringify({
