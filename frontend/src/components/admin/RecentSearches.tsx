@@ -40,14 +40,16 @@ export const RecentSearches: React.FC<Props> = ({ onPhoneSelect }) => {
 
   const fetchRecentSearches = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/search-history/recent?limit=10&user_id=1&organization_id=1&role=user`, {
-        headers: getDemoHeaders()
-      })
+      // Temporarily disabled until backend deployment is updated
+      // const response = await fetch(`${API_BASE_URL}/api/v1/search-history/recent?limit=10&user_id=1&organization_id=1&role=user`, {
+      //   headers: getDemoHeaders()
+      // })
       
-      if (response.ok) {
-        const data = await response.json()
-        setSearches(data)
-      }
+      // if (response.ok) {
+      //   const data = await response.json()
+      //   setSearches(data)
+      // }
+      setSearches([]) // Empty for now
     } catch (error) {
       console.error('Failed to fetch recent searches:', error)
     } finally {

@@ -132,19 +132,19 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
       setResults((r)=>({ ...r, [phone]: { phone_number: phone, providers: { ...(r[phone]?.providers||{}), ...providers } } }))
       setErr(null)
       
-      // Save search to history
-      try {
-        await fetch(`${API_BASE_URL}/api/v1/search-history/save?user_id=1&organization_id=1&role=user`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({
-            phone_number: phone,
-            search_results: { phone_number: phone, providers }
-          })
-        })
-      } catch (e) {
-        console.warn('Failed to save search to history:', e)
-      }
+      // Save search to history (temporarily disabled until backend deployment is updated)
+      // try {
+      //   await fetch(`${API_BASE_URL}/api/v1/search-history/save?user_id=1&organization_id=1&role=user`, {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+      //     body: JSON.stringify({
+      //       phone_number: phone,
+      //       search_results: { phone_number: phone, providers }
+      //     })
+      //   })
+      // } catch (e) {
+      //   console.warn('Failed to save search to history:', e)
+      // }
     } catch (e) {
       setErr('Cannot reach backend (check that it is running)')
     } finally {
