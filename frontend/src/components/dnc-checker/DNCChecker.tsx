@@ -44,7 +44,12 @@ export const DNCChecker: React.FC = () => {
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
 
   // Local sub-tabs for methods
-  const [activeTab, setActiveTab] = useState<'quick' | 'tps' | 'csv'>('quick')
+  const [activeTab, setActiveTab] = useState<'quick' | 'systems' | 'tps' | 'csv'>('quick')
+  
+  // Systems check state
+  const [systemsPhone, setSystemsPhone] = useState<string>('')
+  const [systemsResult, setSystemsResult] = useState<any>(null)
+  const [isCheckingSystems, setIsCheckingSystems] = useState<boolean>(false)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -298,6 +303,126 @@ export const DNCChecker: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Automation failed')
     }
   }
+
+  const checkSystems = async () => {
+    if (!systemsPhone.trim()) return
+    setIsCheckingSystems(true)
+    setError(null)
+    setSystemsResult(null)
+    
+    const providers: Record<string, any> = {}
+    
+    try {
+      // 1) FreeDNC API check
+      try {
+        const fj = await fetch(`${API_BASE_URL}/api/check_number`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (fj.ok) {
+          const fjData = await fj.json()
+          providers.dnc = { listed: Boolean(fjData?.is_dnc) }
+        }
+      } catch {}
+
+      // 2) RingCentral search for number
+      try {
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (rc.ok) {
+          const rj = await rc.json()
+          const isOnDnc = rj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ringcentral = { listed: null, status: 'unknown' }
+          } else {
+            providers.ringcentral = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 3) Convoso search-dnc
+      try {
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (cv.ok) {
+          const cj = await cv.json()
+          const isOnDnc = cj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.convoso = { listed: null, status: 'unknown' }
+          } else {
+            providers.convoso = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 4) Ytel search-dnc (two-step DNC check)
+      try {
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (yt.ok) {
+          const yj = await yt.json()
+          const isOnDnc = yj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ytel = { listed: null, status: 'unknown' }
+          } else {
+            providers.ytel = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 5) Logics search-by-phone
+      try {
+        const lj = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (lj.ok) {
+          const ljData = await lj.json()
+          const cases = ljData?.data?.cases || []
+          providers.logics = { 
+            listed: cases.length > 0, 
+            count: cases.length, 
+            cases: cases 
+          }
+        }
+      } catch {}
+
+      // 6) Genesys search-dnc
+      try {
+        const gj = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: systemsPhone })
+        })
+        if (gj.ok) {
+          const gjData = await gj.json()
+          const isOnDnc = gjData?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.genesys = { listed: null, status: 'unknown' }
+          } else {
+            providers.genesys = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      setSystemsResult({ phone_number: systemsPhone, providers })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed systems check')
+    } finally {
+      setIsCheckingSystems(false)
+    }
+  }
   
   const resetForm = () => {
     setFile(null)
@@ -307,11 +432,19 @@ export const DNCChecker: React.FC = () => {
     setBatchPhones('')
     setSingleResult(null)
     setBatchResults(null)
+    setSystemsPhone('')
+    setSystemsResult(null)
     setError(null)
     setProcessingStatus('')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+  }
+
+  const cell = (listed?: boolean | null, extra?: string) => {
+    if (listed === true) return <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+    if (listed === false) return <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+    return <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown{extra ? ` • ${extra}` : ''}</span>
   }
 
   return (
@@ -334,6 +467,7 @@ export const DNCChecker: React.FC = () => {
       {/* Sub-tabs */}
       <div className="flex justify-center gap-2">
         <Button variant={activeTab === 'quick' ? 'default' : 'outline'} onClick={() => setActiveTab('quick')}>Quick Check</Button>
+        <Button variant={activeTab === 'systems' ? 'default' : 'outline'} onClick={() => setActiveTab('systems')}>Systems Check</Button>
         <Button variant={activeTab === 'tps' ? 'default' : 'outline'} onClick={() => setActiveTab('tps')}>TPS Cases</Button>
         <Button variant={activeTab === 'csv' ? 'default' : 'outline'} onClick={() => setActiveTab('csv')}>CSV Upload</Button>
       </div>
@@ -348,11 +482,14 @@ export const DNCChecker: React.FC = () => {
         <Card>
           <CardHeader>
             <h3 className="text-xl font-semibold text-gray-900">
-              {activeTab === 'quick' ? 'Quick Phone Number Check' : 'TPS2 Database Check'}
+              {activeTab === 'quick' ? 'Quick Phone Number Check' : 
+               activeTab === 'systems' ? 'Systems Check' : 'TPS2 Database Check'}
             </h3>
             <p className="text-gray-600">
               {activeTab === 'quick'
                 ? 'Check individual phone numbers or batches without CSV upload'
+                : activeTab === 'systems'
+                ? 'Check DNC status across all CRM systems (RingCentral, Convoso, Ytel, Logics, Genesys)'
                 : 'Find possible DNC matches from TPS and view case details'}
             </p>
           </CardHeader>
@@ -447,6 +584,112 @@ export const DNCChecker: React.FC = () => {
                         </span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            </>
+            )}
+
+            {activeTab === 'systems' && (
+            <>
+            {/* Systems Check */}
+            <div className="space-y-3">
+              <Label htmlFor="systems-phone">Phone Number</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="systems-phone"
+                  type="tel"
+                  placeholder="Enter phone number (e.g., 5173715410)"
+                  value={systemsPhone}
+                  onChange={(e) => setSystemsPhone(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={checkSystems} 
+                  disabled={!systemsPhone.trim() || isCheckingSystems}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isCheckingSystems ? 'Checking...' : 'Check All Systems'}
+                </Button>
+              </div>
+              
+              {/* Systems Result */}
+              {systemsResult && (
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">{systemsResult.phone_number}</span>
+                      {isCheckingSystems && <span className="text-xs text-gray-500"> • Checking…</span>}
+                    </div>
+                    <div className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    {/* National DNC */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">National DNC</div>
+                      <div className="flex items-center gap-2">
+                        {cell(systemsResult.providers?.dnc?.listed)}
+                      </div>
+                    </div>
+                    
+                    {/* RingCentral */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">RingCentral</div>
+                      <div className="flex items-center gap-2">
+                        {cell(systemsResult.providers?.ringcentral?.listed)}
+                      </div>
+                    </div>
+                    
+                    {/* Convoso */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">Convoso</div>
+                      <div className="flex items-center gap-2">
+                        {cell(systemsResult.providers?.convoso?.listed)}
+                      </div>
+                    </div>
+                    
+                    {/* Logics (TPS) */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">Logics (TPS)</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          {systemsResult.providers?.logics ? (
+                            systemsResult.providers.logics.listed ? (
+                              <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Active Case</span>
+                            ) : (
+                              <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">No Cases</span>
+                            )
+                          ) : (
+                            <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                          )}
+                          {typeof systemsResult.providers?.logics?.count === 'number' && (
+                            <span className="text-xs text-gray-600">{systemsResult.providers.logics.count} case(s)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Ytel */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">Ytel</div>
+                      <div className="flex items-center gap-2">
+                        {cell(systemsResult.providers?.ytel?.listed)}
+                      </div>
+                    </div>
+                    
+                    {/* Genesys */}
+                    <div className="flex items-center justify-between border rounded p-2">
+                      <div className="font-medium">Genesys</div>
+                      <div className="flex items-center gap-2">
+                        {cell(systemsResult.providers?.genesys?.listed)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 text-xs text-gray-600 space-y-1">
+                    <div><strong>Note:</strong> This shows DNC status across all systems. Only admins can add numbers to DNC lists.</div>
                   </div>
                 </div>
               )}
