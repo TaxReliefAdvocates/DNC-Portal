@@ -1024,17 +1024,32 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
         from datetime import datetime
         req.decided_at = datetime.utcnow()
         
-        # Create DNC entry
-        entry = DNCEntry(
-            organization_id=req.organization_id,
-            phone_e164=req.phone_e164,
-            reason=req.reason or "user request",
-            channel=req.channel or "voice",
-            source="user_request",
-            created_by_user_id=req.requested_by_user_id,
-            notes=req.decision_notes,
-        )
-        db.add(entry)
+        # Check if DNC entry already exists
+        existing_entry = db.query(DNCEntry).filter(
+            DNCEntry.organization_id == req.organization_id,
+            DNCEntry.phone_e164 == req.phone_e164
+        ).first()
+        
+        if existing_entry:
+            # Update existing entry if needed
+            if not existing_entry.active:
+                existing_entry.active = True
+                existing_entry.removed_at = None
+                existing_entry.updated_at = datetime.utcnow()
+            logger.info(f"DNC entry already exists for {req.phone_e164}, updating if needed")
+        else:
+            # Create new DNC entry
+            entry = DNCEntry(
+                organization_id=req.organization_id,
+                phone_e164=req.phone_e164,
+                reason=req.reason or "user request",
+                channel=req.channel or "voice",
+                source="user_request",
+                created_by_user_id=req.requested_by_user_id,
+                notes=req.decision_notes,
+            )
+            db.add(entry)
+        
         db.commit()
         
         return {
