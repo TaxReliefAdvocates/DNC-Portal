@@ -1055,7 +1055,7 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
         return {
             "request_id": req.id, 
             "status": req.status, 
-            "message": "Request approved successfully - v3",
+            "message": "Request approved successfully - v4",
             "phone_e164": req.phone_e164
         }
     except HTTPException:
