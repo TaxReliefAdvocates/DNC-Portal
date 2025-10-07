@@ -256,6 +256,35 @@ def test_request_exists(request_id: int, db: Session = Depends(get_db)):
     else:
         return {"exists": False, "id": request_id}
 
+@router.post("/test/approve-simple/{request_id}")
+def test_approve_simple(request_id: int, db: Session = Depends(get_db)):
+    """Minimal test endpoint for approval."""
+    try:
+        req = db.query(DNCRequest).get(request_id)
+        if not req:
+            return {"error": "Request not found", "id": request_id}
+        
+        if req.status != "pending":
+            return {"error": "Request already decided", "status": req.status}
+        
+        # Just update the status, don't create DNC entry yet
+        req.status = "approved"
+        req.decision_notes = "Test approval"
+        from datetime import datetime
+        req.decided_at = datetime.utcnow()
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "request_id": req.id,
+            "status": req.status,
+            "message": "Simple approval test successful"
+        }
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e), "type": type(e).__name__}
+
 # DB schema + health (superadmin)
 @router.get("/admin/db/schema")
 def db_schema(include_counts: bool = False, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
