@@ -949,37 +949,52 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 @router.post("/dnc-requests/{request_id}/approve")
 def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), background_tasks: BackgroundTasks = None):
-    require_role("owner", "admin", "superadmin")(principal)
-    req = db.query(DNCRequest).get(request_id)
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "pending":
-        raise HTTPException(status_code=400, detail="Request already decided")
-    req.status = "approved"
-    req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
-    req.decision_notes = payload.get("notes")
-    from datetime import datetime
-    req.decided_at = datetime.utcnow()
-    # Create DNC entry now
-    entry = DNCEntry(
-        organization_id=req.organization_id,
-        phone_e164=req.phone_e164,
-        reason=req.reason,
-        channel=req.channel,
-        source="user_request",
-        created_by_user_id=req.requested_by_user_id,
-        notes=req.decision_notes,
-    )
-    db.add(entry)
-    db.commit()
-    # Trigger async propagation attempts across configured providers
-    # Enhanced: Check systems first, then push only to systems where not already on DNC
     try:
-        if background_tasks is not None:
-            background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164, int(getattr(principal, "user_id", 0) or 0))
-    except Exception:
-        pass
-    return {"request_id": req.id, "status": req.status}
+        require_role("owner", "admin", "superadmin")(principal)
+        req = db.query(DNCRequest).get(request_id)
+        if not req:
+            raise HTTPException(status_code=404, detail="Request not found")
+        if req.status != "pending":
+            raise HTTPException(status_code=400, detail="Request already decided")
+        
+        req.status = "approved"
+        req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
+        req.decision_notes = payload.get("notes")
+        from datetime import datetime
+        req.decided_at = datetime.utcnow()
+        
+        # Create DNC entry now
+        entry = DNCEntry(
+            organization_id=req.organization_id,
+            phone_e164=req.phone_e164,
+            reason=req.reason,
+            channel=req.channel,
+            source="user_request",
+            created_by_user_id=req.requested_by_user_id,
+            notes=req.decision_notes,
+        )
+        db.add(entry)
+        db.commit()
+        
+        # Trigger async propagation attempts across configured providers
+        # Enhanced: Check systems first, then push only to systems where not already on DNC
+        try:
+            if background_tasks is not None:
+                # Try the enhanced version first, fallback to simple version if it fails
+                try:
+                    background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164, int(getattr(principal, "user_id", 0) or 0))
+                except Exception as e:
+                    logger.warning(f"Enhanced propagation failed, using simple version: {e}")
+                    background_tasks.add_task(_propagate_approved_entry, req.organization_id, req.phone_e164, int(getattr(principal, "user_id", 0) or 0))
+        except Exception as e:
+            # Log error but don't fail the approval
+            logger.error(f"Failed to start background propagation task: {e}")
+        
+        return {"request_id": req.id, "status": req.status}
+    except Exception as e:
+        logger.error(f"Error approving DNC request {request_id}: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
 
 
 def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
@@ -1055,19 +1070,20 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
     import anyio
 
     async def _run():
-        from ...core.crm_clients.ringcentral import RingCentralService
-        from ...core.crm_clients.convoso import ConvosoClient
-        from ...core.crm_clients.ytel import YtelClient
-        from ...api.v1.providers.genesys import patch_dnclist_phone_numbers
-        from ...api.v1.providers.logics import update_case_status
-        from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest, LogicsUpdateCaseRequest
-        from ...config import settings as cfg
-        import httpx
-        
-        db2 = SessionLocal()
         try:
-            # First, check systems to see where the number is already on DNC
-            systems_status = {}
+            from ...core.crm_clients.ringcentral import RingCentralService
+            from ...core.crm_clients.convoso import ConvosoClient
+            from ...core.crm_clients.ytel import YtelClient
+            from ...api.v1.providers.genesys import patch_dnclist_phone_numbers
+            from ...api.v1.providers.logics import update_case_status
+            from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest, LogicsUpdateCaseRequest
+            from ...config import settings as cfg
+            import httpx
+            
+            db2 = SessionLocal()
+            try:
+                # First, check systems to see where the number is already on DNC
+                systems_status = {}
             
             # Check RingCentral
             try:
@@ -1240,8 +1256,10 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                     attempt.finished_at = datetime.utcnow()
                 db2.commit()
                 
-        finally:
-            db2.close()
+            finally:
+                db2.close()
+        except Exception as e:
+            logger.error(f"Error in background propagation task for {phone_e164}: {e}")
 
     anyio.run(_run)
 
