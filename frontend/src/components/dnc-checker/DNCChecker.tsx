@@ -43,8 +43,8 @@ export const DNCChecker: React.FC = () => {
   const [isLoadingCases] = useState<boolean>(false)
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
 
-  // Local sub-tabs for methods
-  const [activeTab, setActiveTab] = useState<'quick' | 'systems' | 'tps' | 'csv'>('systems')
+  // Local sub-tabs for methods (currently only systems check is used)
+  const [activeTab] = useState<'quick' | 'systems' | 'tps' | 'csv'>('systems')
   
   // Systems check state
   const [systemsPhone, setSystemsPhone] = useState<string>('')
