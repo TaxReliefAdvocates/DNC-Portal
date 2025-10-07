@@ -235,6 +235,27 @@ def auth_me(principal: Principal = Depends(get_principal)):
         "role": principal.role,
     }
 
+# Test endpoint for debugging
+@router.get("/test/approve")
+def test_approve_endpoint():
+    """Test endpoint to verify backend is working."""
+    return {"status": "ok", "message": "Backend is working"}
+
+@router.get("/test/request/{request_id}")
+def test_request_exists(request_id: int, db: Session = Depends(get_db)):
+    """Test endpoint to check if a request exists."""
+    req = db.query(DNCRequest).get(request_id)
+    if req:
+        return {
+            "exists": True,
+            "id": req.id,
+            "phone_e164": req.phone_e164,
+            "status": req.status,
+            "organization_id": req.organization_id
+        }
+    else:
+        return {"exists": False, "id": request_id}
+
 # DB schema + health (superadmin)
 @router.get("/admin/db/schema")
 def db_schema(include_counts: bool = False, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
