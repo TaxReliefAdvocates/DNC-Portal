@@ -1001,7 +1001,7 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
         # TODO: Re-enable background propagation once basic approval is working
         logger.info(f"Approved DNC request {request_id} for phone {req.phone_e164}")
         
-        return {"request_id": req.id, "status": req.status, "message": "Request approved successfully"}
+        return {"request_id": req.id, "status": req.status, "message": "Request approved successfully - v2"}
     except Exception as e:
         logger.error(f"Error approving DNC request {request_id}: {e}")
         db.rollback()
