@@ -50,6 +50,7 @@ export const DNCChecker: React.FC = () => {
   const [systemsPhone, setSystemsPhone] = useState<string>('')
   const [systemsResult, setSystemsResult] = useState<any>(null)
   const [isCheckingSystems, setIsCheckingSystems] = useState<boolean>(false)
+  const [expandedLogicsCases, setExpandedLogicsCases] = useState<boolean>(false)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -309,6 +310,7 @@ export const DNCChecker: React.FC = () => {
     setIsCheckingSystems(true)
     setError(null)
     setSystemsResult(null)
+    setExpandedLogicsCases(false)
     
     const providers: Record<string, any> = {}
     
@@ -389,7 +391,8 @@ export const DNCChecker: React.FC = () => {
         })
         if (lj.ok) {
           const ljData = await lj.json()
-          const cases = ljData?.data?.cases || []
+          // Logics returns cases in data.raw_response.Data
+          const cases = ljData?.data?.raw_response?.Data || []
           providers.logics = { 
             listed: cases.length > 0, 
             count: cases.length, 
@@ -651,24 +654,83 @@ export const DNCChecker: React.FC = () => {
                     </div>
                     
                     {/* Logics (TPS) */}
-                    <div className="flex items-center justify-between border rounded p-2">
-                      <div className="font-medium">Logics (TPS)</div>
-                      <div className="flex items-center gap-2">
+                    <div className="border rounded p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium">Logics (TPS)</div>
                         <div className="flex items-center gap-2">
-                          {systemsResult.providers?.logics ? (
-                            systemsResult.providers.logics.listed ? (
-                              <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Active Case</span>
+                          <div className="flex items-center gap-2">
+                            {systemsResult.providers?.logics ? (
+                              systemsResult.providers.logics.listed ? (
+                                <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">Active Case</span>
+                              ) : (
+                                <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">No Cases</span>
+                              )
                             ) : (
-                              <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">No Cases</span>
-                            )
-                          ) : (
-                            <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
-                          )}
-                          {typeof systemsResult.providers?.logics?.count === 'number' && (
-                            <span className="text-xs text-gray-600">{systemsResult.providers.logics.count} case(s)</span>
+                              <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                            )}
+                            {typeof systemsResult.providers?.logics?.count === 'number' && (
+                              <span className="text-xs text-gray-600">{systemsResult.providers.logics.count} case(s)</span>
+                            )}
+                          </div>
+                          {systemsResult.providers?.logics?.cases && systemsResult.providers.logics.cases.length > 0 && (
+                            <button
+                              onClick={() => setExpandedLogicsCases(!expandedLogicsCases)}
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              {expandedLogicsCases ? 'Hide Details' : 'Show Details'}
+                            </button>
                           )}
                         </div>
                       </div>
+                      
+                      {/* Case Details Dropdown */}
+                      {expandedLogicsCases && systemsResult.providers?.logics?.cases && systemsResult.providers.logics.cases.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs text-gray-600 mb-2">Case Details:</div>
+                          <div className="space-y-1">
+                            {systemsResult.providers.logics.cases.map((caseItem: any, index: number) => (
+                              <div key={index} className="bg-gray-50 p-2 rounded text-xs">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="font-medium text-gray-700">Case ID:</span>
+                                    <span className="ml-1 text-gray-900">{caseItem.CaseID || 'N/A'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-700">Status ID:</span>
+                                    <span className="ml-1 text-gray-900">{caseItem.StatusID || 'N/A'}</span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="font-medium text-gray-700">Name:</span>
+                                    <span className="ml-1 text-gray-900">
+                                      {[caseItem.FirstName, caseItem.MiddleName, caseItem.LastName]
+                                        .filter(Boolean)
+                                        .join(' ') || 'N/A'}
+                                    </span>
+                                  </div>
+                                  {caseItem.Email && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-700">Email:</span>
+                                      <span className="ml-1 text-gray-900">{caseItem.Email}</span>
+                                    </div>
+                                  )}
+                                  {caseItem.CreatedDate && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-700">Created:</span>
+                                      <span className="ml-1 text-gray-900">{new Date(caseItem.CreatedDate).toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  {caseItem.TaxAmount && (
+                                    <div className="col-span-2">
+                                      <span className="font-medium text-gray-700">Tax Amount:</span>
+                                      <span className="ml-1 text-gray-900">${caseItem.TaxAmount.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Ytel */}
