@@ -41,6 +41,8 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [userMap, setUserMap] = useState<Record<number,{id:number,email:string,name?:string}>>({})
 
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null)
+  const [systemsChecks, setSystemsChecks] = useState<Record<string, any>>({})
+  const [checkingSystems, setCheckingSystems] = useState<Set<string>>(new Set())
 
   const baseHeaders = {
     'Content-Type': 'application/json',
@@ -135,6 +137,137 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     }
   }
 
+  const checkSystemsForPhone = async (phone: string) => {
+    if (checkingSystems.has(phone)) return
+    
+    setCheckingSystems(prev => new Set(prev).add(phone))
+    
+    const providers: Record<string, any> = {}
+    
+    try {
+      // 1) FreeDNC API check
+      try {
+        const fj = await fetch(`${API_BASE_URL}/api/check_number`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (fj.ok) {
+          const fjData = await fj.json()
+          providers.dnc = { listed: Boolean(fjData?.is_dnc) }
+        }
+      } catch {}
+
+      // 2) RingCentral search for number
+      try {
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (rc.ok) {
+          const rj = await rc.json()
+          const isOnDnc = rj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ringcentral = { listed: null, status: 'unknown' }
+          } else {
+            providers.ringcentral = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 3) Convoso search-dnc
+      try {
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (cv.ok) {
+          const cj = await cv.json()
+          const isOnDnc = cj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.convoso = { listed: null, status: 'unknown' }
+          } else {
+            providers.convoso = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 4) Ytel search-dnc (two-step DNC check)
+      try {
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (yt.ok) {
+          const yj = await yt.json()
+          const isOnDnc = yj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.ytel = { listed: null, status: 'unknown' }
+          } else {
+            providers.ytel = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      // 5) Logics search-by-phone
+      try {
+        const lj = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (lj.ok) {
+          const ljData = await lj.json()
+          // Logics returns cases in data.raw_response.Data
+          const cases = ljData?.data?.raw_response?.Data || []
+          providers.logics = { 
+            listed: cases.length > 0, 
+            count: cases.length, 
+            cases: cases 
+          }
+        }
+      } catch {}
+
+      // 6) Genesys search-dnc
+      try {
+        const gj = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+          method:'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone_number: phone })
+        })
+        if (gj.ok) {
+          const gjData = await gj.json()
+          const isOnDnc = gjData?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            providers.genesys = { listed: null, status: 'unknown' }
+          } else {
+            providers.genesys = { listed: isOnDnc || false }
+          }
+        }
+      } catch {}
+
+      setSystemsChecks(prev => ({
+        ...prev,
+        [phone]: { phone_number: phone, providers }
+      }))
+    } finally {
+      setCheckingSystems(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(phone)
+        return newSet
+      })
+    }
+  }
+
+  const getStatusBadge = (listed?: boolean | null) => {
+    if (listed === true) return <span className="px-1 py-0.5 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+    if (listed === false) return <span className="px-1 py-0.5 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+    return <span className="px-1 py-0.5 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+  }
+
   if (activeRequest) {
     return (
       <AdminRequestDetail
@@ -187,6 +320,16 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
           <Input placeholder="Decision notes (optional)" value={decisionNotes} onChange={(e)=>setDecisionNotes(e.target.value)} />
           <Button variant="outline" onClick={()=>bulk('approve')} disabled={selectedIds.length===0}>Approve selected</Button>
           <Button variant="outline" onClick={()=>bulk('deny')} disabled={selectedIds.length===0}>Deny selected</Button>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              const pendingPhones = rows.filter(r => r.status === 'pending').map(r => r.phone_e164)
+              pendingPhones.forEach(phone => checkSystemsForPhone(phone))
+            }}
+            disabled={checkingSystems.size > 0}
+          >
+            Check All Systems
+          </Button>
         </div>
         {loading && rows.length===0 ? (
           <div className="space-y-2">
@@ -207,22 +350,98 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                 }
                 return true
               })
-              .map(r => (
-              <div key={r.id} className="flex items-center justify-between p-2 border rounded">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
-                  <div className="text-sm">
-                    <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
-                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
+              .map(r => {
+                const systemsCheck = systemsChecks[r.phone_e164]
+                const isChecking = checkingSystems.has(r.phone_e164)
+                
+                return (
+                <div key={r.id} className="border rounded p-3 space-y-3">
+                  {/* Main request info */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
+                      <div className="text-sm">
+                        <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
+                        <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
+                      <Button className="bg-green-600 hover:bg-green-700" onClick={() => act(r.id, 'approve')}>Approve</Button>
+                      <Button variant="outline" onClick={() => act(r.id, 'deny')}>Deny</Button>
+                    </div>
+                  </div>
+                  
+                  {/* Systems check section */}
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Systems Check</span>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => checkSystemsForPhone(r.phone_e164)}
+                        disabled={isChecking}
+                      >
+                        {isChecking ? 'Checking...' : systemsCheck ? 'Re-check' : 'Check Systems'}
+                      </Button>
+                    </div>
+                    
+                    {systemsCheck ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                        {/* National DNC */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">National DNC</span>
+                          {getStatusBadge(systemsCheck.providers?.dnc?.listed)}
+                        </div>
+                        
+                        {/* RingCentral */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">RingCentral</span>
+                          {getStatusBadge(systemsCheck.providers?.ringcentral?.listed)}
+                        </div>
+                        
+                        {/* Convoso */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">Convoso</span>
+                          {getStatusBadge(systemsCheck.providers?.convoso?.listed)}
+                        </div>
+                        
+                        {/* Ytel */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">Ytel</span>
+                          {getStatusBadge(systemsCheck.providers?.ytel?.listed)}
+                        </div>
+                        
+                        {/* Logics */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">Logics</span>
+                          {systemsCheck.providers?.logics ? (
+                            systemsCheck.providers.logics.listed ? (
+                              <span className="px-1 py-0.5 rounded text-xs bg-blue-100 text-blue-800">Active Case</span>
+                            ) : (
+                              <span className="px-1 py-0.5 rounded text-xs bg-red-100 text-red-800">No Cases</span>
+                            )
+                          ) : (
+                            <span className="px-1 py-0.5 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                          )}
+                          {systemsCheck.providers?.logics?.count && (
+                            <span className="text-xs text-gray-600 mt-1">{systemsCheck.providers.logics.count} case(s)</span>
+                          )}
+                        </div>
+                        
+                        {/* Genesys */}
+                        <div className="flex flex-col items-center p-2 bg-gray-50 rounded">
+                          <span className="font-medium text-gray-700">Genesys</span>
+                          {getStatusBadge(systemsCheck.providers?.genesys?.listed)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500 italic">Click "Check Systems" to see DNC status across all CRM systems</div>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
-                  <Button className="bg-green-600 hover:bg-green-700" onClick={() => act(r.id, 'approve')}>Approve</Button>
-                  <Button variant="outline" onClick={() => act(r.id, 'deny')}>Deny</Button>
-                </div>
-              </div>
-            ))}
+                )
+              })}
             {hasMore && (
               <div className="text-center pt-2">
                 <Button variant="outline" onClick={()=>fetchPending(true)}>Load more</Button>
