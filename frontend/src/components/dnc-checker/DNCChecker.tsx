@@ -44,7 +44,7 @@ export const DNCChecker: React.FC = () => {
   const [isCheckingTps, setIsCheckingTps] = useState<boolean>(false)
 
   // Local sub-tabs for methods
-  const [activeTab, setActiveTab] = useState<'quick' | 'systems' | 'tps' | 'csv'>('quick')
+  const [activeTab, setActiveTab] = useState<'quick' | 'systems' | 'tps' | 'csv'>('systems')
   
   // Systems check state
   const [systemsPhone, setSystemsPhone] = useState<string>('')
@@ -462,18 +462,18 @@ export const DNCChecker: React.FC = () => {
           DNC Checker
         </h2>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Upload a CSV file to check phone numbers against Do Not Call lists using FreeDNCList.com API. 
-          Ensure compliance across all CRM systems.
+          Check DNC status across all CRM systems (RingCentral, Convoso, Ytel, Logics, Genesys) 
+          to ensure compliance and avoid calling restricted numbers.
         </p>
       </motion.div>
 
-      {/* Sub-tabs */}
-      <div className="flex justify-center gap-2">
+      {/* Sub-tabs - Only Systems Check visible for now */}
+      {/* <div className="flex justify-center gap-2">
         <Button variant={activeTab === 'quick' ? 'default' : 'outline'} onClick={() => setActiveTab('quick')}>Quick Check</Button>
         <Button variant={activeTab === 'systems' ? 'default' : 'outline'} onClick={() => setActiveTab('systems')}>Systems Check</Button>
         <Button variant={activeTab === 'tps' ? 'default' : 'outline'} onClick={() => setActiveTab('tps')}>TPS Cases</Button>
         <Button variant={activeTab === 'csv' ? 'default' : 'outline'} onClick={() => setActiveTab('csv')}>CSV Upload</Button>
-      </div>
+      </div> */}
 
       {/* Single/Batch Phone Number Checking Section OR TPS (switch by tab) */}
       <motion.div
