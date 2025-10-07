@@ -969,27 +969,38 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 
 @router.post("/dnc-requests/{request_id}/approve")
-def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), background_tasks: BackgroundTasks = None):
+def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Simple approve endpoint without background tasks."""
     try:
-        require_role("owner", "admin", "superadmin")(principal)
+        # Basic validation
+        if not principal:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Check role
+        if principal.role not in ["owner", "admin", "superadmin"]:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        # Get request
         req = db.query(DNCRequest).get(request_id)
         if not req:
             raise HTTPException(status_code=404, detail="Request not found")
+        
         if req.status != "pending":
             raise HTTPException(status_code=400, detail="Request already decided")
         
+        # Update request
         req.status = "approved"
         req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
-        req.decision_notes = payload.get("notes")
+        req.decision_notes = payload.get("notes", "")
         from datetime import datetime
         req.decided_at = datetime.utcnow()
         
-        # Create DNC entry now
+        # Create DNC entry
         entry = DNCEntry(
             organization_id=req.organization_id,
             phone_e164=req.phone_e164,
-            reason=req.reason,
-            channel=req.channel,
+            reason=req.reason or "user request",
+            channel=req.channel or "voice",
             source="user_request",
             created_by_user_id=req.requested_by_user_id,
             notes=req.decision_notes,
@@ -997,11 +1008,14 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
         db.add(entry)
         db.commit()
         
-        # For now, skip background tasks to ensure approval works
-        # TODO: Re-enable background propagation once basic approval is working
-        logger.info(f"Approved DNC request {request_id} for phone {req.phone_e164}")
-        
-        return {"request_id": req.id, "status": req.status, "message": "Request approved successfully - v2"}
+        return {
+            "request_id": req.id, 
+            "status": req.status, 
+            "message": "Request approved successfully - v3",
+            "phone_e164": req.phone_e164
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error approving DNC request {request_id}: {e}")
         db.rollback()
