@@ -133,21 +133,30 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     })
     // Map to summary with per-provider latest status
     const phones = Object.keys(group)
-    return phones.map(phone => {
+    const mappedRows = phones.map(phone => {
       const arr = group[phone].sort((x,y)=> (new Date(y.started_at).getTime()-new Date(x.started_at).getTime()))
       const byProvider: Record<string, Attempt | undefined> = {}
       arr.forEach(a => { if (!byProvider[a.service_key]) byProvider[a.service_key] = a })
       const req = requests.find(r => r.phone_e164 === phone)
       const adminFallback = users[adminUserId]
       const isSuperadmin = String(role).toLowerCase() === 'superadmin'
+      
+      // Get the most recent timestamp for sorting
+      const mostRecentAttempt = arr[0] // Already sorted by most recent first
+      const mostRecentTimestamp = mostRecentAttempt ? new Date(mostRecentAttempt.started_at).getTime() : 0
+      
       return {
         phone,
         providers: byProvider,
         requested_by: req ? users[req.requested_by_user_id] : (isSuperadmin ? adminFallback : undefined),
         approved_by: req && req.reviewed_by_user_id ? users[req.reviewed_by_user_id] : (isSuperadmin ? adminFallback : undefined),
         decided_at: req?.decided_at,
+        most_recent_timestamp: mostRecentTimestamp,
       }
     })
+    
+    // Sort by most recent timestamp first (newest to oldest)
+    return mappedRows.sort((a, b) => b.most_recent_timestamp - a.most_recent_timestamp)
   }, [attempts, requests, users, q, provider, status])
 
   const providers = ['ringcentral','convoso','ytel','logics','genesys']
@@ -261,30 +270,48 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
                   <th className="p-2 text-left">Phone</th>
                   <th className="p-2 text-left">Requested By</th>
                   <th className="p-2 text-left">Approved By</th>
-                  {providers.map(p=> <th key={p} className="p-2 text-left capitalize">{p}</th>)}
+                  <th className="p-2 text-left">Services</th>
+                  <th className="p-2 text-left">Last Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r)=> (
-                  <tr key={r.phone} className="border-t">
+                  <tr key={r.phone} className="border-t hover:bg-gray-50">
                     <td className="p-2 font-medium">{r.phone}</td>
                     <td className="p-2">{r.requested_by ? (r.requested_by.name || r.requested_by.email) : '—'}</td>
                     <td className="p-2">{r.approved_by ? (r.approved_by.name || r.approved_by.email) : '—'}</td>
-                    {providers.map(p=>{
-                      const a = r.providers[p]
-                      return (
-                        <td key={p} className="p-2 align-top">
-                          <div className="flex items-center gap-2">
-                            {badge(a?.status)}
-                            {a && (
-                              <button className="text-xs underline" onClick={()=>retry(p, r.phone)}>Retry</button>
-                            )}
-                          </div>
-                          {a?.error_message && <div className="text-xs text-red-600 mt-1">{a.error_message}</div>}
-                          {a?.finished_at && <div className="text-[11px] text-gray-500 mt-1">{new Date(a.finished_at).toLocaleString()}</div>}
-                        </td>
-                      )
-                    })}
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {providers.map(p=>{
+                          const a = r.providers[p]
+                          if (!a) return null
+                          return (
+                            <div key={p} className="flex items-center gap-1">
+                              {badge(a.status)}
+                              <span className="text-xs text-gray-600 capitalize">{p}</span>
+                              {a.status === 'failed' && (
+                                <button 
+                                  className="text-xs text-blue-600 underline hover:text-blue-800" 
+                                  onClick={()=>retry(p, r.phone)}
+                                  title={`Retry ${p} for ${r.phone}`}
+                                >
+                                  Retry
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {Object.keys(r.providers).length === 0 && (
+                          <span className="text-xs text-gray-400">No services</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-2 text-xs text-gray-500">
+                      {r.decided_at ? new Date(r.decided_at).toLocaleString() : 
+                       Object.values(r.providers).find(a => a?.finished_at)?.finished_at ? 
+                       new Date(Object.values(r.providers).find(a => a?.finished_at)!.finished_at!).toLocaleString() : 
+                       '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -110,6 +110,17 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
     try {
+      // For approval, check systems first to ensure we know the current DNC status
+      if (action === 'approve') {
+        const request = rows.find(r => r.id === reqId)
+        if (request) {
+          toast.info('Checking systems before approval...')
+          await checkSystemsForPhone(request.phone_e164)
+          // Wait a moment for the systems check to complete
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+      
       const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
         { method: 'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Action failed')
@@ -126,6 +137,17 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const bulk = async (action: 'approve'|'deny') => {
     if (selectedIds.length===0) return
     try {
+      // For approval, check systems first for all selected requests
+      if (action === 'approve') {
+        toast.info(`Checking systems for ${selectedIds.length} requests before approval...`)
+        const selectedRequests = rows.filter(r => selectedIds.includes(r.id))
+        for (const request of selectedRequests) {
+          await checkSystemsForPhone(request.phone_e164)
+        }
+        // Wait a moment for all systems checks to complete
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
+      
       const url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/bulk/${action}`
       const resp = await fetch(url, { method:'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ ids: selectedIds, notes: decisionNotes }) })
       if (!resp.ok) throw new Error('Bulk action failed')
