@@ -1356,30 +1356,85 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
 
                 # Now push to systems where the number is NOT already on DNC
                 providers_to_push = []
+                providers_already_listed = []
                 for provider, status in systems_status.items():
                     if not status.get("listed", False) and "error" not in status:
                         providers_to_push.append(provider)
+                    elif status.get("listed", False):
+                        providers_already_listed.append(provider)
+                
+                # Mark services where number is already on DNC as success
+                for key in providers_already_listed:
+                    attempt = db2.query(PropagationAttempt).filter(
+                        PropagationAttempt.organization_id == organization_id,
+                        PropagationAttempt.phone_e164 == phone_e164,
+                        PropagationAttempt.service_key == key,
+                        PropagationAttempt.status == "pending"
+                    ).first()
+                    if attempt:
+                        attempt.status = "success"
+                        attempt.response_payload = {"message": "Number already on DNC list", "already_listed": True}
+                        attempt.finished_at = datetime.utcnow()
+                        db2.commit()
+                        logger.info(f"Marked {key} as success - number already on DNC")
+                
+                # Mark services with errors as failed
+                for provider, status in systems_status.items():
+                    if "error" in status:
+                        attempt = db2.query(PropagationAttempt).filter(
+                            PropagationAttempt.organization_id == organization_id,
+                            PropagationAttempt.phone_e164 == phone_e164,
+                            PropagationAttempt.service_key == provider,
+                            PropagationAttempt.status == "pending"
+                        ).first()
+                        if attempt:
+                            attempt.status = "failed"
+                            attempt.error_message = f"System check failed: {status['error']}"
+                            attempt.finished_at = datetime.utcnow()
+                            db2.commit()
+                            logger.info(f"Marked {provider} as failed - {status['error']}")
 
-                # Create propagation attempts for systems that need the number added
+                # Update existing pending propagation attempts for systems that need the number added
                 for key in providers_to_push:
                     # Check provider enabled
                     row = db2.query(SystemSetting).filter(SystemSetting.key == key).first()
                     if row is not None and not bool(row.enabled):
+                        # Mark as failed due to provider being disabled
+                        attempt = db2.query(PropagationAttempt).filter(
+                            PropagationAttempt.organization_id == organization_id,
+                            PropagationAttempt.phone_e164 == phone_e164,
+                            PropagationAttempt.service_key == key,
+                            PropagationAttempt.status == "pending"
+                        ).first()
+                        if attempt:
+                            attempt.status = "failed"
+                            attempt.error_message = "Provider is disabled"
+                            attempt.finished_at = datetime.utcnow()
+                            db2.commit()
                         continue
-                        
-                    # Create attempt row (pending)
-                    attempt = PropagationAttempt(
-                        organization_id=int(organization_id),
-                        job_item_id=None,
-                        phone_e164=str(phone_e164),
-                        service_key=key,
-                        attempt_no=1,
-                        status="pending",
-                        started_at=datetime.utcnow(),
-                    )
-                    db2.add(attempt)
-                    db2.commit()
-                    db2.refresh(attempt)
+                    
+                    # Find existing pending attempt for this service
+                    attempt = db2.query(PropagationAttempt).filter(
+                        PropagationAttempt.organization_id == organization_id,
+                        PropagationAttempt.phone_e164 == phone_e164,
+                        PropagationAttempt.service_key == key,
+                        PropagationAttempt.status == "pending"
+                    ).first()
+                    
+                    if not attempt:
+                        # Create new attempt if none exists (fallback)
+                        attempt = PropagationAttempt(
+                            organization_id=int(organization_id),
+                            job_item_id=None,
+                            phone_e164=str(phone_e164),
+                            service_key=key,
+                            attempt_no=1,
+                            status="pending",
+                            started_at=datetime.utcnow(),
+                        )
+                        db2.add(attempt)
+                        db2.commit()
+                        db2.refresh(attempt)
                     
                     # Execute provider-specific add-to-DNC
                     try:
