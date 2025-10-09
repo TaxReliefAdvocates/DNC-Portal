@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from loguru import logger
 
 from ...core.database import get_db, set_rls_org
 from ...core.rate_limit import rate_limiter
