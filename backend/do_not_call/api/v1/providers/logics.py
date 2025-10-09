@@ -70,42 +70,76 @@ async def search_by_phone(request: SearchByPhoneRequest, basic_auth_b64: Optiona
 	if cookie or settings.logics_cookie:
 		headers["Cookie"] = cookie or settings.logics_cookie
 	url = f"https://tps.logiqs.com/publicapi/V3/Find/FindCaseByPhone"
-	params = {"phone": request.phone_number}
+	
+	# Normalize phone number - strip all non-digit characters
+	normalized_phone = ''.join(filter(str.isdigit, request.phone_number))
+	
+	# Try different formats to find the case
+	phone_formats = [
+		normalized_phone,  # 7237347734
+		f"1{normalized_phone}" if len(normalized_phone) == 10 else normalized_phone,  # 17237347734
+		f"+1{normalized_phone}" if len(normalized_phone) == 10 else f"+{normalized_phone}",  # +17237347734
+	]
+	
+	# Remove duplicates while preserving order
+	phone_formats = list(dict.fromkeys(phone_formats))
+	
+	logger.info(f"Searching Logics for phone {request.phone_number}, trying formats: {phone_formats}")
+	
+	# Try each format until we find a match
 	async with HttpClient() as http:
-		try:
-			resp = await http.get(url, headers=headers, params=params)
-			data = resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text}
-			
-			# Check if the response indicates the number was found
-			is_found = False
-			if isinstance(data, dict):
-				# Check for success indicators in the response
-				if data.get("Success") is True and data.get("Data") is not None:
-					# Check if Data is a list with items or a non-empty object
-					data_list = data.get("Data", [])
-					if isinstance(data_list, list) and len(data_list) > 0:
-						is_found = True
-					elif isinstance(data_list, dict) and data_list:
-						is_found = True
-			
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} {'FOUND' if is_found else 'NOT FOUND'} in Logics database", 
-				data={
-					"phone_number": request.phone_number,
-					"is_found": is_found,
-					"raw_response": data
-				}
-			)
-		except Exception as e:
-			# Handle 404 and other errors gracefully
-			logger.error(f"Logics search error for {request.phone_number}: {e}")
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} NOT FOUND in Logics database (error occurred)", 
-				data={
-					"phone_number": request.phone_number,
-					"is_found": False,
-					"error": str(e)
-				}
-			)
+		last_error = None
+		last_data = None
+		
+		for phone_format in phone_formats:
+			params = {"phone": phone_format}
+			try:
+				logger.info(f"Trying Logics search with format: {phone_format}")
+				resp = await http.get(url, headers=headers, params=params)
+				data = resp.json() if resp.headers.get("content-type","").startswith("application/json") else {"raw": resp.text}
+				last_data = data
+				
+				# Check if the response indicates the number was found
+				is_found = False
+				if isinstance(data, dict):
+					# Check for success indicators in the response
+					if data.get("Success") is True and data.get("Data") is not None:
+						# Check if Data is a list with items or a non-empty object
+						data_list = data.get("Data", [])
+						if isinstance(data_list, list) and len(data_list) > 0:
+							is_found = True
+							logger.info(f"Found case(s) in Logics with format {phone_format}: {len(data_list)} case(s)")
+						elif isinstance(data_list, dict) and data_list:
+							is_found = True
+							logger.info(f"Found case in Logics with format {phone_format}")
+				
+				# If we found a match, return immediately
+				if is_found:
+					return DNCOperationResponse(
+						success=True, 
+						message=f"Number {request.phone_number} FOUND in Logics database (format: {phone_format})", 
+						data={
+							"phone_number": request.phone_number,
+							"is_found": is_found,
+							"raw_response": data,
+							"format_used": phone_format
+						}
+					)
+			except Exception as e:
+				# Log error but continue trying other formats
+				logger.warning(f"Logics search error for format {phone_format}: {e}")
+				last_error = e
+				continue
+		
+		# If we exhausted all formats without finding a match, return not found
+		return DNCOperationResponse(
+			success=True, 
+			message=f"Number {request.phone_number} NOT FOUND in Logics database (tried formats: {', '.join(phone_formats)})", 
+			data={
+				"phone_number": request.phone_number,
+				"is_found": False,
+				"raw_response": last_data,
+				"formats_tried": phone_formats,
+				"last_error": str(last_error) if last_error else None
+			}
+		)
