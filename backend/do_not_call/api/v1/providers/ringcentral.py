@@ -4,8 +4,8 @@ from typing import Optional, Dict, Any
 from loguru import logger
 import base64
 
-from ...core.database import get_db
-from ...core.auth import get_principal, Principal
+from do_not_call.core.database import get_db
+from do_not_call.core.auth import get_principal, Principal
 
 from .common import (
     AddToDNCRequest,

@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from loguru import logger
 
-from ...core.database import get_db
-from ...core.auth import get_principal, Principal
+from do_not_call.core.database import get_db
+from do_not_call.core.auth import get_principal, Principal
 
 from .common import (
 	AddToDNCRequest,
