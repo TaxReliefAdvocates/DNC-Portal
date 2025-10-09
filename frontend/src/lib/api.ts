@@ -16,7 +16,7 @@ export const API_ENDPOINTS = {
 } as const
 
 // Helper to extract demo auth headers from persisted store
-function getDemoHeaders(): Record<string, string> {
+export function getDemoHeaders(): Record<string, string> {
   try {
     const raw = localStorage.getItem('persist:do-not-call-root')
     console.log('🔐 Raw localStorage data:', raw)

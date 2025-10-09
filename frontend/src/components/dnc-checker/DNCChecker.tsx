@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { API_BASE_URL, apiCall } from '../../lib/api'
+import { API_BASE_URL, apiCall, getDemoHeaders } from '../../lib/api'
 import { motion } from 'framer-motion'
 import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -491,13 +491,17 @@ export const DNCChecker: React.FC = () => {
 
     setIsSubmittingDncRequest(true)
     try {
-      await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
+      // Get organization ID from auth headers
+      const authHeaders = getDemoHeaders()
+      const orgId = authHeaders['X-Org-Id'] || '1'
+      
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`, {
         method: 'POST',
         body: JSON.stringify({
-          phone_number: dncRequestPhone,
-          notes: dncRequestNotes,
-          channels: dncRequestChannels,
-          reason: dncRequestReason
+          phone_e164: dncRequestPhone,
+          reason: dncRequestReason,
+          channel: dncRequestChannels[0] || 'call',
+          notes: dncRequestNotes
         })
       })
 
