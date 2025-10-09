@@ -1,6 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from typing import Optional
 from loguru import logger
+
+from ...core.database import get_db
+from ...core.auth import get_principal, Principal
 
 from .common import (
 	AddToDNCRequest,
@@ -48,17 +52,60 @@ async def convoso_auth_placeholder():
 
 
 @router.post("/add-dnc", response_model=DNCOperationResponse)
-async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None):
+async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
 	token = get_token(auth_token)
 	url = "https://api.convoso.com/v1/dnc/insert"
 	params = {"auth_token": token, "phone_number": request.phone_number}
 	if request.phone_code:
 		params["phone_code"] = request.phone_code
-	async with HttpClient() as http:
-		resp = await http.get(url, params=params)
-		text = resp.text
-		logger.info(f"Convoso add_to_dnc response: {text}")
-		return DNCOperationResponse(success=True, message="Added to DNC (Convoso)", data={"raw": text})
+	
+	# Create propagation attempt for tracking
+	from ...core.models import PropagationAttempt
+	from datetime import datetime
+	from ...core.utils import normalize_phone_to_e164_digits
+	
+	phone_e164 = normalize_phone_to_e164_digits(f"{request.phone_code or ''}{request.phone_number}")
+	
+	try:
+		async with HttpClient() as http:
+			resp = await http.get(url, params=params)
+			text = resp.text
+			logger.info(f"Convoso add_to_dnc response: {text}")
+			
+			# Create propagation attempt record
+			attempt = PropagationAttempt(
+				organization_id=principal.organization_id,
+				phone_e164=phone_e164,
+				service_key="convoso",
+				attempt_no=1,
+				status="success",
+				request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+				response_payload={"raw": text},
+				started_at=datetime.utcnow(),
+				finished_at=datetime.utcnow(),
+			)
+			db.add(attempt)
+			db.commit()
+			
+			return DNCOperationResponse(success=True, message="Added to DNC (Convoso)", data={"raw": text})
+			
+	except Exception as e:
+		# Create failed propagation attempt record
+		attempt = PropagationAttempt(
+			organization_id=principal.organization_id,
+			phone_e164=phone_e164,
+			service_key="convoso",
+			attempt_no=1,
+			status="failed",
+			request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+			error_message=str(e),
+			started_at=datetime.utcnow(),
+			finished_at=datetime.utcnow(),
+		)
+		db.add(attempt)
+		db.commit()
+		
+		raise HTTPException(status_code=500, detail=f"Failed to add to Convoso DNC: {str(e)}")
 
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)

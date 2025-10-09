@@ -35,7 +35,7 @@ async def ytel_auth_placeholder():
 
 
 @router.post("/add-dnc", response_model=DNCOperationResponse)
-async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, password: Optional[str] = None):
+async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, password: Optional[str] = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
 	user, pwd = get_ytel_credentials(user, password)
 	base = "https://tra.ytel.com/x5/api/non_agent.php"
 	params = {
@@ -49,36 +49,123 @@ async def add_to_dnc(request: AddToDNCRequest, user: Optional[str] = None, passw
 	}
 	if request.campaign_id:
 		params["CAMPAIGN"] = request.campaign_id
-	async with HttpClient() as http:
-		resp = await http.get(base, params=params)
-		text = resp.text
-		logger.info(f"Ytel add_to_dnc response: {text}")
+	
+	# Create propagation attempt for tracking
+	from ...core.models import PropagationAttempt
+	from datetime import datetime
+	from ...core.utils import normalize_phone_to_e164_digits
+	
+	phone_e164 = normalize_phone_to_e164_digits(request.phone_number)
+	
+	try:
+		async with HttpClient() as http:
+			resp = await http.get(base, params=params)
+			text = resp.text
+			logger.info(f"Ytel add_to_dnc response: {text}")
+			
+			# Parse Ytel response to provide meaningful feedback
+			if "Already on GLOBAL DNC" in text:
+				# Create propagation attempt record
+				attempt = PropagationAttempt(
+					organization_id=principal.organization_id,
+					phone_e164=phone_e164,
+					service_key="ytel",
+					attempt_no=1,
+					status="success",
+					request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+					response_payload={"raw": text, "already_on_dnc": True},
+					started_at=datetime.utcnow(),
+					finished_at=datetime.utcnow(),
+				)
+				db.add(attempt)
+				db.commit()
+				
+				return DNCOperationResponse(
+					success=True, 
+					message=f"Number {request.phone_number} is already on Ytel DNC list", 
+					data={"raw": text, "already_on_dnc": True}
+				)
+			elif "LEADS FOUND IN THE SYSTEM" in text:
+				# Create propagation attempt record
+				attempt = PropagationAttempt(
+					organization_id=principal.organization_id,
+					phone_e164=phone_e164,
+					service_key="ytel",
+					attempt_no=1,
+					status="success",
+					request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+					response_payload={"raw": text, "added_to_dnc": True},
+					started_at=datetime.utcnow(),
+					finished_at=datetime.utcnow(),
+				)
+				db.add(attempt)
+				db.commit()
+				
+				return DNCOperationResponse(
+					success=True, 
+					message=f"Number {request.phone_number} added to Ytel DNC list", 
+					data={"raw": text, "added_to_dnc": True}
+				)
+			elif "NO MATCHES FOUND IN THE SYSTEM" in text:
+				# Create propagation attempt record
+				attempt = PropagationAttempt(
+					organization_id=principal.organization_id,
+					phone_e164=phone_e164,
+					service_key="ytel",
+					attempt_no=1,
+					status="success",
+					request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+					response_payload={"raw": text, "added_to_global_dnc": True},
+					started_at=datetime.utcnow(),
+					finished_at=datetime.utcnow(),
+				)
+				db.add(attempt)
+				db.commit()
+				
+				return DNCOperationResponse(
+					success=True, 
+					message=f"Number {request.phone_number} added to Ytel global DNC (no existing lead)", 
+					data={"raw": text, "added_to_global_dnc": True}
+				)
+			else:
+				# Create propagation attempt record
+				attempt = PropagationAttempt(
+					organization_id=principal.organization_id,
+					phone_e164=phone_e164,
+					service_key="ytel",
+					attempt_no=1,
+					status="success",
+					request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+					response_payload={"raw": text},
+					started_at=datetime.utcnow(),
+					finished_at=datetime.utcnow(),
+				)
+				db.add(attempt)
+				db.commit()
+				
+				return DNCOperationResponse(
+					success=True, 
+					message=f"Number {request.phone_number} processed by Ytel", 
+					data={"raw": text}
+				)
+				
+	except Exception as e:
+		# Create failed propagation attempt record
+		attempt = PropagationAttempt(
+			organization_id=principal.organization_id,
+			phone_e164=phone_e164,
+			service_key="ytel",
+			attempt_no=1,
+			status="failed",
+			request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+			error_message=str(e),
+			started_at=datetime.utcnow(),
+			finished_at=datetime.utcnow(),
+		)
+		db.add(attempt)
+		db.commit()
 		
-		# Parse Ytel response to provide meaningful feedback
-		if "Already on GLOBAL DNC" in text:
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} is already on Ytel DNC list", 
-				data={"raw": text, "already_on_dnc": True}
-			)
-		elif "LEADS FOUND IN THE SYSTEM" in text:
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} added to Ytel DNC list", 
-				data={"raw": text, "added_to_dnc": True}
-			)
-		elif "NO MATCHES FOUND IN THE SYSTEM" in text:
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} added to Ytel global DNC (no existing lead)", 
-				data={"raw": text, "added_to_global_dnc": True}
-			)
-		else:
-			return DNCOperationResponse(
-				success=True, 
-				message=f"Number {request.phone_number} processed by Ytel", 
-				data={"raw": text}
-			)
+		raise HTTPException(status_code=500, detail=f"Failed to add to Ytel DNC: {str(e)}")
 
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)

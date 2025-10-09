@@ -1,7 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from loguru import logger
 import base64
+
+from ...core.database import get_db
+from ...core.auth import get_principal, Principal
 
 from .common import (
     AddToDNCRequest,
@@ -54,13 +58,56 @@ async def auth(assertion: Optional[str] = None, client_basic_b64: Optional[str] 
 
 
 @router.post("/add-dnc", response_model=DNCOperationResponse)
-async def add_to_dnc(request: AddToDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None):
+async def add_to_dnc(request: AddToDNCRequest, bearer_token: Optional[str] = None, assertion: Optional[str] = None, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     token = bearer_token or await ringcentral_get_token(assertion)
     headers = {"Authorization": f"Bearer {token}", "accept": "application/json", "content-type": "application/json"}
     payload = {"phoneNumber": f"+{request.phone_code or ''}{request.phone_number}", "status": "Blocked"}
-    async with HttpClient(base_url="https://platform.ringcentral.com") as http:
-        resp = await http.post("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", json=payload, headers=headers)
-        return DNCOperationResponse(success=True, message="Added to DNC (RingCentral)", data=resp.json())
+    
+    # Create propagation attempt for tracking
+    from ...core.models import PropagationAttempt
+    from datetime import datetime
+    from ...core.utils import normalize_phone_to_e164_digits
+    
+    phone_e164 = normalize_phone_to_e164_digits(f"{request.phone_code or ''}{request.phone_number}")
+    
+    try:
+        async with HttpClient(base_url="https://platform.ringcentral.com") as http:
+            resp = await http.post("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", json=payload, headers=headers)
+            
+            # Create propagation attempt record
+            attempt = PropagationAttempt(
+                organization_id=principal.organization_id,
+                phone_e164=phone_e164,
+                service_key="ringcentral",
+                attempt_no=1,
+                status="success",
+                request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+                response_payload=resp.json(),
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+            db.add(attempt)
+            db.commit()
+            
+            return DNCOperationResponse(success=True, message="Added to DNC (RingCentral)", data=resp.json())
+            
+    except Exception as e:
+        # Create failed propagation attempt record
+        attempt = PropagationAttempt(
+            organization_id=principal.organization_id,
+            phone_e164=phone_e164,
+            service_key="ringcentral",
+            attempt_no=1,
+            status="failed",
+            request_payload={"phone_number": phone_e164, "action": "add_to_dnc"},
+            error_message=str(e),
+            started_at=datetime.utcnow(),
+            finished_at=datetime.utcnow(),
+        )
+        db.add(attempt)
+        db.commit()
+        
+        raise HTTPException(status_code=500, detail=f"Failed to add to RingCentral DNC: {str(e)}")
 
 
 @router.post("/delete-dnc", response_model=DNCOperationResponse)
