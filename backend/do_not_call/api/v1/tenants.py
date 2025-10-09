@@ -93,6 +93,73 @@ def list_propagation_attempts(organization_id: int, cursor: int | None = None, l
         }
         for r in rows
     ]
+
+
+@router.delete("/propagation/attempts/clear")
+def clear_propagation_attempts(organization_id: int, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Clear all propagation attempts for the organization (admin only)."""
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin", "superadmin")(principal)
+    
+    try:
+        # Clear all propagation attempts for this organization
+        deleted_count = db.query(PropagationAttempt).filter(
+            PropagationAttempt.organization_id == organization_id
+        ).delete()
+        
+        db.commit()
+        
+        logger.info(f"Cleared {deleted_count} propagation attempts for organization {organization_id}")
+        
+        return {
+            "message": f"Cleared {deleted_count} propagation attempts",
+            "deleted_count": deleted_count,
+            "organization_id": organization_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error clearing propagation attempts: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to clear propagation attempts: {str(e)}")
+
+
+@router.post("/propagation/attempts/recreate-all")
+def recreate_propagation_attempts_for_approved_requests(organization_id: int, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Recreate propagation attempts for all approved DNC requests (admin only)."""
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin", "superadmin")(principal)
+    
+    try:
+        # Get all approved DNC requests for this organization
+        approved_requests = db.query(DNCRequest).filter(
+            DNCRequest.organization_id == organization_id,
+            DNCRequest.status == "approved"
+        ).all()
+        
+        created_count = 0
+        
+        for request in approved_requests:
+            # Create propagation attempts for each approved request
+            _create_immediate_propagation_attempt(organization_id, request.phone_e164, db)
+            created_count += 5  # 5 services per request
+        
+        db.commit()
+        
+        logger.info(f"Recreated propagation attempts for {len(approved_requests)} approved requests ({created_count} total attempts)")
+        
+        return {
+            "message": f"Recreated propagation attempts for {len(approved_requests)} approved requests",
+            "approved_requests_count": len(approved_requests),
+            "total_attempts_created": created_count,
+            "organization_id": organization_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error recreating propagation attempts: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to recreate propagation attempts: {str(e)}")
+
+
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Superadmin: Assign/remove Entra app roles
 @router.post("/admin/entra/assign-role")
