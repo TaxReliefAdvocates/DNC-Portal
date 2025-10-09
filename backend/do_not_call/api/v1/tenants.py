@@ -76,7 +76,8 @@ def list_propagation_attempts(organization_id: int, cursor: int | None = None, l
     q = db.query(PropagationAttempt).filter(PropagationAttempt.organization_id == organization_id)
     if cursor:
         q = q.filter(PropagationAttempt.id < cursor)
-    rows = q.order_by(PropagationAttempt.id.desc()).limit(min(500, max(1, limit))).all()
+    # Use the new index for better performance - order by started_at DESC (most recent first)
+    rows = q.order_by(PropagationAttempt.started_at.desc(), PropagationAttempt.id.desc()).limit(min(500, max(1, limit))).all()
     return [
         {
             "id": r.id,
