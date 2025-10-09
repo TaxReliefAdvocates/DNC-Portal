@@ -59,6 +59,10 @@ export const DNCChecker: React.FC = () => {
   const [dncRequestChannels, setDncRequestChannels] = useState<string[]>(['call'])
   const [dncRequestReason, setDncRequestReason] = useState<string>('Customer opt-out')
   const [isSubmittingDncRequest, setIsSubmittingDncRequest] = useState<boolean>(false)
+  
+  // Get user role to determine if Request DNC button should be shown
+  const userRole = localStorage.getItem('role') || 'user'
+  const isAdmin = ['admin', 'superadmin', 'owner'].includes(userRole)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -820,14 +824,19 @@ export const DNCChecker: React.FC = () => {
                   
                   <div className="mt-3 flex items-center justify-between">
                     <div className="text-xs text-gray-600">
-                      <div><strong>Note:</strong> This shows DNC status across all systems. Only admins can add numbers to DNC lists.</div>
+                      <div>
+                        <strong>Note:</strong> This shows DNC status across all systems. 
+                        {isAdmin ? ' You can add numbers to DNC lists directly from the Admin Dashboard.' : ' Only admins can add numbers to DNC lists.'}
+                      </div>
                     </div>
-                    <Button 
-                      onClick={() => openDncRequestModal(systemsResult.phone_number)}
-                      className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2"
-                    >
-                      Request DNC
-                    </Button>
+                    {!isAdmin && (
+                      <Button 
+                        onClick={() => openDncRequestModal(systemsResult.phone_number)}
+                        className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2"
+                      >
+                        Request DNC
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
