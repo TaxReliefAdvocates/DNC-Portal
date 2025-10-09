@@ -14,8 +14,8 @@ interface Props {
 export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserId, request, onBack }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [precheck, setPrecheck] = useState<any | null>(null)
-  const [cases, setCases] = useState<any[]>([])
+  const [systemsCheck, setSystemsCheck] = useState<any | null>(null)
+  const [logicsCases, setLogicsCases] = useState<any[]>([])
   const [notes, setNotes] = useState('')
 
   const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
@@ -42,13 +42,116 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
       setError(null)
       try {
         const headers = await acquireAuthHeaders()
-        const pre = await fetch(`${API_BASE_URL}/api/dnc/check_batch`, { method:'POST', headers, body: JSON.stringify({ phone_numbers: [request.phone_e164] }) })
-        if (pre.ok) setPrecheck(await pre.json())
-        const c = await fetch(`${API_BASE_URL}/api/dnc/cases_by_phone`, { method:'POST', headers, body: JSON.stringify({ phone_number: request.phone_e164 }) })
-        if (c.ok) {
-          const cj = await c.json()
-          setCases(Array.isArray(cj.cases) ? cj.cases : [])
-        }
+        
+        // Fetch Systems Check results (same as Systems Check pane)
+        const systemsCheckData: Record<string, any> = {}
+        
+        // 1) FreeDNC API check
+        try {
+          const fj = await fetch(`${API_BASE_URL}/api/check_number`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (fj.ok) {
+            const fjData = await fj.json()
+            systemsCheckData.dnc = { listed: Boolean(fjData?.is_dnc) }
+          }
+        } catch {}
+
+        // 2) RingCentral search
+        try {
+          const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (rc.ok) {
+            const rj = await rc.json()
+            const isOnDnc = rj?.data?.is_on_dnc
+            if (isOnDnc === null) {
+              systemsCheckData.ringcentral = { listed: null, status: 'unknown' }
+            } else {
+              systemsCheckData.ringcentral = { listed: isOnDnc || false }
+            }
+          }
+        } catch {}
+
+        // 3) Convoso search
+        try {
+          const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (cv.ok) {
+            const cj = await cv.json()
+            const isOnDnc = cj?.data?.is_on_dnc
+            if (isOnDnc === null) {
+              systemsCheckData.convoso = { listed: null, status: 'unknown' }
+            } else {
+              systemsCheckData.convoso = { listed: isOnDnc || false }
+            }
+          }
+        } catch {}
+
+        // 4) Ytel search
+        try {
+          const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (yt.ok) {
+            const yj = await yt.json()
+            const isOnDnc = yj?.data?.is_on_dnc
+            if (isOnDnc === null) {
+              systemsCheckData.ytel = { listed: null, status: 'unknown' }
+            } else {
+              systemsCheckData.ytel = { listed: isOnDnc || false }
+            }
+          }
+        } catch {}
+
+        // 5) Logics search (for cases)
+        try {
+          const lj = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (lj.ok) {
+            const ljData = await lj.json()
+            const cases = ljData?.data?.raw_response?.Data || []
+            systemsCheckData.logics = { 
+              listed: cases.length > 0, 
+              count: cases.length, 
+              cases: cases 
+            }
+            setLogicsCases(cases)
+          }
+        } catch {}
+
+        // 6) Genesys search
+        try {
+          const gj = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+            method:'POST', 
+            headers, 
+            body: JSON.stringify({ phone_number: request.phone_e164 })
+          })
+          if (gj.ok) {
+            const gjData = await gj.json()
+            const isOnDnc = gjData?.data?.is_on_dnc
+            if (isOnDnc === null) {
+              systemsCheckData.genesys = { listed: null, status: 'unknown' }
+            } else {
+              systemsCheckData.genesys = { listed: isOnDnc || false }
+            }
+          }
+        } catch {}
+
+        setSystemsCheck({ phone_number: request.phone_e164, providers: systemsCheckData })
+        
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load details')
       } finally {
@@ -93,18 +196,78 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle>DNC Pre-check</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Systems Check</CardTitle></CardHeader>
           <CardContent>
-            {loading ? 'Loading…' : precheck ? (
-              <div className="text-sm">
-                <div>Total Checked: {precheck.total_checked} • Matches: {precheck.dnc_matches} • Safe: {precheck.safe_to_call}</div>
-                <div className="mt-2 max-h-48 overflow-y-auto divide-y">
-                  {precheck.results?.map((r:any,i:number)=> (
-                    <div key={i} className="py-1 flex items-center justify-between">
-                      <span>{r.phone_number}</span>
-                      <span className={`text-xs ${r.is_dnc?'text-red-700':'text-green-700'}`}>{r.is_dnc?'DNC':'Safe'}</span>
-                    </div>
-                  ))}
+            {loading ? 'Loading…' : systemsCheck ? (
+              <div className="text-sm space-y-2">
+                {/* National DNC */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">National DNC</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.dnc?.listed === true ? (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                    ) : systemsCheck.providers?.dnc?.listed === false ? (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* RingCentral */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">RingCentral</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.ringcentral?.listed === true ? (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                    ) : systemsCheck.providers?.ringcentral?.listed === false ? (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Convoso */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">Convoso</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.convoso?.listed === true ? (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                    ) : systemsCheck.providers?.convoso?.listed === false ? (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Ytel */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">Ytel</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.ytel?.listed === true ? (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                    ) : systemsCheck.providers?.ytel?.listed === false ? (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Genesys */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">Genesys</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.genesys?.listed === true ? (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">On DNC</span>
+                    ) : systemsCheck.providers?.genesys?.listed === false ? (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">Not Listed</span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -113,17 +276,48 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>TPS Cases</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Logics Cases</CardTitle></CardHeader>
           <CardContent>
-            {loading ? 'Loading…' : cases.length ? (
+            {loading ? 'Loading…' : logicsCases.length ? (
               <div className="text-sm max-h-48 overflow-y-auto divide-y">
-                {cases.map((c:any,idx:number)=> (
-                  <div key={idx} className="py-1 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Case {c.CaseID}</div>
-                      <div className="text-xs text-gray-600">Created: {c.CreatedDate || '—'} • Last Modified: {c.LastModifiedDate || '—'}</div>
+                {logicsCases.map((c:any,idx:number)=> (
+                  <div key={idx} className="py-2 border-b last:border-b-0">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="font-medium text-gray-700">Case ID:</span>
+                        <span className="ml-1 text-gray-900">{c.CaseID || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Status ID:</span>
+                        <span className="ml-1 text-gray-900">{c.StatusID || 'N/A'}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700">Name:</span>
+                        <span className="ml-1 text-gray-900">
+                          {[c.FirstName, c.MiddleName, c.LastName]
+                            .filter(Boolean)
+                            .join(' ') || 'N/A'}
+                        </span>
+                      </div>
+                      {c.Email && (
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-700">Email:</span>
+                          <span className="ml-1 text-gray-900">{c.Email}</span>
+                        </div>
+                      )}
+                      {c.CreatedDate && (
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-700">Created:</span>
+                          <span className="ml-1 text-gray-900">{new Date(c.CreatedDate).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {c.TaxAmount && (
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-700">Tax Amount:</span>
+                          <span className="ml-1 text-gray-900">${c.TaxAmount.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-gray-700">{c.StatusName || `Status ${c.StatusID}`}</div>
                   </div>
                 ))}
               </div>
