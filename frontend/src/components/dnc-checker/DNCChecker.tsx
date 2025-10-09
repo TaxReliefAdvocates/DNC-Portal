@@ -51,6 +51,14 @@ export const DNCChecker: React.FC = () => {
   const [systemsResult, setSystemsResult] = useState<any>(null)
   const [isCheckingSystems, setIsCheckingSystems] = useState<boolean>(false)
   const [expandedLogicsCases, setExpandedLogicsCases] = useState<boolean>(false)
+  
+  // DNC Request modal state
+  const [showDncRequestModal, setShowDncRequestModal] = useState<boolean>(false)
+  const [dncRequestPhone, setDncRequestPhone] = useState<string>('')
+  const [dncRequestNotes, setDncRequestNotes] = useState<string>('')
+  const [dncRequestChannels, setDncRequestChannels] = useState<string[]>(['call'])
+  const [dncRequestReason, setDncRequestReason] = useState<string>('Customer opt-out')
+  const [isSubmittingDncRequest, setIsSubmittingDncRequest] = useState<boolean>(false)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -450,6 +458,66 @@ export const DNCChecker: React.FC = () => {
     return <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown{extra ? ` • ${extra}` : ''}</span>
   }
 
+  const openDncRequestModal = (phoneNumber: string) => {
+    setDncRequestPhone(phoneNumber)
+    setDncRequestNotes('')
+    setDncRequestChannels(['call'])
+    setDncRequestReason('Customer opt-out')
+    setShowDncRequestModal(true)
+  }
+
+  const closeDncRequestModal = () => {
+    setShowDncRequestModal(false)
+    setDncRequestPhone('')
+    setDncRequestNotes('')
+    setDncRequestChannels(['call'])
+    setDncRequestReason('Customer opt-out')
+  }
+
+  const toggleChannel = (channel: string) => {
+    setDncRequestChannels(prev => 
+      prev.includes(channel) 
+        ? prev.filter(c => c !== channel)
+        : [...prev, channel]
+    )
+  }
+
+  const submitDncRequest = async () => {
+    if (!dncRequestPhone.trim() || dncRequestChannels.length === 0) return
+
+    setIsSubmittingDncRequest(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'X-Org-Id': localStorage.getItem('organization_id') || '1',
+          'X-User-Id': localStorage.getItem('user_id') || '1',
+          'X-Role': localStorage.getItem('role') || 'user'
+        },
+        body: JSON.stringify({
+          phone_number: dncRequestPhone,
+          notes: dncRequestNotes,
+          channels: dncRequestChannels,
+          reason: dncRequestReason
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to submit DNC request')
+      }
+
+      alert('DNC request submitted successfully!')
+      closeDncRequestModal()
+    } catch (err) {
+      alert(`Error submitting DNC request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSubmittingDncRequest(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -750,8 +818,16 @@ export const DNCChecker: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="mt-3 text-xs text-gray-600 space-y-1">
-                    <div><strong>Note:</strong> This shows DNC status across all systems. Only admins can add numbers to DNC lists.</div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="text-xs text-gray-600">
+                      <div><strong>Note:</strong> This shows DNC status across all systems. Only admins can add numbers to DNC lists.</div>
+                    </div>
+                    <Button 
+                      onClick={() => openDncRequestModal(systemsResult.phone_number)}
+                      className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2"
+                    >
+                      Request DNC
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1056,6 +1132,104 @@ export const DNCChecker: React.FC = () => {
             </Button>
           </div>
         </motion.div>
+      )}
+
+      {/* DNC Request Modal */}
+      {showDncRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Request DNC</h3>
+              <button
+                onClick={closeDncRequestModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Phone Number Display */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Phone Number</Label>
+                <div className="mt-1 p-2 bg-gray-50 rounded border text-sm font-mono">
+                  {dncRequestPhone}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label htmlFor="dnc-notes" className="text-sm font-medium text-gray-700">
+                  Notes (optional)
+                </Label>
+                <Textarea
+                  id="dnc-notes"
+                  placeholder="Add any notes about this DNC request..."
+                  value={dncRequestNotes}
+                  onChange={(e) => setDncRequestNotes(e.target.value)}
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Channels */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Channels</Label>
+                <div className="mt-2 flex gap-2">
+                  {['call', 'sms', 'email'].map((channel) => (
+                    <button
+                      key={channel}
+                      onClick={() => toggleChannel(channel)}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        dncRequestChannels.includes(channel)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {channel.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <Label htmlFor="dnc-reason" className="text-sm font-medium text-gray-700">
+                  Reason
+                </Label>
+                <select
+                  id="dnc-reason"
+                  value={dncRequestReason}
+                  onChange={(e) => setDncRequestReason(e.target.value)}
+                  className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Customer opt-out">Customer opt-out</option>
+                  <option value="Legal requirement">Legal requirement</option>
+                  <option value="Company policy">Company policy</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={closeDncRequestModal}
+                disabled={isSubmittingDncRequest}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={submitDncRequest}
+                disabled={isSubmittingDncRequest || dncRequestChannels.length === 0}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isSubmittingDncRequest ? 'Submitting...' : 'Request DNC'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
