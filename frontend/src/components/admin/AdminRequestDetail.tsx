@@ -256,6 +256,20 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
                   </div>
                 </div>
                 
+                {/* Logics */}
+                <div className="flex items-center justify-between border rounded p-2">
+                  <div className="font-medium">Logics</div>
+                  <div className="flex items-center gap-2">
+                    {systemsCheck.providers?.logics?.listed ? (
+                      <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 font-medium">
+                        Active Case ({systemsCheck.providers.logics.count} case{systemsCheck.providers.logics.count !== 1 ? 's' : ''})
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">No Cases</span>
+                    )}
+                  </div>
+                </div>
+                
                 {/* Genesys */}
                 <div className="flex items-center justify-between border rounded p-2">
                   <div className="font-medium">Genesys</div>
@@ -276,22 +290,40 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Logics Cases</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Logics Cases
+              {logicsCases.length > 0 && (
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                  {logicsCases.length} Active Case{logicsCases.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             {loading ? 'Loading…' : logicsCases.length ? (
-              <div className="text-sm max-h-48 overflow-y-auto divide-y">
+              <div className="space-y-3">
                 {logicsCases.map((c:any,idx:number)=> (
-                  <div key={idx} className="py-2 border-b last:border-b-0">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="font-medium text-gray-700">Case ID:</span>
-                        <span className="ml-1 text-gray-900">{c.CaseID || 'N/A'}</span>
+                  <div key={idx} className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
+                          ACTIVE CASE
+                        </span>
+                        <span className="font-semibold text-blue-900">Case #{c.CaseID}</span>
                       </div>
+                      <a
+                        href={`https://tps.logiqs.com/Cases/Case.aspx?CaseID=${c.CaseID}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                      >
+                        View in Logics →
+                      </a>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-2 text-sm">
                       <div>
-                        <span className="font-medium text-gray-700">Status ID:</span>
-                        <span className="ml-1 text-gray-900">{c.StatusID || 'N/A'}</span>
-                      </div>
-                      <div className="col-span-2">
                         <span className="font-medium text-gray-700">Name:</span>
                         <span className="ml-1 text-gray-900">
                           {[c.FirstName, c.MiddleName, c.LastName]
@@ -300,21 +332,27 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
                         </span>
                       </div>
                       {c.Email && (
-                        <div className="col-span-2">
+                        <div>
                           <span className="font-medium text-gray-700">Email:</span>
                           <span className="ml-1 text-gray-900">{c.Email}</span>
                         </div>
                       )}
                       {c.CreatedDate && (
-                        <div className="col-span-2">
+                        <div>
                           <span className="font-medium text-gray-700">Created:</span>
                           <span className="ml-1 text-gray-900">{new Date(c.CreatedDate).toLocaleString()}</span>
                         </div>
                       )}
                       {c.TaxAmount && (
-                        <div className="col-span-2">
+                        <div>
                           <span className="font-medium text-gray-700">Tax Amount:</span>
                           <span className="ml-1 text-gray-900">${c.TaxAmount.toLocaleString()}</span>
+                        </div>
+                      )}
+                      {c.StatusID && (
+                        <div>
+                          <span className="font-medium text-gray-700">Status ID:</span>
+                          <span className="ml-1 text-gray-900">{c.StatusID}</span>
                         </div>
                       )}
                     </div>
@@ -322,7 +360,10 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
                 ))}
               </div>
             ) : (
-              <div className="text-gray-600 text-sm">No cases found</div>
+              <div className="text-gray-600 text-sm text-center py-4">
+                <div className="text-gray-400 mb-2">📋</div>
+                No Logics cases found
+              </div>
             )}
           </CardContent>
         </Card>
