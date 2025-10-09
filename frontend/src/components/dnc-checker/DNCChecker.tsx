@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { API_BASE_URL } from '../../lib/api'
+import { API_BASE_URL, apiCall } from '../../lib/api'
 import { motion } from 'framer-motion'
 import { Upload, Download, FileText, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -491,15 +491,8 @@ export const DNCChecker: React.FC = () => {
 
     setIsSubmittingDncRequest(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
+      const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          'X-Org-Id': localStorage.getItem('organization_id') || '1',
-          'X-User-Id': localStorage.getItem('user_id') || '1',
-          'X-Role': localStorage.getItem('role') || 'user'
-        },
         body: JSON.stringify({
           phone_number: dncRequestPhone,
           notes: dncRequestNotes,
@@ -507,11 +500,6 @@ export const DNCChecker: React.FC = () => {
           reason: dncRequestReason
         })
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to submit DNC request')
-      }
 
       alert('DNC request submitted successfully!')
       closeDncRequestModal()

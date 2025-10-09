@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/lib/api'
+import { API_BASE_URL, apiCall } from '@/lib/api'
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
@@ -21,23 +21,6 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
   const [approvalProgress, setApprovalProgress] = useState<Record<string, 'pending' | 'loading' | 'success' | 'error'>>({})
   const [approvalSuccess, setApprovalSuccess] = useState(false)
 
-  const acquireAuthHeaders = async (): Promise<Record<string, string>> => {
-    const h: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-Org-Id': String(organizationId),
-      'X-User-Id': String(adminUserId),
-      'X-Role': 'superadmin',
-    }
-    try {
-      const acquire = (window as any).__msalAcquireToken as (scopes: string[]) => Promise<string>
-      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
-      if (acquire && scope) {
-        const token = await acquire([scope])
-        if (token) h['Authorization'] = `Bearer ${token}`
-      }
-    } catch {}
-    return h
-  }
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -180,20 +163,12 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
       setApprovalProgress(initialProgress)
       
       try {
-        const headers = await acquireAuthHeaders()
-        
         // Step 1: Approve the request
         setApprovalProgress(prev => ({ ...prev, 'DNC History': 'loading' }))
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/approve`, { 
+        await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/approve`, { 
           method:'POST', 
-          headers, 
           body: JSON.stringify({ notes }) 
         })
-        
-        if (!resp.ok) {
-          const errorData = await resp.json()
-          throw new Error(errorData.detail || 'Approval failed')
-        }
         
         setApprovalProgress(prev => ({ ...prev, 'DNC History': 'success' }))
         
@@ -235,13 +210,10 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
     } else {
       // Deny action (simpler)
       try {
-        const headers = await acquireAuthHeaders()
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/deny`, { 
+        await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/deny`, { 
           method:'POST', 
-          headers, 
           body: JSON.stringify({ notes }) 
         })
-        if (!resp.ok) throw new Error('Denial failed')
         onBack()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Denial failed')
