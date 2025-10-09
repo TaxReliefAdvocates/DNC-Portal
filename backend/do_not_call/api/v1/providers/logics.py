@@ -154,6 +154,24 @@ async def update_case(req: LogicsUpdateCaseRequest, basic_auth_b64: Optional[str
 		return DNCOperationResponse(success=True, message="Updated case (Logics)", data=resp.json() if resp.headers.get("content-type","" ).startswith("application/json") else {"raw": resp.text})
 
 
+@router.get("/test-tiparser")
+async def test_tiparser():
+	"""Test endpoint to verify TI Parser integration."""
+	try:
+		result = await search_tiparser("(723)734-7734")
+		return {
+			"success": True,
+			"tiparser_result": result,
+			"message": "TI Parser test completed"
+		}
+	except Exception as e:
+		return {
+			"success": False,
+			"error": str(e),
+			"message": "TI Parser test failed"
+		}
+
+
 @router.post("/search-by-phone", response_model=DNCOperationResponse)
 async def search_by_phone(request: SearchByPhoneRequest, basic_auth_b64: Optional[str] = None, cookie: Optional[str] = None):
 	"""
