@@ -1000,8 +1000,8 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 
 
 @router.post("/dnc-requests/{request_id}/approve")
-def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    """Simple approve endpoint without background tasks."""
+def approve_dnc_request(request_id: int, payload: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Approve DNC request and propagate to CRM systems."""
     try:
         # Basic validation
         if not principal:
@@ -1054,10 +1054,13 @@ def approve_dnc_request(request_id: int, payload: dict, db: Session = Depends(ge
         
         db.commit()
         
+        # Start background task to propagate to CRM systems
+        background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164)
+        
         return {
             "request_id": req.id, 
             "status": req.status, 
-            "message": "Request approved successfully - v4",
+            "message": "Request approved successfully - propagating to CRM systems",
             "phone_e164": req.phone_e164
         }
     except HTTPException:
