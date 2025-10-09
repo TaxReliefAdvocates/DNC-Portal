@@ -805,6 +805,10 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
         updated += 1
     db.commit()
     
+    # Create immediate propagation attempts for visibility
+    for org_id, phone in approved_requests:
+        _create_immediate_propagation_attempt(org_id, phone, db)
+    
     # Trigger enhanced propagation for all approved requests
     try:
         if background_tasks is not None:
@@ -1057,6 +1061,9 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         # Start background task to propagate to CRM systems
         background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164)
         
+        # Also create a simple propagation attempt record immediately for visibility
+        _create_immediate_propagation_attempt(req.organization_id, req.phone_e164, db)
+        
         return {
             "request_id": req.id, 
             "status": req.status, 
@@ -1069,6 +1076,34 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         logger.error(f"Error approving DNC request {request_id}: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
+
+
+def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session) -> None:
+    """Create immediate propagation attempt records for visibility in DNC History Monitor."""
+    try:
+        from datetime import datetime
+        
+        # Create propagation attempts for all major services
+        services = ["ringcentral", "convoso", "ytel", "logics", "genesys"]
+        
+        for service in services:
+            attempt = PropagationAttempt(
+                organization_id=organization_id,
+                phone_e164=phone_e164,
+                service_key=service,
+                attempt_no=1,
+                status="pending",
+                started_at=datetime.utcnow(),
+                request_payload={"phone_e164": phone_e164, "action": "add_to_dnc"},
+            )
+            db.add(attempt)
+        
+        db.commit()
+        logger.info(f"Created immediate propagation attempts for {phone_e164} across {len(services)} services")
+        
+    except Exception as e:
+        logger.error(f"Failed to create immediate propagation attempts for {phone_e164}: {e}")
+        db.rollback()
 
 
 def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
