@@ -58,14 +58,11 @@ async def get_tiparser_token(force_refresh: bool = False) -> Optional[str]:
 async def search_tiparser(phone_number: str) -> Optional[dict]:
 	"""Search for cases using TI Parser API (searches spouse numbers too)."""
 	try:
-		# Get or refresh token
-		token = await get_tiparser_token()
-		if not token:
-			logger.warning("No TI Parser token available")
-			return None
+		logger.info(f"Starting TI Parser search for {phone_number}")
 		
 		# URL encode the phone number
 		encoded_phone = quote(phone_number)
+		logger.info(f"Encoded phone number: {encoded_phone}")
 		
 		async with HttpClient() as http:
 			url = f"https://tiparser.onrender.com/case-data/api/case/search/logiqs?query={encoded_phone}"
@@ -74,7 +71,9 @@ async def search_tiparser(phone_number: str) -> Optional[dict]:
 				"x-api-key": "sk_BIWGmwZeahwOyI9ytZNMnZmM_mY1SOcpl4OXlmFpJvA"
 			}
 			
+			logger.info(f"Making TI Parser request to: {url}")
 			resp = await http.post(url, headers=headers)
+			logger.info(f"TI Parser response status: {resp.status_code}")
 			
 			# Check if auth is needed
 			if resp.status_code == 401 or "Needs Authorization" in resp.text or "Unauthorized" in resp.text:
@@ -83,19 +82,21 @@ async def search_tiparser(phone_number: str) -> Optional[dict]:
 				if token:
 					# Retry with new token
 					resp = await http.post(url, headers=headers)
+					logger.info(f"TI Parser retry response status: {resp.status_code}")
 				else:
+					logger.error("Failed to get TI Parser token for retry")
 					return None
 			
 			if resp.status_code == 200:
 				data = resp.json() if resp.headers.get("content-type","").startswith("application/json") else {"raw": resp.text}
-				logger.info(f"TI Parser search successful for {phone_number}")
+				logger.info(f"TI Parser search successful for {phone_number}: {data}")
 				return data
 			else:
 				logger.warning(f"TI Parser search failed: {resp.status_code} - {resp.text}")
 				return None
 				
 	except Exception as e:
-		logger.error(f"TI Parser search error: {e}")
+		logger.error(f"TI Parser search error for {phone_number}: {e}")
 		return None
 
 
@@ -162,8 +163,9 @@ async def search_by_phone(request: SearchByPhoneRequest, basic_auth_b64: Optiona
 	"""
 	
 	# Try TI Parser first (better search, includes spouse numbers)
-	logger.info(f"Attempting TI Parser search for {request.phone_number}")
+	logger.info(f"=== LOGICS SEARCH START === Attempting TI Parser search for {request.phone_number}")
 	tiparser_data = await search_tiparser(request.phone_number)
+	logger.info(f"TI Parser result: {tiparser_data is not None}")
 	
 	if tiparser_data is not None:
 		# TI Parser succeeded - parse and return results
