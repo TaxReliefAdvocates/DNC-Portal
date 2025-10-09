@@ -11,7 +11,7 @@ interface Props {
   onBack: () => void
 }
 
-export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserId, request, onBack }) => {
+export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [systemsCheck, setSystemsCheck] = useState<any | null>(null)
@@ -27,112 +27,86 @@ export const AdminRequestDetail: React.FC<Props> = ({ organizationId, adminUserI
       setLoading(true)
       setError(null)
       try {
-        const headers = await acquireAuthHeaders()
-        
         // Fetch Systems Check results (same as Systems Check pane)
         const systemsCheckData: Record<string, any> = {}
         
         // 1) FreeDNC API check
         try {
-          const fj = await fetch(`${API_BASE_URL}/api/check_number`, { 
+          const fjData = await apiCall(`${API_BASE_URL}/api/check_number`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (fj.ok) {
-            const fjData = await fj.json()
-            systemsCheckData.dnc = { listed: Boolean(fjData?.is_dnc) }
-          }
+          systemsCheckData.dnc = { listed: Boolean(fjData?.is_dnc) }
         } catch {}
 
         // 2) RingCentral search
         try {
-          const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
+          const rj = await apiCall(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (rc.ok) {
-            const rj = await rc.json()
-            const isOnDnc = rj?.data?.is_on_dnc
-            if (isOnDnc === null) {
-              systemsCheckData.ringcentral = { listed: null, status: 'unknown' }
-            } else {
-              systemsCheckData.ringcentral = { listed: isOnDnc || false }
-            }
+          const isOnDnc = rj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            systemsCheckData.ringcentral = { listed: null, status: 'unknown' }
+          } else {
+            systemsCheckData.ringcentral = { listed: isOnDnc || false }
           }
         } catch {}
 
         // 3) Convoso search
         try {
-          const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+          const cj = await apiCall(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (cv.ok) {
-            const cj = await cv.json()
-            const isOnDnc = cj?.data?.is_on_dnc
-            if (isOnDnc === null) {
-              systemsCheckData.convoso = { listed: null, status: 'unknown' }
-            } else {
-              systemsCheckData.convoso = { listed: isOnDnc || false }
-            }
+          const isOnDnc = cj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            systemsCheckData.convoso = { listed: null, status: 'unknown' }
+          } else {
+            systemsCheckData.convoso = { listed: isOnDnc || false }
           }
         } catch {}
 
         // 4) Ytel search
         try {
-          const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+          const yj = await apiCall(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (yt.ok) {
-            const yj = await yt.json()
-            const isOnDnc = yj?.data?.is_on_dnc
-            if (isOnDnc === null) {
-              systemsCheckData.ytel = { listed: null, status: 'unknown' }
-            } else {
-              systemsCheckData.ytel = { listed: isOnDnc || false }
-            }
+          const isOnDnc = yj?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            systemsCheckData.ytel = { listed: null, status: 'unknown' }
+          } else {
+            systemsCheckData.ytel = { listed: isOnDnc || false }
           }
         } catch {}
 
         // 5) Logics search (for cases)
         try {
-          const lj = await fetch(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
+          const ljData = await apiCall(`${API_BASE_URL}/api/v1/logics/search-by-phone`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (lj.ok) {
-            const ljData = await lj.json()
-            const cases = ljData?.data?.raw_response?.Data || []
-            systemsCheckData.logics = { 
-              listed: cases.length > 0, 
-              count: cases.length, 
-              cases: cases 
-            }
-            setLogicsCases(cases)
+          const cases = ljData?.data?.raw_response?.Data || []
+          systemsCheckData.logics = { 
+            listed: cases.length > 0, 
+            count: cases.length, 
+            cases: cases 
           }
+          setLogicsCases(cases)
         } catch {}
 
         // 6) Genesys search
         try {
-          const gj = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+          const gjData = await apiCall(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
             method:'POST', 
-            headers, 
             body: JSON.stringify({ phone_number: request.phone_e164 })
           })
-          if (gj.ok) {
-            const gjData = await gj.json()
-            const isOnDnc = gjData?.data?.is_on_dnc
-            if (isOnDnc === null) {
-              systemsCheckData.genesys = { listed: null, status: 'unknown' }
-            } else {
-              systemsCheckData.genesys = { listed: isOnDnc || false }
-            }
+          const isOnDnc = gjData?.data?.is_on_dnc
+          if (isOnDnc === null) {
+            systemsCheckData.genesys = { listed: null, status: 'unknown' }
+          } else {
+            systemsCheckData.genesys = { listed: isOnDnc || false }
           }
         } catch {}
 

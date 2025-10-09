@@ -491,7 +491,7 @@ export const DNCChecker: React.FC = () => {
 
     setIsSubmittingDncRequest(true)
     try {
-      const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests`, {
         method: 'POST',
         body: JSON.stringify({
           phone_number: dncRequestPhone,
