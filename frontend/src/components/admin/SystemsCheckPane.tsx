@@ -154,6 +154,56 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
       setLoading((s)=>({ ...s, [phone]: false }))
     }
   }
+  // Refresh only one provider to avoid hitting all endpoints when pushing a single provider
+  const refreshProvider = async (provider: 'ringcentral'|'convoso'|'ytel'|'genesys'|'logics', phone: string) => {
+    const headers = { 'Content-Type': 'application/json', ...getDemoHeaders() }
+    try {
+      if (provider === 'ringcentral') {
+        const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { method:'POST', headers, body: JSON.stringify({ phone_number: phone }) })
+        if (rc.ok) {
+          const rj = await rc.json()
+          const isOnDnc = rj?.data?.is_on_dnc
+          setResults((r)=>{
+            const prev = r[phone] || { phone_number: phone, providers: {} as any }
+            return { ...r, [phone]: { ...prev, providers: { ...prev.providers, ringcentral: { listed: isOnDnc ?? false } } } }
+          })
+        }
+      } else if (provider === 'convoso') {
+        const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { method:'POST', headers, body: JSON.stringify({ phone_number: phone }) })
+        if (cv.ok) {
+          const cj = await cv.json()
+          const isOnDnc = cj?.data?.is_on_dnc
+          setResults((r)=>{
+            const prev = r[phone] || { phone_number: phone, providers: {} as any }
+            return { ...r, [phone]: { ...prev, providers: { ...prev.providers, convoso: { listed: isOnDnc ?? false } } } }
+          })
+        }
+      } else if (provider === 'ytel') {
+        const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { method:'POST', headers, body: JSON.stringify({ phone_number: phone }) })
+        if (yt.ok) {
+          const yj = await yt.json()
+          const isOnDnc = yj?.data?.is_on_dnc
+          setResults((r)=>{
+            const prev = r[phone] || { phone_number: phone, providers: {} as any }
+            return { ...r, [phone]: { ...prev, providers: { ...prev.providers, ytel: { listed: isOnDnc ?? false } } } }
+          })
+        }
+      } else if (provider === 'genesys') {
+        const gs = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { method:'POST', headers, body: JSON.stringify({ phone_number: phone }) })
+        if (gs.ok) {
+          const gj = await gs.json()
+          const isOnDnc = gj?.data?.is_on_dnc
+          setResults((r)=>{
+            const prev = r[phone] || { phone_number: phone, providers: {} as any }
+            return { ...r, [phone]: { ...prev, providers: { ...prev.providers, genesys: { listed: isOnDnc ?? false } } } }
+          })
+        }
+      } else if (provider === 'logics') {
+        await recheckLogics(phone)
+      }
+    } catch {}
+  }
+
 
   useEffect(()=>{
     numbers.forEach((n)=> runCheck(n))
@@ -203,7 +253,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         }
       }
       console.log(`Successfully pushed ${phone} to ${provider}`)
-      await runCheck(phone)
+      await refreshProvider(provider, phone)
       setProgress((p)=>({
         ...p,
         completed: p.completed + 1,

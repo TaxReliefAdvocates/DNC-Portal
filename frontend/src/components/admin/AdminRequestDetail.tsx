@@ -146,26 +146,31 @@ export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
         
         setApprovalProgress(prev => ({ ...prev, 'DNC History': 'success' }))
         
-        // Step 2: Show success and simulate system pushes (since backend handles this)
-        // In a real implementation, you might want to poll for propagation status
-        const pushSystems = ['RingCentral', 'Convoso', 'Ytel', 'Genesys', 'Logics']
-        
-        for (const system of pushSystems) {
-          setApprovalProgress(prev => ({ ...prev, [system]: 'loading' }))
-          
-          // Simulate push delay (in real implementation, this would be actual API calls)
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          // For now, mark as success (in real implementation, check actual results)
-          setApprovalProgress(prev => ({ ...prev, [system]: 'success' }))
+        // Step 2: Poll real propagation status until completion
+        const toKey: Record<string,string> = { ringcentral: 'RingCentral', convoso: 'Convoso', ytel: 'Ytel', genesys: 'Genesys', logics: 'Logics' }
+        let done = false
+        const start = Date.now()
+        while (!done && Date.now() - start < 120000) { // up to 2 minutes
+          try {
+            const st = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/status`, { method:'GET' })
+            const attempts: Array<{service_key:string,status:string}> = st?.attempts || []
+            // Update UI per provider
+            const next = { ...initialProgress }
+            attempts.forEach(a => {
+              const label = toKey[a.service_key]
+              if (!label) return
+              if (a.status === 'pending' || a.status === 'in_progress') next[label] = 'loading'
+              else if (a.status === 'success' || a.status === 'skipped') next[label] = 'success'
+              else next[label] = 'error'
+            })
+            setApprovalProgress(next)
+            // Check completion
+            done = attempts.length > 0 && attempts.every(a => ['success','failed','skipped'].includes(a.status))
+            if (done) break
+          } catch {}
+          await new Promise(r => setTimeout(r, 1000))
         }
-        
         setApprovalSuccess(true)
-        
-        // Auto-close after 3 seconds
-        setTimeout(() => {
-          onBack()
-        }, 3000)
         
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Approval failed')
@@ -188,8 +193,8 @@ export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
           method:'POST', 
           body: JSON.stringify({ notes }) 
         })
-        onBack()
-      } catch (e) {
+      onBack()
+    } catch (e) {
         setError(e instanceof Error ? e.message : 'Denial failed')
       }
     }
@@ -303,7 +308,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
                     ) : (
                       <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-700">Unknown</span>
                     )}
-                  </div>
+                    </div>
                 </div>
               </div>
             ) : (
@@ -372,7 +377,7 @@ export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
                         </div>
                       )}
                       {c.StatusID && (
-                        <div>
+                    <div>
                           <span className="font-medium text-gray-700">Status ID:</span>
                           <span className="ml-1 text-gray-900">{c.StatusID}</span>
                         </div>
