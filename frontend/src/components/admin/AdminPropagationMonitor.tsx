@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE_URL } from '@/lib/api'
+import { API_BASE_URL, apiCall } from '@/lib/api'
 import { useAppSelector } from '@/lib/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
+import { toast } from 'sonner'
 
 type Attempt = {
   id: number
@@ -198,32 +199,106 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
 
   const retry = async (providerKey: string, phone: string) => {
     try {
-      const headers = await acquireAuthHeaders()
-      let response: Response | null = null
+      console.log(`🔄 RETRYING ${providerKey.toUpperCase()}:`, phone)
+      toast.info(`Retrying ${providerKey} for ${phone}...`)
       
-      // Minimal: call provider-specific add endpoints where available
+      // Call provider-specific add endpoints with proper authentication
       if (providerKey === 'ringcentral') {
-        response = await fetch(`${API_BASE_URL}/api/v1/ringcentral/dnc/add?phone_number=${encodeURIComponent(phone)}&label=${encodeURIComponent('API Block')}`, { method:'POST', headers })
+        await apiCall(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, {
+          method: 'POST',
+          body: JSON.stringify({ phone_number: phone, label: 'API Block' })
+        })
       } else if (providerKey === 'convoso') {
-        response = await fetch(`${API_BASE_URL}/api/v1/convoso/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        await apiCall(`${API_BASE_URL}/api/v1/convoso/add-dnc`, {
+          method: 'POST',
+          body: JSON.stringify({ phone_number: phone })
+        })
       } else if (providerKey === 'ytel') {
-        response = await fetch(`${API_BASE_URL}/api/v1/ytel/dnc/add?phone_number=${encodeURIComponent(phone)}`, { method:'POST', headers })
+        await apiCall(`${API_BASE_URL}/api/v1/ytel/add-dnc`, {
+          method: 'POST',
+          body: JSON.stringify({ phone_number: phone })
+        })
+      } else if (providerKey === 'genesys') {
+        await apiCall(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, {
+          method: 'PATCH',
+          body: JSON.stringify({ action: 'Add', phone_numbers: [phone], expiration_date_time: '' })
+        })
       } else if (providerKey === 'logics') {
-        // No generic push; rely on Systems Check flows. Skip here.
-        console.log('Logics retry not implemented - use Systems Check flow')
+        // Logics requires case-specific updates, skip for now
+        toast.warning('Logics retry requires case-specific updates. Use Systems Check flow.')
         return
       }
       
-      if (response && !response.ok) {
-        console.error(`Retry failed for ${providerKey}:`, response.status, response.statusText)
-      } else if (response) {
-        console.log(`Retry successful for ${providerKey}`)
-      }
+      console.log(`✅ RETRY SUCCESS: ${providerKey} for ${phone}`)
+      toast.success(`Successfully retried ${providerKey} for ${phone}`)
       
       // After retry, reload attempts
-      load()
+      await load()
     } catch (error) {
-      console.error(`Error retrying ${providerKey}:`, error)
+      console.error(`❌ RETRY FAILED: ${providerKey} for ${phone}:`, error)
+      toast.error(`Retry failed for ${providerKey}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const retryAllForPhone = async (phone: string) => {
+    try {
+      console.log(`🔄 RETRYING ALL SERVICES FOR:`, phone)
+      toast.info(`Retrying all services for ${phone}...`)
+      
+      const providers = ['ringcentral', 'convoso', 'ytel', 'genesys'] // Skip logics for now
+      
+      for (const provider of providers) {
+        try {
+          await retry(provider, phone)
+          // Small delay between retries
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (error) {
+          console.error(`Failed to retry ${provider} for ${phone}:`, error)
+        }
+      }
+      
+      console.log(`✅ RETRY ALL COMPLETE: ${phone}`)
+      toast.success(`Completed retry for all services for ${phone}`)
+      await load()
+    } catch (error) {
+      console.error(`❌ RETRY ALL FAILED: ${phone}:`, error)
+      toast.error(`Retry all failed for ${phone}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const clearPendingAttempts = async () => {
+    try {
+      console.log(`🧹 CLEARING PENDING ATTEMPTS`)
+      toast.info(`Clearing all pending attempts...`)
+      
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/clear`, {
+        method: 'DELETE'
+      })
+      
+      console.log(`✅ CLEARED PENDING ATTEMPTS`)
+      toast.success(`Cleared all pending attempts`)
+      await load()
+    } catch (error) {
+      console.error(`❌ CLEAR PENDING FAILED:`, error)
+      toast.error(`Failed to clear pending attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const recreatePropagationAttempts = async () => {
+    try {
+      console.log(`🔄 RECREATING PROPAGATION ATTEMPTS`)
+      toast.info(`Recreating propagation attempts for all approved requests...`)
+      
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/recreate-all`, {
+        method: 'POST'
+      })
+      
+      console.log(`✅ RECREATED PROPAGATION ATTEMPTS`)
+      toast.success(`Recreated propagation attempts for all approved requests`)
+      await load()
+    } catch (error) {
+      console.error(`❌ RECREATE PROPAGATION FAILED:`, error)
+      toast.error(`Failed to recreate propagation attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -256,6 +331,20 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
           </div>
           <Button onClick={load} disabled={loading}>Refresh</Button>
           <Button variant="outline" onClick={exportCsv}>Export CSV</Button>
+          <Button 
+            variant="outline" 
+            onClick={clearPendingAttempts}
+            className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+          >
+            Clear Pending
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={recreatePropagationAttempts}
+            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+          >
+            Recreate All
+          </Button>
         </div>
 
         {loading ? (
@@ -305,6 +394,18 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
                           <span className="text-xs text-gray-400">No services</span>
                         )}
                       </div>
+                      {/* Retry All button for this phone number */}
+                      {Object.keys(r.providers).length > 0 && (
+                        <div className="mt-2">
+                          <button
+                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                            onClick={() => retryAllForPhone(r.phone)}
+                            title={`Retry all services for ${r.phone}`}
+                          >
+                            Retry All
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="p-2 text-xs text-gray-500">
                       {r.decided_at ? new Date(r.decided_at).toLocaleString() : 
