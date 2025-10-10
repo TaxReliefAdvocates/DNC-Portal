@@ -100,18 +100,13 @@ app.add_middleware(JsonRequestLogger)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://dnc-frontend.onrender.com",
-        "https://dnc-portal-frontend.onrender.com", 
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "*"  # Keep wildcard for development
-    ],
-    allow_origin_regex=None,
+    # Use regex so credentialed requests from onrender and localhost are allowed
+    allow_origins=[],
+    allow_origin_regex=getattr(settings, "ALLOWED_ORIGIN_REGEX", r"https://.*\\.onrender\\.com$|https://.*\\.azurestaticapps\\.net$|http://localhost(:\\d+)?$"),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Correlation-Id"]
+    expose_headers=["X-Correlation-Id"],
 )
 
 # Include API routers

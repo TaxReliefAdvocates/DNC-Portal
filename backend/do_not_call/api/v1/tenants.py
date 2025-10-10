@@ -1024,7 +1024,8 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
     if background_tasks is not None and approved:
         rows = db.execute(text("SELECT id, organization_id, phone_e164 FROM dnc_requests WHERE id = ANY(:ids)"), {"ids": ids}).fetchall()
         for r in rows:
-            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(r[1]), str(r[2]))
+            # args: request_id, organization_id, phone_e164, propagate_to (None for bulk)
+            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(r[0]), int(r[1]), str(r[2]), None)
 
     return {"approved": approved}
 
@@ -1262,7 +1263,7 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         db.commit()
         row = db.execute(text("SELECT organization_id, phone_e164 FROM dnc_requests WHERE id = :rid"), {"rid": request_id}).fetchone()
         if row:
-            # Launch background propagation with selected providers encoded in payload
+            # Launch background propagation with selected providers
             background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(request_id), int(row[0]), str(row[1]), propagate_to)
         return {"request_id": request_id, "status": "approved", "message": "Request approved - propagation queued", "propagate_to": propagate_to}
     except Exception as e:
@@ -1523,7 +1524,7 @@ def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_us
     anyio.run(_run)
 
 
-def _propagate_approved_entry_with_systems_check(request_id: int, organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
+def _propagate_approved_entry_with_systems_check(request_id: int, organization_id: int, phone_e164: str, propagate_to: list[str] | None = None) -> None:
     """Enhanced background task: Check systems first, then push only to systems where not already on DNC.
     
     Uses a fresh DB session and runs async provider calls via anyio.
@@ -1716,6 +1717,10 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
 
                 # Normalize propagate_to and mark unselected attempts as skipped
                 selected = set((propagate_to or ["dnc","ringcentral","convoso","ytel","logics","genesys"]))
+                # National DNC is read-only in our system; never push to it
+                if "dnc" in selected:
+                    selected.remove("dnc")
+                    logger.info("ℹ️ NATIONAL DNC: Read-only; removed from propagation targets")
                 logger.info(f"🎯 PROPAGATION: Will update systems: {sorted(list(selected))}")
 
                 try:

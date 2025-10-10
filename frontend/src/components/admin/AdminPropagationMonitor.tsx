@@ -152,6 +152,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
         requested_by: req ? users[req.requested_by_user_id] : (isSuperadmin ? adminFallback : undefined),
         approved_by: req && req.reviewed_by_user_id ? users[req.reviewed_by_user_id] : (isSuperadmin ? adminFallback : undefined),
         decided_at: req?.decided_at,
+        reqId: req?.id,
         most_recent_timestamp: mostRecentTimestamp,
       }
     })
@@ -197,37 +198,21 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     return <span className={`px-2 py-0.5 rounded text-xs ${cls}`}>{s}</span>
   }
 
-  const retry = async (providerKey: string, phone: string) => {
+  const retry = async (providerKey: string, phone: string, requestId?: number) => {
     try {
       console.log(`🔄 RETRYING ${providerKey.toUpperCase()}:`, phone)
       toast.info(`Retrying ${providerKey} for ${phone}...`)
       
-      // Call provider-specific add endpoints with proper authentication
-      if (providerKey === 'ringcentral') {
-        await apiCall(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, {
-          method: 'POST',
-          body: JSON.stringify({ phone_number: phone, label: 'API Block' })
-        })
-      } else if (providerKey === 'convoso') {
-        await apiCall(`${API_BASE_URL}/api/v1/convoso/add-dnc`, {
-          method: 'POST',
-          body: JSON.stringify({ phone_number: phone })
-        })
-      } else if (providerKey === 'ytel') {
-        await apiCall(`${API_BASE_URL}/api/v1/ytel/add-dnc`, {
-          method: 'POST',
-          body: JSON.stringify({ phone_number: phone })
-        })
-      } else if (providerKey === 'genesys') {
-        await apiCall(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, {
-          method: 'PATCH',
-          body: JSON.stringify({ action: 'Add', phone_numbers: [phone], expiration_date_time: '' })
-        })
-      } else if (providerKey === 'logics') {
+      // Use unified retry endpoint so attempts are tracked correctly
+      if (providerKey === 'logics') {
         // Logics requires case-specific updates, skip for now
         toast.warning('Logics retry requires case-specific updates. Use Systems Check flow.')
         return
       }
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, {
+        method: 'POST',
+        body: JSON.stringify({ request_id: requestId || 0, service_key: providerKey, phone_e164: phone })
+      })
       
       console.log(`✅ RETRY SUCCESS: ${providerKey} for ${phone}`)
       toast.success(`Successfully retried ${providerKey} for ${phone}`)
@@ -240,7 +225,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     }
   }
 
-  const retryAllForPhone = async (phone: string) => {
+  const retryAllForPhone = async (phone: string, requestId?: number) => {
     try {
       console.log(`🔄 RETRYING ALL SERVICES FOR:`, phone)
       toast.info(`Retrying all services for ${phone}...`)
@@ -249,7 +234,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
       
       for (const provider of providers) {
         try {
-          await retry(provider, phone)
+          await retry(provider, phone, requestId)
           // Small delay between retries
           await new Promise(resolve => setTimeout(resolve, 1000))
         } catch (error) {
@@ -333,7 +318,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
                               {a.status === 'failed' && (
                                 <button 
                                   className="text-xs text-blue-600 underline hover:text-blue-800" 
-                                  onClick={()=>retry(p, r.phone)}
+                                  onClick={()=>retry(p, r.phone, (r as any).reqId)}
                                   title={`Retry ${p} for ${r.phone}`}
                                 >
                                   Retry
@@ -351,7 +336,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
                         <div className="mt-2">
                           <button
                             className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
-                            onClick={() => retryAllForPhone(r.phone)}
+                            onClick={() => retryAllForPhone(r.phone, (r as any).reqId)}
                             title={`Retry all services for ${r.phone}`}
                           >
                             Retry All

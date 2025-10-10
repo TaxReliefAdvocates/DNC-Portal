@@ -179,48 +179,7 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'pending', attempt_no: 1 })
         })
       } catch {}
-      if (provider === 'ringcentral') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`RingCentral response: ${resp.status}`)
-      } else if (provider === 'convoso') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Convoso response: ${resp.status}`)
-      } else if (provider === 'ytel') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Ytel response: ${resp.status}`)
-        if (resp.ok) {
-          const ytelResponse = await resp.json()
-          console.log(`Ytel message: ${ytelResponse.message}`)
-          if (ytelResponse.data?.already_on_dnc) {
-            alert(`ℹ️ ${ytelResponse.message}`)
-          } else if (ytelResponse.data?.added_to_dnc || ytelResponse.data?.added_to_global_dnc) {
-            alert(`✅ ${ytelResponse.message}`)
-          }
-        }
-      } else if (provider === 'genesys') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
-          method:'PATCH', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ 
-            action: "Add", 
-            phone_numbers: [phone], 
-            expiration_date_time: "" 
-          })
-        })
-        console.log(`Genesys response: ${resp.status}`)
-      } else if (provider === 'logics') {
+      if (provider === 'logics') {
         const res = results[phone]
         const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
         if (firstCaseId) {
@@ -231,6 +190,14 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           })
           console.log(`Logics response: ${resp.status}`)
         }
+      } else {
+        // Unified retry endpoint creates a tracked attempt and handles provider logic server-side
+        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, {
+          method:'POST',
+          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+          body: JSON.stringify({ request_id: 0, service_key: provider, phone_e164: phone })
+        })
+        console.log(`Retry response (${provider}): ${resp.status}`)
       }
       console.log(`Successfully pushed ${phone} to ${provider}`)
       await runCheck(phone)
