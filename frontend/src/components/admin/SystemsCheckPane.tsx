@@ -179,61 +179,81 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'pending', attempt_no: 1 })
         })
       } catch {}
-      if (provider === 'ringcentral') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`RingCentral response: ${resp.status}`)
-      } else if (provider === 'convoso') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Convoso response: ${resp.status}`)
-      } else if (provider === 'ytel') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Ytel response: ${resp.status}`)
-        if (resp.ok) {
-          const ytelResponse = await resp.json()
-          console.log(`Ytel message: ${ytelResponse.message}`)
-          if (ytelResponse.data?.already_on_dnc) {
-            alert(`ℹ️ ${ytelResponse.message}`)
-          } else if (ytelResponse.data?.added_to_dnc || ytelResponse.data?.added_to_global_dnc) {
-            alert(`✅ ${ytelResponse.message}`)
-          }
-        }
-      } else if (provider === 'genesys') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
-          method:'PATCH', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ 
-            action: "Add", 
-            phone_numbers: [phone], 
-            expiration_date_time: "" 
-          })
-        })
-        console.log(`Genesys response: ${resp.status}`)
-      } else if (provider === 'logics') {
-        const res = results[phone]
-        const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
-        if (firstCaseId) {
-          const resp = await fetch(`${API_BASE_URL}/api/v1/logics/update-case`, { 
+      // Unified retry endpoint per provider to avoid CORS and centralize logic
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ service_key: provider, phone_e164: phone })
+      })
+      console.log(`${provider} retry response: ${resp.status}`)
+      console.log(`Successfully pushed ${phone} to ${provider}`)
+      // Re-check only the pushed provider instead of all to reduce noise
+      if (provider === 'logics') {
+        await recheckLogics(phone)
+      } else if (provider === 'ringcentral') {
+        try {
+          const rc = await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { 
             method:'POST', 
             headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-            body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
+            body: JSON.stringify({ phone_number: phone })
           })
-          console.log(`Logics response: ${resp.status}`)
-        }
+          if (rc.ok) {
+            const rj = await rc.json()
+            setResults((r)=>{
+              const prev = r[phone] || { phone_number: phone, providers: {} as any }
+              return { ...r, [phone]: { ...prev, providers: { ...prev.providers, ringcentral: { listed: !!rj?.data?.is_on_dnc } } } }
+            })
+          }
+        } catch {}
+      } else if (provider === 'convoso') {
+        try {
+          const cv = await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { 
+            method:'POST', 
+            headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+            body: JSON.stringify({ phone_number: phone })
+          })
+          if (cv.ok) {
+            const cj = await cv.json()
+            setResults((r)=>{
+              const prev = r[phone] || { phone_number: phone, providers: {} as any }
+              return { ...r, [phone]: { ...prev, providers: { ...prev.providers, convoso: { listed: !!cj?.data?.is_on_dnc } } } }
+            })
+          }
+        } catch {}
+      } else if (provider === 'ytel') {
+        try {
+          const yt = await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { 
+            method:'POST', 
+            headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+            body: JSON.stringify({ phone_number: phone })
+          })
+          if (yt.ok) {
+            const yj = await yt.json()
+            setResults((r)=>{
+              const prev = r[phone] || { phone_number: phone, providers: {} as any }
+              const isOnDnc = yj?.data?.is_on_dnc
+              const status = yj?.data?.status
+              const listed = (isOnDnc === null || status === 'unknown') ? null : !!isOnDnc
+              return { ...r, [phone]: { ...prev, providers: { ...prev.providers, ytel: { listed, status } } } }
+            })
+          }
+        } catch {}
+      } else if (provider === 'genesys') {
+        try {
+          const gs = await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { 
+            method:'POST', 
+            headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+            body: JSON.stringify({ phone_number: phone })
+          })
+          if (gs.ok) {
+            const gj = await gs.json()
+            setResults((r)=>{
+              const prev = r[phone] || { phone_number: phone, providers: {} as any }
+              return { ...r, [phone]: { ...prev, providers: { ...prev.providers, genesys: { listed: !!gj?.data?.is_on_dnc } } } }
+            })
+          }
+        } catch {}
       }
-      console.log(`Successfully pushed ${phone} to ${provider}`)
-      await runCheck(phone)
       setProgress((p)=>({
         ...p,
         completed: p.completed + 1,

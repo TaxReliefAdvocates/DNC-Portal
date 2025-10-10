@@ -185,16 +185,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ringcentral')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, { 
         method:'POST', 
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phone_number: result.phone_number })
+        body: JSON.stringify({ service_key: 'ringcentral', phone_e164: result.phone_number })
       })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
       setResponses(prev => ({ ...prev, ringcentral: { provider: 'ringcentral', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
-      await runCheck()
+      await lookupRingCentral(result.phone_number)
     } finally { setPushing(null) }
   }
 
@@ -202,16 +202,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('convoso')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, { 
         method:'POST', 
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phone_number: result.phone_number })
+        body: JSON.stringify({ service_key: 'convoso', phone_e164: result.phone_number })
       })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
       setResponses(prev => ({ ...prev, convoso: { provider: 'convoso', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
-      await runCheck()
+      await lookupConvoso(result.phone_number)
     } finally { setPushing(null) }
   }
 
@@ -219,16 +219,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!result) return
     setPushing('ytel')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, { 
         method:'POST', 
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phone_number: result.phone_number })
+        body: JSON.stringify({ service_key: 'ytel', phone_e164: result.phone_number })
       })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
       setResponses(prev => ({ ...prev, ytel: { provider: 'ytel', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
-      await runCheck()
+      await lookupYtel(result.phone_number)
     } finally { setPushing(null) }
   }
 
@@ -238,16 +238,16 @@ export const AdminSystemsCheck: React.FC<Props> = ({ initialPhones }) => {
     if (!firstCaseId) return
     setPushing('logics')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/v1/logics/add-to-dnc`, { 
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, { 
         method:'POST', 
         headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-        body: JSON.stringify({ phone_number: result.phone_number })
+        body: JSON.stringify({ service_key: 'logics', phone_e164: result.phone_number })
       })
       const text = await resp.text()
       let body: any = text
       try { body = JSON.parse(text) } catch {}
       setResponses(prev => ({ ...prev, logics: { provider: 'logics', ok: resp.ok, status: resp.status, body, at: new Date().toISOString() } }))
-      await runCheck()
+      await recheckLogics(result.phone_number)
     } finally { setPushing(null) }
   }
 
