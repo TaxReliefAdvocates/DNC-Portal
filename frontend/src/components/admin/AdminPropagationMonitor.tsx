@@ -266,41 +266,6 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     }
   }
 
-  const clearPendingAttempts = async () => {
-    try {
-      console.log(`🧹 CLEARING PENDING ATTEMPTS`)
-      toast.info(`Clearing all pending attempts...`)
-      
-      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/clear`, {
-        method: 'DELETE'
-      })
-      
-      console.log(`✅ CLEARED PENDING ATTEMPTS`)
-      toast.success(`Cleared all pending attempts`)
-      await load()
-    } catch (error) {
-      console.error(`❌ CLEAR PENDING FAILED:`, error)
-      toast.error(`Failed to clear pending attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  const recreatePropagationAttempts = async () => {
-    try {
-      console.log(`🔄 RECREATING PROPAGATION ATTEMPTS`)
-      toast.info(`Recreating propagation attempts for all approved requests...`)
-      
-      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/attempts/recreate-all`, {
-        method: 'POST'
-      })
-      
-      console.log(`✅ RECREATED PROPAGATION ATTEMPTS`)
-      toast.success(`Recreated propagation attempts for all approved requests`)
-      await load()
-    } catch (error) {
-      console.error(`❌ RECREATE PROPAGATION FAILED:`, error)
-      toast.error(`Failed to recreate propagation attempts: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
 
 
   return (
