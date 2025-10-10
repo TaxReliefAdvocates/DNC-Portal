@@ -328,7 +328,7 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
       console.log(`🧹 PERFORMING DATABASE CLEANUP:`, cleanupType)
       toast.info(`Performing ${cleanupType} cleanup...`)
       
-      const result = await apiCall(`${API_BASE_URL}/api/v1/tenants/database/cleanup`, {
+      const result = await apiCall(`${API_BASE_URL}/api/v1/tenants/database/cleanup?organization_id=${organizationId}`, {
         method: 'POST',
         body: JSON.stringify({ type: cleanupType })
       })
