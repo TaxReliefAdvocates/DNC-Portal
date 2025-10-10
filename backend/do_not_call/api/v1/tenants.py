@@ -1010,42 +1010,23 @@ def bulk_approve(payload: dict, db: Session = Depends(get_db), principal: Princi
     require_role("owner", "admin", "superadmin")(principal)
     ids = payload.get("ids", [])
     reviewer = int(getattr(principal, "user_id", 0) or 0)
-    updated = 0
-    from datetime import datetime
-    approved_requests = []
+    approved = 0
     for rid in ids:
-        req = db.query(DNCRequest).get(int(rid))
-        if not req or req.status != "pending":
+        try:
+            db.execute(text("SELECT approve_dnc_request_tx(:rid, :rev, :notes)"), {"rid": int(rid), "rev": reviewer, "notes": str(payload.get("notes",""))})
+            approved += 1
+        except Exception:
+            db.rollback()
             continue
-        req.status = "approved"
-        req.reviewed_by_user_id = reviewer
-        req.decided_at = datetime.utcnow()
-        entry = DNCEntry(
-            organization_id=req.organization_id,
-            phone_e164=req.phone_e164,
-            reason=req.reason,
-            channel=req.channel,
-            source="user_request",
-            created_by_user_id=req.requested_by_user_id,
-        )
-        db.add(entry)
-        approved_requests.append((req.organization_id, req.phone_e164))
-        updated += 1
     db.commit()
-    
-    # Create immediate propagation attempts for visibility
-    for org_id, phone in approved_requests:
-        _create_immediate_propagation_attempt(org_id, phone, db)
-    
-    # Trigger enhanced propagation for all approved requests
-    try:
-        if background_tasks is not None:
-            for org_id, phone in approved_requests:
-                background_tasks.add_task(_propagate_approved_entry_with_systems_check, org_id, phone, reviewer)
-    except Exception:
-        pass
-    
-    return {"approved": updated}
+
+    # Queue background tasks
+    if background_tasks is not None and approved:
+        rows = db.execute(text("SELECT id, organization_id, phone_e164 FROM dnc_requests WHERE id = ANY(:ids)"), {"ids": ids}).fetchall()
+        for r in rows:
+            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(r[1]), str(r[2]))
+
+    return {"approved": approved}
 
 
 @router.post("/dnc-requests/bulk/deny")
@@ -1210,130 +1191,53 @@ def ingest_sms_stop(organization_id: int, rows: list[dict], db: Session = Depend
 # DNC Request workflow
 @router.post("/dnc-requests/{organization_id}")
 def create_dnc_request(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal), _=Depends(rate_limiter("request", limit=60, window_seconds=60))):
+    """Create a DNC request via raw SQL (no ORM), ensuring submitted_at and status defaults."""
     try:
         org_id = None if principal.role == "superadmin" else organization_id
         set_rls_org(db, org_id)
     except Exception:
         pass
     require_org_access(principal, organization_id)
-    # members can create
-    req = DNCRequest(
-        organization_id=organization_id,
-        phone_e164=normalize_phone_to_e164_digits(payload.get("phone_e164", "")),
-        reason=payload.get("reason"),
-        channel=payload.get("channel"),
-        requested_by_user_id=int(getattr(principal, "user_id", 0) or 0),
-        status="pending",
-    )
-    db.add(req)
+
+    phone = normalize_phone_to_e164_digits(payload.get("phone_e164", ""))
+    reason = payload.get("reason")
+    channel = payload.get("channel")
+    requested_by = int(getattr(principal, "user_id", 0) or 0)
+
+    row = db.execute(
+        text(
+            """
+            INSERT INTO dnc_requests (
+              organization_id, phone_e164, reason, channel,
+              requested_by_user_id, status, submitted_at
+            ) VALUES (:org, :phone, :reason, :channel, :user, 'pending', now())
+            RETURNING id, status
+            """
+        ),
+        {"org": organization_id, "phone": phone, "reason": reason, "channel": channel, "user": requested_by},
+    ).fetchone()
     db.commit()
-    db.refresh(req)
-    return {"id": req.id, "status": req.status}
+    return {"id": row[0], "status": row[1]}
 
 
-@router.post("/dnc-requests/{request_id}/approve")
 def approve_dnc_request(request_id: int, payload: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
-    """Approve DNC request and propagate to CRM systems."""
-    logger.info(f"🚀 APPROVAL START: Request {request_id} - Principal: {getattr(principal, 'user_id', 'unknown')} Role: {getattr(principal, 'role', 'unknown')}")
-    
+    """Approve request using pure SQL transaction function, then queue propagation."""
+    logger.info(f"🚀 APPROVAL START (SQL): Request {request_id} - Principal: {getattr(principal, 'user_id', 'unknown')} Role: {getattr(principal, 'role', 'unknown')}")
+    if principal.role not in ["owner", "admin", "superadmin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    notes = (payload or {}).get("notes", "")
+    reviewer = int(getattr(principal, "user_id", 0) or 0)
     try:
-        # Basic validation
-        if not principal:
-            logger.error(f"❌ APPROVAL FAILED: No principal for request {request_id}")
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        # Check role
-        if principal.role not in ["owner", "admin", "superadmin"]:
-            logger.error(f"❌ APPROVAL FAILED: Insufficient role {principal.role} for request {request_id}")
-            raise HTTPException(status_code=403, detail="Insufficient permissions")
-        
-        # Get request
-        req = db.query(DNCRequest).get(request_id)
-        if not req:
-            logger.error(f"❌ APPROVAL FAILED: Request {request_id} not found")
-            raise HTTPException(status_code=404, detail="Request not found")
-        
-        logger.info(f"📋 REQUEST DETAILS: ID={req.id}, Phone={req.phone_e164}, Org={req.organization_id}, Status={req.status}")
-        
-        if req.status != "pending":
-            logger.error(f"❌ APPROVAL FAILED: Request {request_id} already decided (status: {req.status})")
-            raise HTTPException(status_code=400, detail="Request already decided")
-        
-        # Update request
-        logger.info(f"✅ UPDATING REQUEST: Setting status to 'approved' for request {request_id}")
-        req.status = "approved"
-        req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
-        req.decision_notes = payload.get("notes", "")
-        from datetime import datetime
-        req.decided_at = datetime.utcnow()
-        
-        logger.info(f"📝 REQUEST UPDATED: Status='approved', ReviewedBy={req.reviewed_by_user_id}, DecidedAt={req.decided_at}")
-        
-        # Check if DNC entry already exists
-        existing_entry = db.query(DNCEntry).filter(
-            DNCEntry.organization_id == req.organization_id,
-            DNCEntry.phone_e164 == req.phone_e164
-        ).first()
-        
-        if existing_entry:
-            # Update existing entry if needed
-            logger.info(f"🔄 DNC ENTRY EXISTS: Found existing entry for {req.phone_e164}, checking if update needed")
-            if not existing_entry.active:
-                existing_entry.active = True
-                existing_entry.removed_at = None
-                existing_entry.updated_at = datetime.utcnow()
-                logger.info(f"✅ DNC ENTRY UPDATED: Reactivated existing entry for {req.phone_e164}")
-            else:
-                logger.info(f"ℹ️ DNC ENTRY ACTIVE: Entry for {req.phone_e164} already active")
-        else:
-            # Create new DNC entry
-            logger.info(f"🆕 CREATING DNC ENTRY: New entry for {req.phone_e164}")
-            entry = DNCEntry(
-                organization_id=req.organization_id,
-                phone_e164=req.phone_e164,
-                reason=req.reason or "user request",
-                channel=req.channel or "voice",
-                source="user_request",
-                created_by_user_id=req.requested_by_user_id,
-                notes=req.decision_notes,
-            )
-            db.add(entry)
-            logger.info(f"✅ DNC ENTRY CREATED: Added to session for {req.phone_e164}")
-        
-        # Create immediate propagation attempts BEFORE committing
-        logger.info(f"🎯 CREATING PROPAGATION ATTEMPTS: Starting for {req.phone_e164}")
-        _create_immediate_propagation_attempt(req.organization_id, req.phone_e164, db)
-        logger.info(f"✅ PROPAGATION ATTEMPTS CREATED: 5 pending attempts for {req.phone_e164}")
-        
-        # Commit all changes together (including propagation attempts)
-        logger.info(f"💾 COMMITTING TRANSACTION: Request {request_id}, DNC entry, and propagation attempts")
+        db.execute(text("SELECT approve_dnc_request_tx(:rid, :rev, :notes)"), {"rid": request_id, "rev": reviewer, "notes": notes})
         db.commit()
-        logger.info(f"✅ TRANSACTION COMMITTED: All changes saved for request {request_id}")
-        
-        # Start background task to propagate to CRM systems
-        logger.info(f"🚀 STARTING BACKGROUND TASK: _propagate_approved_entry_with_systems_check for {req.phone_e164}")
-        background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164)
-        logger.info(f"✅ BACKGROUND TASK QUEUED: Propagation task scheduled for {req.phone_e164}")
-        
-        logger.info(f"🎉 APPROVAL COMPLETE: Request {request_id} approved successfully - all systems updated")
-        
-        return {
-            "request_id": req.id, 
-            "status": req.status, 
-            "message": "Request approved successfully - propagating to CRM systems",
-            "phone_e164": req.phone_e164
-        }
-    except HTTPException as he:
-        logger.error(f"❌ APPROVAL HTTP EXCEPTION: Request {request_id} - {he.detail}")
-        raise
+        row = db.execute(text("SELECT organization_id, phone_e164 FROM dnc_requests WHERE id = :rid"), {"rid": request_id}).fetchone()
+        if row:
+            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(row[0]), str(row[1]))
+        return {"request_id": request_id, "status": "approved", "message": "Request approved - propagation queued"}
     except Exception as e:
-        logger.error(f"❌ APPROVAL EXCEPTION: Request {request_id} - {str(e)}")
-        logger.error(f"❌ APPROVAL STACK TRACE: {repr(e)}")
-        import traceback
-        logger.error(f"❌ APPROVAL FULL TRACE: {traceback.format_exc()}")
         db.rollback()
-        logger.error(f"🔄 TRANSACTION ROLLED BACK: Due to exception for request {request_id}")
-        raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
+        logger.error(f"❌ APPROVAL FAILED (SQL): {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to approve request: {e}")
 
 
 def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session) -> None:
