@@ -741,7 +741,12 @@ async def orchestrate_dnc(payload: dict, db: Session = Depends(get_db), principa
     from ...config import settings as cfg
     y_user = getattr(cfg, "ytel_user", None)
     y_pass = getattr(cfg, "ytel_password", None)
-    conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
+    conv_token = (
+        getattr(cfg, "convoso_auth_token", None)
+        or getattr(cfg, "convoso_leads_auth_token", None)
+        or getattr(cfg, "CONVOSO_AUTH_TOKEN", None)
+        or getattr(cfg, "CONVOSO_TOKEN_LEADS", None)
+    )
     g_cid = getattr(cfg, "genesys_client_id", None)
     g_csec = getattr(cfg, "genesys_client_secret", None)
     g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
@@ -1600,7 +1605,12 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                 async def check_convoso():
                     logger.info(f"📞 CHECKING CONVOSO: Starting check for {phone_e164}")
                     try:
-                        conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
+                        conv_token = (
+                            getattr(cfg, "convoso_auth_token", None)
+                            or getattr(cfg, "convoso_leads_auth_token", None)
+                            or getattr(cfg, "CONVOSO_AUTH_TOKEN", None)
+                            or getattr(cfg, "CONVOSO_TOKEN_LEADS", None)
+                        )
                         if conv_token:
                             url = "https://api.convoso.com/v1/dnc/search"
                             params = {"auth_token": conv_token, "phone_number": phone_e164, "phone_code": "1", "offset": 0, "limit": 10}

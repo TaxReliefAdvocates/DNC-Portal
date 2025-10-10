@@ -23,17 +23,18 @@ router = APIRouter()
 
 
 def get_token(token: Optional[str] = None) -> str:
-	final = token or settings.convoso_auth_token
-	if not final:
-		raise HTTPException(status_code=400, detail="Convoso auth_token required. Provide 'auth_token' or set CONVOSO_AUTH_TOKEN.")
-	return final
+    # Prefer explicit param; otherwise use configured uppercase settings field
+    final = token or getattr(settings, 'CONVOSO_AUTH_TOKEN', None)
+    if not final:
+        raise HTTPException(status_code=400, detail="Convoso auth_token required. Provide 'auth_token' or set CONVOSO_AUTH_TOKEN.")
+    return final
 
 def get_leads_token(token: Optional[str] = None) -> str:
-	"""Get token specifically for leads API endpoints"""
-	final = token or getattr(settings, 'convoso_token_leads', None) or settings.convoso_auth_token
-	if not final:
-		raise HTTPException(status_code=400, detail="Convoso leads token required. Provide 'auth_token' or set CONVOSO_TOKEN_LEADS.")
-	return final
+    """Get token specifically for leads API endpoints"""
+    final = token or getattr(settings, 'CONVOSO_TOKEN_LEADS', None) or getattr(settings, 'CONVOSO_AUTH_TOKEN', None)
+    if not final:
+        raise HTTPException(status_code=400, detail="Convoso leads token required. Provide 'auth_token' or set CONVOSO_TOKEN_LEADS.")
+    return final
 
 
 @router.post("/auth", response_model=DNCOperationResponse)
@@ -67,8 +68,9 @@ async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None,
 	phone_e164 = normalize_phone_to_e164_digits(f"{request.phone_code or ''}{request.phone_number}")
 	
 	try:
-		async with HttpClient() as http:
-			resp = await http.get(url, params=params)
+    async with HttpClient() as http:
+        # Convoso DNC insert expects POST; use POST for consistency with other clients
+        resp = await http.post(url, params=params)
 			text = resp.text
 			logger.info(f"Convoso add_to_dnc response: {text}")
 			
@@ -125,30 +127,54 @@ async def search_dnc(request: SearchDNCRequest, auth_token: Optional[str] = None
 	if request.phone_code:
 		params["phone_code"] = request.phone_code
 	
-	async with HttpClient() as http:
-		resp = await http.get(url, params=params)
-		text = resp.text
-		logger.info(f"Convoso search_dnc response: {text}")
-		
-		# Parse the response to check if the specific number is in the DNC list
-		is_on_dnc = False
-		try:
-			# The response should contain a list of DNC numbers
-			# We need to check if our target number is in that list
-			if request.phone_number in text:
-				is_on_dnc = True
-		except Exception as e:
-			logger.error(f"Error parsing Convoso response: {e}")
-		
-		return DNCOperationResponse(
-			success=True, 
-			message=f"Number {request.phone_number} {'IS' if is_on_dnc else 'IS NOT'} on Convoso DNC list", 
-			data={
-				"phone_number": request.phone_number,
-				"is_on_dnc": is_on_dnc,
-				"raw_response": text
-			}
-		)
+    async with HttpClient() as http:
+        resp = await http.get(url, params=params)
+        content_type = resp.headers.get("content-type", "")
+        raw_text = resp.text
+        logger.info(f"Convoso search_dnc response: {raw_text}")
+
+        # Normalize phone for robust comparison (strip non-digits and leading 1)
+        import re
+        digits = re.sub(r"\D", "", request.phone_number or "")
+        if digits.startswith("1") and len(digits) == 11:
+            digits = digits[1:]
+
+        is_on_dnc = False
+        parsed = None
+        try:
+            if content_type.startswith("application/json"):
+                parsed = resp.json()
+                data = (parsed or {}).get("data") or {}
+                total = int(data.get("total") or 0)
+                if total > 0:
+                    # Prefer explicit entries matching
+                    entries = data.get("entries") or []
+                    for entry in entries:
+                        entry_phone = str(entry.get("phone_number", ""))
+                        entry_digits = re.sub(r"\D", "", entry_phone)
+                        if entry_digits.startswith("1") and len(entry_digits) == 11:
+                            entry_digits = entry_digits[1:]
+                        if entry_digits == digits:
+                            is_on_dnc = True
+                            break
+                    # Fallback: if any results returned but no entries list, assume listed
+                    if not entries:
+                        is_on_dnc = True
+            else:
+                # Fallback heuristic on text responses
+                is_on_dnc = digits in re.sub(r"\D", "", raw_text)
+        except Exception as e:
+            logger.error(f"Error parsing Convoso search response: {e}")
+
+        return DNCOperationResponse(
+            success=True,
+            message=f"Number {request.phone_number} {'IS' if is_on_dnc else 'IS NOT'} on Convoso DNC list",
+            data={
+                "phone_number": request.phone_number,
+                "is_on_dnc": is_on_dnc,
+                "raw_response": parsed if parsed is not None else raw_text,
+            },
+        )
 
 
 @router.post("/list-all-dnc", response_model=DNCOperationResponse)
