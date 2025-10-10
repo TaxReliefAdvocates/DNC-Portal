@@ -43,7 +43,16 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
   const exportCsv = () => {
     const header = ['Request ID','Phone','Status','Requested By','Approved By','Submitted','Completed']
     const lines = filtered.map(r => [r.id, r.phone_e164, r.status, r.requested_by_user_id||'', r.reviewed_by_user_id||'', r.created_at||'', r.decided_at||''])
-    const csv = [header, ...lines].map(a => a.map(x => `"${String(x??'').replaceAll('"','""')}"`).join(',')).join('\n')
+    const csv = [header, ...lines]
+      .map(cols => cols
+        .map(x => {
+          const s = String(x ?? '')
+          const escaped = s.replace(/"/g, '""')
+          return `"${escaped}"`
+        })
+        .join(',')
+      )
+      .join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
