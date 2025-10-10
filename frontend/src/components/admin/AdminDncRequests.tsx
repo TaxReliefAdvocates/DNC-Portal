@@ -45,12 +45,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [checkingSystems, setCheckingSystems] = useState<Set<string>>(new Set())
   const [processingRequests, setProcessingRequests] = useState<Set<number>>(new Set())
 
-  const baseHeaders = {
-    'Content-Type': 'application/json',
-    'X-Org-Id': String(organizationId),
-    'X-User-Id': String(adminUserId),
-    'X-Role': role === 'superadmin' ? 'superadmin' : 'admin',
-  }
+  // Removed baseHeaders - using apiCall instead
 
   // Removed withAuth function - using apiCall instead
 
