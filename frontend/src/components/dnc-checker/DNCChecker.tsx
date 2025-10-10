@@ -495,7 +495,15 @@ export const DNCChecker: React.FC = () => {
       const authHeaders = getDemoHeaders()
       const orgId = authHeaders['X-Org-Id'] || '1'
       
-      await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`, {
+      console.log('🚀 SUBMITTING DNC REQUEST:', {
+        orgId,
+        phone: dncRequestPhone,
+        reason: dncRequestReason,
+        channel: dncRequestChannels[0] || 'call',
+        notes: dncRequestNotes
+      })
+      
+      const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${orgId}`, {
         method: 'POST',
         body: JSON.stringify({
           phone_e164: dncRequestPhone,
@@ -505,9 +513,11 @@ export const DNCChecker: React.FC = () => {
         })
       })
 
-      alert('DNC request submitted successfully!')
+      console.log('✅ DNC REQUEST SUBMITTED:', response)
+      alert('DNC request submitted successfully! An admin will review it shortly.')
       closeDncRequestModal()
     } catch (err) {
+      console.error('❌ DNC REQUEST FAILED:', err)
       alert(`Error submitting DNC request: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSubmittingDncRequest(false)

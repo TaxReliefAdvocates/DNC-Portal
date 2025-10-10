@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE_URL } from '../../lib/api'
+import { API_BASE_URL, apiCall } from '../../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
@@ -43,6 +43,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [activeRequest, setActiveRequest] = useState<RequestRow | null>(null)
   const [systemsChecks, setSystemsChecks] = useState<Record<string, any>>({})
   const [checkingSystems, setCheckingSystems] = useState<Set<string>>(new Set())
+  const [processingRequests, setProcessingRequests] = useState<Set<number>>(new Set())
 
   const baseHeaders = {
     'Content-Type': 'application/json',
@@ -51,18 +52,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     'X-Role': role === 'superadmin' ? 'superadmin' : 'admin',
   }
 
-  const withAuth = async (headers: Record<string,string>) => {
-    const out = { ...headers }
-    try {
-      const acquire = (window as any).__msalAcquireToken as (scopes: string[])=>Promise<string>
-      const scope = (import.meta as any).env?.VITE_ENTRA_SCOPE as string | undefined
-      if (acquire && scope) {
-        const token = await acquire([scope])
-        if (token) out['Authorization'] = `Bearer ${token}`
-      }
-    } catch {}
-    return out
-  }
+  // Removed withAuth function - using apiCall instead
 
   const fetchPending = async (append=false) => {
     setLoading(true)
@@ -73,13 +63,22 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
       // Only include cursor when we are appending; a fresh reload should start from the beginning
       if (append && cursor) params.set('cursor', String(cursor))
       params.set('limit','50')
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`, { headers: await withAuth(baseHeaders) })
-      if (!resp.ok) throw new Error('Failed to load requests')
-      const newRows: RequestRow[] = await resp.json()
+      
+      console.log('🔍 FETCHING PENDING REQUESTS:', {
+        organizationId,
+        status,
+        cursor,
+        append
+      })
+      
+      const newRows: RequestRow[] = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/org/${organizationId}?${params.toString()}`)
+      
+      console.log('✅ PENDING REQUESTS LOADED:', newRows)
       setRows(append ? [...rows, ...newRows] : newRows)
       setHasMore(newRows.length === 50)
       setCursor(newRows.length ? newRows[newRows.length-1].id : null)
     } catch (e) {
+      console.error('❌ FAILED TO LOAD REQUESTS:', e)
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
       setLoading(false)
@@ -96,20 +95,24 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   useEffect(() => {
     (async()=>{
       try {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/users`, { headers: await withAuth(baseHeaders) })
-        if (!resp.ok) return
-        const list: Array<{id:number,email:string,name?:string}> = await resp.json()
+        console.log('👥 LOADING USERS for organization:', organizationId)
+        const list: Array<{id:number,email:string,name?:string}> = await apiCall(`${API_BASE_URL}/api/v1/tenants/users`)
         const m: Record<number,{id:number,email:string,name?:string}> = {}
         list.forEach(u=>{ m[u.id]=u })
         setUserMap(m)
-      } catch {
+        console.log('✅ USERS LOADED:', m)
+      } catch (e) {
+        console.error('❌ FAILED TO LOAD USERS:', e)
         setUserMap({})
       }
     })()
   }, [])
 
   const act = async (reqId: number, action: 'approve' | 'deny') => {
+    setProcessingRequests(prev => new Set(prev).add(reqId))
     try {
+      console.log(`🚀 ${action.toUpperCase()} REQUEST:`, reqId)
+      
       // For approval, check systems first to ensure we know the current DNC status
       if (action === 'approve') {
         const request = rows.find(r => r.id === reqId)
@@ -121,14 +124,24 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
         }
       }
       
-      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`,
-        { method: 'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ notes: decisionNotes }) })
-      if (!resp.ok) throw new Error('Action failed')
+      const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`, {
+        method: 'POST',
+        body: JSON.stringify({ notes: decisionNotes })
+      })
+      
+      console.log(`✅ ${action.toUpperCase()} SUCCESS:`, response)
       await fetchPending(false)
-      toast.success(action === 'approve' ? 'Request approved' : 'Request denied')
+      toast.success(action === 'approve' ? 'Request approved successfully!' : 'Request denied')
     } catch (e) {
+      console.error(`❌ ${action.toUpperCase()} FAILED:`, e)
       setError(e instanceof Error ? e.message : 'Action failed')
-      toast.error('Action failed')
+      toast.error(`${action === 'approve' ? 'Approval' : 'Denial'} failed`)
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(reqId)
+        return newSet
+      })
     }
   }
 
@@ -149,13 +162,20 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
       }
       
       const url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/bulk/${action}`
-      const resp = await fetch(url, { method:'POST', headers: await withAuth(baseHeaders), body: JSON.stringify({ ids: selectedIds, notes: decisionNotes }) })
-      if (!resp.ok) throw new Error('Bulk action failed')
+      console.log(`🚀 BULK ${action.toUpperCase()}:`, selectedIds)
+      
+      const response = await apiCall(url, { 
+        method:'POST', 
+        body: JSON.stringify({ ids: selectedIds, notes: decisionNotes }) 
+      })
+      
+      console.log(`✅ BULK ${action.toUpperCase()} SUCCESS:`, response)
       setSelected({})
       await fetchPending(false)
-      toast.success(`${action==='approve'?'Approved':'Denied'} ${selectedIds.length} requests`)
-    } catch {
-      toast.error('Bulk action failed')
+      toast.success(`${action==='approve'?'Approved':'Denied'} ${selectedIds.length} requests successfully!`)
+    } catch (e) {
+      console.error(`❌ BULK ${action.toUpperCase()} FAILED:`, e)
+      toast.error(`Bulk ${action} failed: ${e instanceof Error ? e.message : 'Unknown error'}`)
     }
   }
 
@@ -383,14 +403,41 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
                       <div className="text-sm">
-                        <div className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            r.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            r.status === 'denied' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {r.status.toUpperCase()}
+                          </span>
+                          {processingRequests.has(r.id) && (
+                            <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 animate-pulse">
+                              PROCESSING...
+                            </span>
+                          )}
+                        </div>
                         <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
-                      <Button className="bg-green-600 hover:bg-green-700" onClick={() => act(r.id, 'approve')}>Approve</Button>
-                      <Button variant="outline" onClick={() => act(r.id, 'deny')}>Deny</Button>
+                      <Button 
+                        className="bg-green-600 hover:bg-green-700" 
+                        onClick={() => act(r.id, 'approve')}
+                        disabled={processingRequests.has(r.id)}
+                      >
+                        {processingRequests.has(r.id) ? 'Processing...' : 'Approve'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => act(r.id, 'deny')}
+                        disabled={processingRequests.has(r.id)}
+                      >
+                        {processingRequests.has(r.id) ? 'Processing...' : 'Deny'}
+                      </Button>
                     </div>
                   </div>
                   
