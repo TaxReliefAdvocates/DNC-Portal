@@ -95,6 +95,77 @@ def list_propagation_attempts(organization_id: int, cursor: int | None = None, l
     ]
 
 
+@router.get("/database/health-check")
+def database_health_check(db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Check database consistency and identify issues."""
+    require_role("owner", "admin", "superadmin")(principal)
+    
+    try:
+        # 1. Find stuck requests (approved but no propagation attempts)
+        stuck_requests = db.execute("""
+            SELECT dr.id, dr.phone_e164, dr.status, dr.created_at, dr.decided_at
+            FROM dnc_requests dr
+            LEFT JOIN propagation_attempts pa ON dr.phone_e164 = pa.phone_e164 
+                AND dr.organization_id = pa.organization_id
+            WHERE dr.status = 'approved' 
+                AND pa.id IS NULL
+            ORDER BY dr.created_at DESC
+        """).fetchall()
+        
+        # 2. Find orphaned propagation attempts
+        orphaned_attempts = db.execute("""
+            SELECT pa.id, pa.phone_e164, pa.service_key, pa.status, pa.started_at
+            FROM propagation_attempts pa
+            LEFT JOIN dnc_requests dr ON pa.phone_e164 = dr.phone_e164 
+                AND pa.organization_id = dr.organization_id
+            WHERE dr.id IS NULL OR dr.status != 'approved'
+            ORDER BY pa.started_at DESC
+        """).fetchall()
+        
+        # 3. Find stuck pending attempts (older than 1 hour)
+        stuck_pending = db.execute("""
+            SELECT pa.id, pa.phone_e164, pa.service_key, pa.started_at,
+                   EXTRACT(EPOCH FROM (NOW() - pa.started_at))/3600 as hours_old
+            FROM propagation_attempts pa
+            WHERE pa.status = 'pending' 
+                AND pa.started_at < NOW() - INTERVAL '1 hour'
+            ORDER BY pa.started_at ASC
+        """).fetchall()
+        
+        # 4. Summary statistics
+        pending_requests = db.execute("SELECT COUNT(*) FROM dnc_requests WHERE status = 'pending'").scalar()
+        approved_requests = db.execute("SELECT COUNT(*) FROM dnc_requests WHERE status = 'approved'").scalar()
+        total_attempts = db.execute("SELECT COUNT(*) FROM propagation_attempts").scalar()
+        pending_attempts = db.execute("SELECT COUNT(*) FROM propagation_attempts WHERE status = 'pending'").scalar()
+        success_attempts = db.execute("SELECT COUNT(*) FROM propagation_attempts WHERE status = 'success'").scalar()
+        failed_attempts = db.execute("SELECT COUNT(*) FROM propagation_attempts WHERE status = 'failed'").scalar()
+        
+        expected_attempts = approved_requests * 5
+        
+        return {
+            "status": "healthy" if not (stuck_requests or orphaned_attempts or stuck_pending) else "issues_found",
+            "issues": {
+                "stuck_requests": [{"id": r[0], "phone": r[1], "status": r[2], "created_at": r[3], "decided_at": r[4]} for r in stuck_requests],
+                "orphaned_attempts": [{"id": r[0], "phone": r[1], "service": r[2], "status": r[3], "started_at": r[4]} for r in orphaned_attempts],
+                "stuck_pending": [{"id": r[0], "phone": r[1], "service": r[2], "started_at": r[3], "hours_old": float(r[4])} for r in stuck_pending]
+            },
+            "statistics": {
+                "pending_requests": pending_requests,
+                "approved_requests": approved_requests,
+                "total_attempts": total_attempts,
+                "pending_attempts": pending_attempts,
+                "success_attempts": success_attempts,
+                "failed_attempts": failed_attempts,
+                "expected_attempts": expected_attempts,
+                "difference": total_attempts - expected_attempts
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+
+
 @router.delete("/propagation/attempts/clear")
 def clear_propagation_attempts(organization_id: int, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     """Clear all propagation attempts for the organization (admin only)."""
@@ -121,6 +192,96 @@ def clear_propagation_attempts(organization_id: int, db: Session = Depends(get_d
         logger.error(f"Error clearing propagation attempts: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to clear propagation attempts: {str(e)}")
+
+
+@router.post("/database/cleanup")
+def database_cleanup(organization_id: int, payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Comprehensive database cleanup - removes stuck/bad data."""
+    require_org_access(principal, organization_id)
+    require_role("owner", "admin", "superadmin")(principal)
+    
+    cleanup_type = payload.get("type", "stuck_pending")  # stuck_pending, orphaned, stuck_requests, full_wipe
+    
+    try:
+        logger.info(f"🧹 DATABASE CLEANUP START: Type={cleanup_type}, Org={organization_id}")
+        
+        results = {
+            "type": cleanup_type,
+            "actions_taken": [],
+            "records_affected": 0
+        }
+        
+        if cleanup_type == "stuck_pending":
+            # Clear stuck pending attempts (older than 1 hour)
+            result = db.execute("""
+                DELETE FROM propagation_attempts 
+                WHERE status = 'pending' 
+                    AND started_at < NOW() - INTERVAL '1 hour'
+                    AND organization_id = :org_id
+            """, {"org_id": organization_id})
+            results["records_affected"] = result.rowcount
+            results["actions_taken"].append(f"Deleted {result.rowcount} stuck pending attempts")
+            
+        elif cleanup_type == "orphaned":
+            # Remove orphaned propagation attempts
+            result = db.execute("""
+                DELETE FROM propagation_attempts 
+                WHERE id IN (
+                    SELECT pa.id 
+                    FROM propagation_attempts pa
+                    LEFT JOIN dnc_requests dr ON pa.phone_e164 = dr.phone_e164 
+                        AND pa.organization_id = dr.organization_id
+                    WHERE (dr.id IS NULL OR dr.status != 'approved')
+                        AND pa.organization_id = :org_id
+                )
+            """, {"org_id": organization_id})
+            results["records_affected"] = result.rowcount
+            results["actions_taken"].append(f"Deleted {result.rowcount} orphaned attempts")
+            
+        elif cleanup_type == "stuck_requests":
+            # Reset approved requests that never propagated
+            result = db.execute("""
+                UPDATE dnc_requests 
+                SET status = 'pending', decided_at = NULL, reviewed_by_user_id = NULL, decision_notes = NULL
+                WHERE status = 'approved' 
+                    AND organization_id = :org_id
+                    AND id NOT IN (
+                        SELECT DISTINCT dr.id 
+                        FROM dnc_requests dr
+                        JOIN propagation_attempts pa ON dr.phone_e164 = pa.phone_e164
+                        WHERE pa.status IN ('success', 'failed')
+                            AND dr.organization_id = :org_id
+                    )
+            """, {"org_id": organization_id})
+            results["records_affected"] = result.rowcount
+            results["actions_taken"].append(f"Reset {result.rowcount} stuck approved requests to pending")
+            
+        elif cleanup_type == "full_wipe":
+            # Full wipe - clear all propagation attempts and reset all approved requests
+            result1 = db.execute("DELETE FROM propagation_attempts WHERE organization_id = :org_id", {"org_id": organization_id})
+            result2 = db.execute("""
+                UPDATE dnc_requests 
+                SET status = 'pending', decided_at = NULL, reviewed_by_user_id = NULL, decision_notes = NULL
+                WHERE organization_id = :org_id
+            """, {"org_id": organization_id})
+            results["records_affected"] = result1.rowcount + result2.rowcount
+            results["actions_taken"].append(f"Deleted {result1.rowcount} propagation attempts")
+            results["actions_taken"].append(f"Reset {result2.rowcount} approved requests to pending")
+        
+        db.commit()
+        
+        logger.info(f"✅ DATABASE CLEANUP COMPLETE: {cleanup_type} - {results['records_affected']} records affected")
+        
+        return {
+            "success": True,
+            "message": f"Cleanup completed successfully",
+            "results": results
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ DATABASE CLEANUP FAILED: {cleanup_type} - {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
 
 
 @router.post("/propagation/attempts/recreate-all")
@@ -1144,7 +1305,7 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         _create_immediate_propagation_attempt(req.organization_id, req.phone_e164, db)
         logger.info(f"✅ PROPAGATION ATTEMPTS CREATED: 5 pending attempts for {req.phone_e164}")
         
-        # Commit all changes together
+        # Commit all changes together (including propagation attempts)
         logger.info(f"💾 COMMITTING TRANSACTION: Request {request_id}, DNC entry, and propagation attempts")
         db.commit()
         logger.info(f"✅ TRANSACTION COMMITTED: All changes saved for request {request_id}")
@@ -1203,8 +1364,7 @@ def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str,
             created_attempts.append(service)
             logger.info(f"✅ ATTEMPT ADDED: {service} added to session")
         
-        logger.info(f"💾 COMMITTING ATTEMPTS: Committing {len(created_attempts)} attempts to database")
-        db.commit()
+        logger.info(f"💾 ATTEMPTS ADDED TO SESSION: {len(created_attempts)} attempts added to database session")
         logger.info(f"✅ PROPAGATION ATTEMPTS SUCCESS: Created {len(created_attempts)} pending attempts for {phone_e164}")
         logger.info(f"📊 ATTEMPTS DETAILS: Services={created_attempts}")
         

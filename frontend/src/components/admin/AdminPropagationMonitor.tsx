@@ -44,6 +44,8 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
   const [q, setQ] = useState('')
   const [provider, setProvider] = useState('')
   const [status, setStatus] = useState('')
+  const [showCleanupModal, setShowCleanupModal] = useState(false)
+  const [healthCheckResult, setHealthCheckResult] = useState<any>(null)
   const role = useAppSelector((s) => (s as any).demoAuth?.role || 'member')
 
   const acquireAuthHeaders = async (): Promise<Record<string,string>> => {
@@ -302,6 +304,48 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
     }
   }
 
+  const checkDatabaseHealth = async () => {
+    try {
+      console.log(`🔍 CHECKING DATABASE HEALTH`)
+      toast.info(`Checking database health...`)
+      
+      const result = await apiCall(`${API_BASE_URL}/api/v1/tenants/database/health-check`)
+      
+      console.log(`✅ DATABASE HEALTH CHECK:`, result)
+      setHealthCheckResult(result)
+      
+      if (result.status === 'healthy') {
+        toast.success(`Database is healthy!`)
+      } else {
+        toast.warning(`Database has issues - see details in console`)
+      }
+    } catch (error) {
+      console.error(`❌ HEALTH CHECK FAILED:`, error)
+      toast.error(`Failed to check database health: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const performDatabaseCleanup = async (cleanupType: string) => {
+    try {
+      console.log(`🧹 PERFORMING DATABASE CLEANUP:`, cleanupType)
+      toast.info(`Performing ${cleanupType} cleanup...`)
+      
+      const result = await apiCall(`${API_BASE_URL}/api/v1/tenants/database/cleanup`, {
+        method: 'POST',
+        body: JSON.stringify({ type: cleanupType })
+      })
+      
+      console.log(`✅ DATABASE CLEANUP COMPLETE:`, result)
+      toast.success(`Cleanup completed: ${result.results.records_affected} records affected`)
+      
+      setShowCleanupModal(false)
+      await load()
+    } catch (error) {
+      console.error(`❌ DATABASE CLEANUP FAILED:`, error)
+      toast.error(`Failed to perform cleanup: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -344,6 +388,20 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
             className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
           >
             Recreate All
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={checkDatabaseHealth}
+            className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+          >
+            Health Check
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowCleanupModal(true)}
+            className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+          >
+            Database Cleanup
           </Button>
         </div>
 
@@ -420,6 +478,72 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
           </div>
         )}
       </CardContent>
+      
+      {/* Database Cleanup Modal */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Database Cleanup</h3>
+              <button
+                onClick={() => setShowCleanupModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Choose the type of cleanup to perform:
+              </p>
+              
+              <div className="space-y-2">
+                <button
+                  onClick={() => performDatabaseCleanup('stuck_pending')}
+                  className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="font-medium">Clear Stuck Pending</div>
+                  <div className="text-sm text-gray-600">Remove pending attempts older than 1 hour</div>
+                </button>
+                
+                <button
+                  onClick={() => performDatabaseCleanup('orphaned')}
+                  className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="font-medium">Remove Orphaned</div>
+                  <div className="text-sm text-gray-600">Delete propagation attempts with no matching request</div>
+                </button>
+                
+                <button
+                  onClick={() => performDatabaseCleanup('stuck_requests')}
+                  className="w-full text-left p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="font-medium">Reset Stuck Requests</div>
+                  <div className="text-sm text-gray-600">Reset approved requests that never propagated</div>
+                </button>
+                
+                <button
+                  onClick={() => performDatabaseCleanup('full_wipe')}
+                  className="w-full text-left p-3 border border-red-200 rounded-lg hover:bg-red-50"
+                >
+                  <div className="font-medium text-red-700">Full Wipe (DANGER)</div>
+                  <div className="text-sm text-red-600">Clear all propagation attempts and reset all approved requests</div>
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowCleanupModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
