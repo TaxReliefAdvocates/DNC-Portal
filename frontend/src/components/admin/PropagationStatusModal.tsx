@@ -18,8 +18,9 @@ type Attempt = {
 export const PropagationStatusModal: React.FC<{ requestId: number; phone: string; onClose: ()=>void }>
   = ({ requestId, phone, onClose }) => {
   const [attempts, setAttempts] = useState<Attempt[]>([])
-  const [loading, setLoading] = useState(true)
-  const [aggregate, setAggregate] = useState<any>({})
+  const [, setLoading] = useState(true)
+  const [, setAggregate] = useState<any>({})
+  const [retrying, setRetrying] = useState<Record<string, boolean>>({})
 
   const load = async () => {
     setLoading(true)
@@ -50,6 +51,25 @@ export const PropagationStatusModal: React.FC<{ requestId: number; phone: string
     return `${s.toFixed(1)}s`
   }
 
+  const retry = async (service: string) => {
+    setRetrying(prev => ({ ...prev, [service]: true }))
+    try {
+      // Attempt-specific retry endpoint expected by AdminPropagationMonitor retry() logic
+      // Reuse same backend route shape used elsewhere: POST /api/v1/tenants/propagation/retry
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, {
+        method: 'POST',
+        body: JSON.stringify({ request_id: requestId, service_key: service, phone_e164: phone })
+      })
+      // Optimistically mark as in_progress; next poll will update
+      setAttempts(prev => prev.map(a => a.service_key === service ? { ...a, status: 'in_progress', finished_at: null, error_message: undefined } : a))
+      await load()
+    } catch (e) {
+      // keep retry available; show toast could be added by parent
+    } finally {
+      setRetrying(prev => ({ ...prev, [service]: false }))
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-2xl p-4">
@@ -74,7 +94,18 @@ export const PropagationStatusModal: React.FC<{ requestId: number; phone: string
                 <div className="text-xs text-gray-600">
                   {a?.finished_at ? new Date(a.finished_at).toLocaleTimeString() : (a?.started_at ? 'In progress…' : 'Pending…')}
                 </div>
-                <div className="text-xs text-gray-600 w-12 text-right">{formatDur(a?.duration_seconds)}</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-gray-600 w-12 text-right">{formatDur(a?.duration_seconds)}</div>
+                  {st === 'failed' && (
+                    <Button
+                      variant="outline"
+                      onClick={() => retry(key)}
+                      disabled={!!retrying[key]}
+                    >
+                      {retrying[key] ? 'Retrying…' : 'Retry'}
+                    </Button>
+                  )}
+                </div>
               </div>
             )
           })}

@@ -6,6 +6,9 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { AdminRequestDetail } from './AdminRequestDetail'
+import { ApproveRequestModal } from './ApproveRequestModal'
+import { RejectRequestModal } from './RejectRequestModal'
+import { PropagationStatusModal } from './PropagationStatusModal'
 // import { useAppSelector } from '../../lib/hooks' // Not currently used
 
 type RequestRow = {
@@ -44,6 +47,9 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   const [systemsChecks, setSystemsChecks] = useState<Record<string, any>>({})
   const [checkingSystems, setCheckingSystems] = useState<Set<string>>(new Set())
   const [processingRequests, setProcessingRequests] = useState<Set<number>>(new Set())
+  const [approveModalFor, setApproveModalFor] = useState<RequestRow | null>(null)
+  const [rejectModalFor, setRejectModalFor] = useState<RequestRow | null>(null)
+  const [propModal, setPropModal] = useState<{ requestId: number, phone: string } | null>(null)
 
   // Removed baseHeaders - using apiCall instead
 
@@ -103,30 +109,24 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     })()
   }, [])
 
-  const act = async (reqId: number, action: 'approve' | 'deny') => {
+  const act = async (reqId: number, action: 'approve' | 'deny', notes?: string) => {
     setProcessingRequests(prev => new Set(prev).add(reqId))
     try {
       console.log(`🚀 ${action.toUpperCase()} REQUEST:`, reqId)
       
-      // For approval, check systems first to ensure we know the current DNC status
-      if (action === 'approve') {
-        const request = rows.find(r => r.id === reqId)
-        if (request) {
-          toast.info('Checking systems before approval...')
-          await checkSystemsForPhone(request.phone_e164)
-          // Wait a moment for the systems check to complete
-          await new Promise(resolve => setTimeout(resolve, 2000))
-        }
-      }
-      
       const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`, {
         method: 'POST',
-        body: JSON.stringify({ notes: decisionNotes })
+        body: JSON.stringify({ notes: notes ?? decisionNotes })
       })
       
       console.log(`✅ ${action.toUpperCase()} SUCCESS:`, response)
       await fetchPending(false)
       toast.success(action === 'approve' ? 'Request approved successfully!' : 'Request denied')
+
+      if (action === 'approve') {
+        const r = rows.find(x => x.id === reqId)
+        if (r) setPropModal({ requestId: r.id, phone: r.phone_e164 })
+      }
     } catch (e) {
       console.error(`❌ ${action.toUpperCase()} FAILED:`, e)
       setError(e instanceof Error ? e.message : 'Action failed')
@@ -317,6 +317,7 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Pending DNC Requests</CardTitle>
@@ -395,9 +396,9 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                 <div key={r.id} className="border rounded p-3 space-y-3">
                   {/* Main request info */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
-                      <div className="text-sm">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={!!selected[r.id]} onChange={(e)=>setSelected({...selected, [r.id]: e.target.checked})} />
+                  <div className="text-sm">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{r.phone_e164} • {r.channel || 'n/a'}</span>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -414,21 +415,21 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
                             </span>
                           )}
                         </div>
-                        <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
+                    <div className="text-gray-600">Reason: {r.reason || '—'} • Requested by {(r as any).requested_by?.name || userMap[r.requested_by_user_id]?.name || 'User'}{(r as any).requested_by?.email ? ` (${(r as any).requested_by?.email})` : (userMap[r.requested_by_user_id]?.email ? ` (${userMap[r.requested_by_user_id]?.email})` : '')}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setActiveRequest(r)}>View</Button>
                       <Button 
                         className="bg-green-600 hover:bg-green-700" 
-                        onClick={() => act(r.id, 'approve')}
+                        onClick={() => setApproveModalFor(r)}
                         disabled={processingRequests.has(r.id)}
                       >
                         {processingRequests.has(r.id) ? 'Processing...' : 'Approve'}
                       </Button>
                       <Button 
                         variant="outline" 
-                        onClick={() => act(r.id, 'deny')}
+                        onClick={() => setRejectModalFor(r)}
                         disabled={processingRequests.has(r.id)}
                       >
                         {processingRequests.has(r.id) ? 'Processing...' : 'Deny'}
@@ -515,6 +516,37 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
         )}
       </CardContent>
     </Card>
+    {approveModalFor && (
+      <ApproveRequestModal
+        phone={approveModalFor.phone_e164}
+        requestedBy={userMap[approveModalFor.requested_by_user_id]?.name || userMap[approveModalFor.requested_by_user_id]?.email}
+        reason={approveModalFor.reason}
+        submitted={approveModalFor.created_at}
+        onApprove={async (notes) => {
+          await act(approveModalFor.id, 'approve', notes)
+          setApproveModalFor(null)
+        }}
+        onCancel={() => setApproveModalFor(null)}
+      />
+    )}
+    {rejectModalFor && (
+      <RejectRequestModal
+        phone={rejectModalFor.phone_e164}
+        onReject={async (notes) => {
+          await act(rejectModalFor.id, 'deny', notes)
+          setRejectModalFor(null)
+        }}
+        onCancel={() => setRejectModalFor(null)}
+      />
+    )}
+    {propModal && (
+      <PropagationStatusModal
+        requestId={propModal.requestId}
+        phone={propModal.phone}
+        onClose={() => setPropModal(null)}
+      />
+    )}
+    </>
   )
 }
 

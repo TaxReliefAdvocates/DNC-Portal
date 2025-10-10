@@ -34,7 +34,7 @@ export const RequestDNCModal: React.FC<{ organizationId: number; onClose: ()=>vo
     }
     setSubmitting(true)
     try {
-      const res = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${organizationId}`, {
+      await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${organizationId}`, {
         method: 'POST',
         body: JSON.stringify({ phone_e164: formatDigits(phone), reason, channel, notes })
       })
