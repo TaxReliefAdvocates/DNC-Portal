@@ -1232,7 +1232,7 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         db.commit()
         row = db.execute(text("SELECT organization_id, phone_e164 FROM dnc_requests WHERE id = :rid"), {"rid": request_id}).fetchone()
         if row:
-            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(row[0]), str(row[1]))
+            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(request_id), int(row[0]), str(row[1]))
         return {"request_id": request_id, "status": "approved", "message": "Request approved - propagation queued"}
     except Exception as e:
         db.rollback()
@@ -1253,12 +1253,13 @@ def get_request_status(request_id: int, db: Session = Depends(get_db), principal
     attempts = db.execute(
         text(
             """
-            SELECT service_key, status, http_status, provider_request_id, started_at, finished_at,
+            SELECT DISTINCT ON (service_key)
+                   service_key, status, http_status, provider_request_id, started_at, finished_at,
                    EXTRACT(EPOCH FROM (COALESCE(finished_at, now()) - started_at))::float AS duration_seconds,
                    error_message
             FROM propagation_attempts
             WHERE request_id = :rid
-            ORDER BY service_key
+            ORDER BY service_key, attempt_no DESC, started_at DESC, id DESC
             """
         ),
         {"rid": request_id},
@@ -1285,7 +1286,96 @@ def get_request_events(request_id: int, limit: int = 200, db: Session = Depends(
     return {"events": rows}
 
 
-def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session) -> None:
+@router.post("/tenants/propagation/retry")
+def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Retry a specific provider propagation for a given request.
+    Body: { request_id, service_key, phone_e164 }
+    """
+    require_role("owner", "admin", "superadmin")(principal)
+    request_id = int((payload or {}).get("request_id") or 0)
+    service_key = str((payload or {}).get("service_key") or "")
+    phone_e164 = str((payload or {}).get("phone_e164") or "")
+    if not request_id or not service_key or not phone_e164:
+        raise HTTPException(status_code=400, detail="request_id, service_key, phone_e164 required")
+
+    try:
+        # Determine next attempt number
+        last_no = db.execute(text(
+            """
+            SELECT COALESCE(MAX(attempt_no), 0)
+            FROM propagation_attempts
+            WHERE request_id = :rid AND service_key = :svc AND phone_e164 = :ph
+            """
+        ), {"rid": request_id, "svc": service_key, "ph": phone_e164}).scalar() or 0
+
+        from datetime import datetime
+        attempt = PropagationAttempt(
+            organization_id=int(getattr(principal, "organization_id", 0) or 0),
+            request_id=request_id,
+            phone_e164=phone_e164,
+            service_key=service_key,
+            attempt_no=int(last_no) + 1,
+            status="in_progress",
+            started_at=datetime.utcnow(),
+        )
+        db.add(attempt)
+        db.commit()
+        db.refresh(attempt)
+
+        import anyio
+
+        async def _run_once():
+            from ...core.crm_clients.ringcentral import RingCentralService
+            from ...core.crm_clients.convoso import ConvosoClient
+            from ...core.crm_clients.ytel import YtelClient
+            from ...api.v1.providers.genesys import patch_dnclist_phone_numbers
+            from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest
+            from ...api.v1.providers.logics import update_case_status
+            from ...core.tps_api import tps_api
+            from datetime import datetime
+            try:
+                res = None
+                if service_key == "ringcentral":
+                    client = RingCentralService()
+                    res = await client.remove_phone_number(phone_e164)
+                elif service_key == "convoso":
+                    client = ConvosoClient()
+                    res = await client.remove_phone_number(phone_e164)
+                elif service_key == "ytel":
+                    client = YtelClient()
+                    res = await client.remove_phone_number(phone_e164)
+                elif service_key == "genesys":
+                    from ...config import settings as cfg
+                    g_list = getattr(cfg, "genesys_dnclist_id", None)
+                    if not g_list:
+                        raise Exception("Genesys DNC list ID not configured")
+                    req = GenesysPatchPhoneNumbersRequest(action="Add", phone_numbers=[phone_e164], expiration_date_time="")
+                    res = await patch_dnclist_phone_numbers(g_list, req)
+                elif service_key == "logics":
+                    cases = await tps_api.find_cases_by_phone(phone_e164)
+                    case_id = (cases or [{}])[0].get("CaseID")
+                    if not case_id:
+                        raise Exception("No cases found to update")
+                    res = await update_case_status({"case_id": case_id, "status_id": 57, "notes": "Retry add to DNC"})
+                else:
+                    raise Exception("provider retry not implemented")
+
+                attempt.status = "success"
+                attempt.response_payload = res
+                attempt.finished_at = datetime.utcnow()
+                db.commit()
+            except Exception as e:
+                attempt.status = "failed"
+                attempt.error_message = str(e)
+                attempt.finished_at = datetime.utcnow()
+                db.commit()
+
+        anyio.run(_run_once)
+        return {"attempt_id": attempt.id, "status": attempt.status}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Retry failed: {str(e)}")
+def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session, request_id: int | None = None) -> None:
     """Create immediate propagation attempt records for visibility in DNC History Monitor."""
     logger.info(f"🎯 PROPAGATION ATTEMPTS START: Creating for org={organization_id}, phone={phone_e164}")
     
@@ -1302,6 +1392,7 @@ def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str,
             
             attempt = PropagationAttempt(
                 organization_id=organization_id,
+                request_id=request_id,
                 phone_e164=phone_e164,
                 service_key=service,
                 attempt_no=1,
@@ -1389,7 +1480,7 @@ def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_us
     anyio.run(_run)
 
 
-def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
+def _propagate_approved_entry_with_systems_check(request_id: int, organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
     """Enhanced background task: Check systems first, then push only to systems where not already on DNC.
     
     Uses a fresh DB session and runs async provider calls via anyio.
@@ -1542,9 +1633,10 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                     logger.info(f"🔍 FINDING ATTEMPT: Looking for pending attempt for {key}")
                     attempt = db2.query(PropagationAttempt).filter(
                         PropagationAttempt.organization_id == organization_id,
+                        PropagationAttempt.request_id == request_id,
                         PropagationAttempt.phone_e164 == phone_e164,
                         PropagationAttempt.service_key == key,
-                        PropagationAttempt.status == "pending"
+                        PropagationAttempt.status.in_(["pending","in_progress"])
                     ).first()
                     if attempt:
                         attempt.status = "success"
@@ -1560,9 +1652,10 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                     if "error" in status:
                         attempt = db2.query(PropagationAttempt).filter(
                             PropagationAttempt.organization_id == organization_id,
+                            PropagationAttempt.request_id == request_id,
                             PropagationAttempt.phone_e164 == phone_e164,
                             PropagationAttempt.service_key == provider,
-                            PropagationAttempt.status == "pending"
+                            PropagationAttempt.status.in_(["pending","in_progress"])
                         ).first()
                         if attempt:
                             attempt.status = "failed"
@@ -1581,9 +1674,10 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                         # Mark as failed due to provider being disabled
                         attempt = db2.query(PropagationAttempt).filter(
                             PropagationAttempt.organization_id == organization_id,
+                            PropagationAttempt.request_id == request_id,
                             PropagationAttempt.phone_e164 == phone_e164,
                             PropagationAttempt.service_key == key,
-                            PropagationAttempt.status == "pending"
+                            PropagationAttempt.status.in_(["pending","in_progress"])
                         ).first()
                         if attempt:
                             attempt.status = "failed"
@@ -1595,20 +1689,22 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                     # Find existing pending attempt for this service
                     attempt = db2.query(PropagationAttempt).filter(
                         PropagationAttempt.organization_id == organization_id,
+                        PropagationAttempt.request_id == request_id,
                         PropagationAttempt.phone_e164 == phone_e164,
                         PropagationAttempt.service_key == key,
-                        PropagationAttempt.status == "pending"
+                        PropagationAttempt.status.in_(["pending","in_progress"])
                     ).first()
                     
                     if not attempt:
                         # Create new attempt if none exists (fallback)
                         attempt = PropagationAttempt(
                             organization_id=int(organization_id),
+                            request_id=int(request_id),
                             job_item_id=None,
                             phone_e164=str(phone_e164),
                             service_key=key,
                             attempt_no=1,
-                            status="pending",
+                            status="in_progress",
                             started_at=datetime.utcnow(),
                         )
                         db2.add(attempt)

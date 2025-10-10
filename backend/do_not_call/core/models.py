@@ -271,6 +271,8 @@ class PropagationAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     job_item_id = Column(Integer, ForeignKey("removal_job_items.id"), nullable=True)
+    # Optional link back to the originating DNC request for UI status aggregation
+    request_id = Column(Integer, ForeignKey("dnc_requests.id"), nullable=True)
     phone_e164 = Column(String(20), nullable=False)
     service_key = Column(String(50), nullable=False)
     attempt_no = Column(Integer, default=1, nullable=False)
