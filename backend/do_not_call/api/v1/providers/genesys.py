@@ -13,7 +13,7 @@ from .common import (
 	ComingSoonResponse,
 )
 from do_not_call.config import settings
-from .http_client import HttpClient
+from do_not_call.api.v1.providers.http_client import HttpClient
 from pydantic import BaseModel
 
 router = APIRouter()

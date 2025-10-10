@@ -16,6 +16,8 @@ type Row = {
   reviewed_by_user_id?: number
   created_at?: string
   decided_at?: string | null
+  completed_at?: string | null
+  updated_at?: string | null
 }
 
 export const AdminHistory: React.FC<{ organizationId: number }>= ({ organizationId }) => {
@@ -109,6 +111,7 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
                   <th className="p-2 text-left">Approved By</th>
                   <th className="p-2 text-left">Submitted</th>
                   <th className="p-2 text-left">Completed</th>
+                  <th className="p-2 text-left">Last Updated</th>
                   <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
@@ -121,7 +124,8 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
                     <td className="p-2">{r.requested_by_user_id || '—'}</td>
                     <td className="p-2">{r.reviewed_by_user_id || '—'}</td>
                     <td className="p-2">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
-                    <td className="p-2">{r.decided_at ? new Date(r.decided_at).toLocaleString() : '—'}</td>
+                    <td className="p-2">{r.completed_at ? new Date(r.completed_at).toLocaleString() : (r.decided_at ? new Date(r.decided_at).toLocaleString() : '—')}</td>
+                    <td className="p-2">{r.updated_at ? new Date(r.updated_at).toLocaleString() : 'In Progress'}</td>
                     <td className="p-2"><Button variant="outline" onClick={() => setDetailsFor(r.id)}>View Details</Button></td>
                   </tr>
                 ))}

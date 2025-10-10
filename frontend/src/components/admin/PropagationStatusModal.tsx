@@ -35,7 +35,7 @@ export const PropagationStatusModal: React.FC<{ requestId: number; phone: string
 
   useEffect(() => {
     load()
-    const t = setInterval(load, 2000)
+    const t = setInterval(load, 1000) // faster polling
     return () => clearInterval(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId])

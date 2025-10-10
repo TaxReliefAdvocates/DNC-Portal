@@ -1247,6 +1247,18 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
             return {"request_id": request_id, "status": "denied"}
 
         db.execute(text("SELECT approve_dnc_request_tx(:rid, :rev, :notes)"), {"rid": request_id, "rev": reviewer, "notes": notes})
+        # Mark skipped systems immediately
+        if propagate_to:
+            all_services = ["ringcentral","convoso","ytel","logics","genesys"]
+            skipped = [s for s in all_services if s not in propagate_to]
+            for svc in skipped:
+                db.execute(text(
+                    """
+                    UPDATE propagation_attempts
+                    SET status = 'skipped', error_message = 'Admin chose not to propagate to this system', finished_at = NOW()
+                    WHERE request_id = :rid AND service_key = :svc
+                    """
+                ), {"rid": request_id, "svc": svc})
         db.commit()
         row = db.execute(text("SELECT organization_id, phone_e164 FROM dnc_requests WHERE id = :rid"), {"rid": request_id}).fetchone()
         if row:
@@ -1533,6 +1545,7 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
             from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest, LogicsUpdateCaseRequest
             from ...config import settings as cfg
             import httpx
+            import asyncio
             
             db2 = SessionLocal()
             logger.info(f"🔗 DATABASE SESSION: Created fresh session for background task")
@@ -1541,105 +1554,112 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                 systems_status = {}
                 logger.info(f"🔍 SYSTEMS CHECK START: Checking DNC status for {phone_e164} across all systems")
                 
-                # Check RingCentral
-                logger.info(f"📞 CHECKING RINGCENTRAL: Starting check for {phone_e164}")
-                try:
-                    token = await ringcentral_get_token()
-                    headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
-                    params = {"status": "Blocked", "page": 1, "perPage": 100}
-                    rc_phone = phone_e164 if phone_e164.startswith("+") else f"+{phone_e164}"
-                    async with httpx.AsyncClient(base_url="https://platform.ringcentral.com") as hc:
-                        r = await hc.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
-                        listed = False
-                        try:
-                            js = r.json()
-                            items = js.get("records") or js.get("data") or []
-                            for it in items:
-                                if str(it.get("phoneNumber", "")) == rc_phone:
-                                    listed = True
-                                    break
-                        except Exception:
+                async def check_ringcentral():
+                    logger.info(f"📞 CHECKING RINGCENTRAL: Starting check for {phone_e164}")
+                    try:
+                        token = await ringcentral_get_token()
+                        headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
+                        params = {"status": "Blocked", "page": 1, "perPage": 100}
+                        rc_phone = phone_e164 if phone_e164.startswith("+") else f"+{phone_e164}"
+                        async with httpx.AsyncClient(base_url="https://platform.ringcentral.com") as hc:
+                            r = await hc.get("/restapi/v1.0/account/~/extension/~/caller-blocking/phone-numbers", headers=headers, params=params)
                             listed = False
-                        systems_status["ringcentral"] = {"listed": listed}
-                        logger.info(f"✅ RINGCENTRAL CHECK: Phone {phone_e164} listed={listed}")
-                except Exception as e:
-                    systems_status["ringcentral"] = {"listed": False, "error": "check_failed"}
-                    logger.error(f"❌ RINGCENTRAL CHECK FAILED: {str(e)}")
+                            try:
+                                js = r.json()
+                                items = js.get("records") or js.get("data") or []
+                                for it in items:
+                                    if str(it.get("phoneNumber", "")) == rc_phone:
+                                        listed = True
+                                        break
+                            except Exception:
+                                listed = False
+                            return ("ringcentral", {"listed": listed})
+                    except Exception as e:
+                        logger.error(f"❌ RINGCENTRAL CHECK FAILED: {str(e)}")
+                        return ("ringcentral", {"listed": False, "error": "check_failed"})
 
-                # Check Convoso
-                logger.info(f"📞 CHECKING CONVOSO: Starting check for {phone_e164}")
-                try:
-                    conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
-                    if conv_token:
-                        url = "https://api.convoso.com/v1/dnc/search"
-                        params = {"auth_token": conv_token, "phone_number": phone_e164, "phone_code": "1", "offset": 0, "limit": 10}
-                        async with httpx.AsyncClient() as client:
-                            r = await client.get(url, params=params, timeout=30.0)
-                            js = r.json() if r.headers.get("content-type","").startswith("application/json") else {}
-                            total = ((js or {}).get("data") or {}).get("total", 0)
-                            systems_status["convoso"] = {"listed": bool(total and int(total) > 0)}
-                            logger.info(f"✅ CONVOSO CHECK: Phone {phone_e164} listed={bool(total and int(total) > 0)}")
-                    else:
-                        systems_status["convoso"] = {"listed": False, "error": "no_token"}
-                        logger.warning(f"⚠️ CONVOSO CHECK: No token available")
-                except Exception as e:
-                    systems_status["convoso"] = {"listed": False, "error": "check_failed"}
-                    logger.error(f"❌ CONVOSO CHECK FAILED: {str(e)}")
+                async def check_convoso():
+                    logger.info(f"📞 CHECKING CONVOSO: Starting check for {phone_e164}")
+                    try:
+                        conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
+                        if conv_token:
+                            url = "https://api.convoso.com/v1/dnc/search"
+                            params = {"auth_token": conv_token, "phone_number": phone_e164, "phone_code": "1", "offset": 0, "limit": 10}
+                            async with httpx.AsyncClient() as client:
+                                r = await client.get(url, params=params, timeout=30.0)
+                                js = r.json() if r.headers.get("content-type","").startswith("application/json") else {}
+                                total = ((js or {}).get("data") or {}).get("total", 0)
+                                return ("convoso", {"listed": bool(total and int(total) > 0)})
+                        else:
+                            return ("convoso", {"listed": False, "error": "no_token"})
+                    except Exception as e:
+                        logger.error(f"❌ CONVOSO CHECK FAILED: {str(e)}")
+                        return ("convoso", {"listed": False, "error": "check_failed"})
 
-                # Check Ytel
-                try:
-                    y_user = getattr(cfg, "ytel_user", None)
-                    y_pass = getattr(cfg, "ytel_password", None)
-                    if y_user and y_pass:
-                        base = "https://tra.ytel.com/x5/api/non_agent.php"
-                        params = {
-                            "function": "add_lead",
-                            "user": y_user,
-                            "pass": y_pass,
-                            "source": "dncfilter",
-                            "phone_number": phone_e164,
-                            "dnc_check": "Y",
-                            "campaign_dnc_check": "Y",
-                            "duplicate_check": "Y",
-                        }
-                        async with httpx.AsyncClient() as client:
-                            rs = await client.get(base, params=params, timeout=30.0)
-                            txt = rs.text or ""
-                            listed = "PHONE NUMBER IN DNC" in txt
-                            systems_status["ytel"] = {"listed": listed}
-                    else:
-                        systems_status["ytel"] = {"listed": False, "error": "no_creds"}
-                except Exception:
-                    systems_status["ytel"] = {"listed": False, "error": "check_failed"}
+                async def check_ytel():
+                    try:
+                        y_user = getattr(cfg, "ytel_user", None)
+                        y_pass = getattr(cfg, "ytel_password", None)
+                        if y_user and y_pass:
+                            base = "https://tra.ytel.com/x5/api/non_agent.php"
+                            params = {
+                                "function": "add_lead",
+                                "user": y_user,
+                                "pass": y_pass,
+                                "source": "dncfilter",
+                                "phone_number": phone_e164,
+                                "dnc_check": "Y",
+                                "campaign_dnc_check": "Y",
+                                "duplicate_check": "Y",
+                            }
+                            async with httpx.AsyncClient() as client:
+                                rs = await client.get(base, params=params, timeout=30.0)
+                                txt = rs.text or ""
+                                listed = "PHONE NUMBER IN DNC" in txt
+                                return ("ytel", {"listed": listed})
+                        else:
+                            return ("ytel", {"listed": False, "error": "no_creds"})
+                    except Exception:
+                        return ("ytel", {"listed": False, "error": "check_failed"})
 
-                # Check Genesys
-                try:
-                    g_cid = getattr(cfg, "genesys_client_id", None)
-                    g_csec = getattr(cfg, "genesys_client_secret", None)
-                    g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
-                    if g_cid and g_csec and g_list:
-                        login_base = (getattr(cfg, "genesys_region_login_base", None) or "https://login.usw2.pure.cloud").rstrip("/")
-                        api_base = (getattr(cfg, "genesys_api_base", None) or "https://api.usw2.pure.cloud").rstrip("/")
-                        tok = (await httpx.post(f"{login_base}/oauth/token", data={"grant_type":"client_credentials","client_id": g_cid, "client_secret": g_csec}, headers={"Content-Type":"application/x-www-form-urlencoded"}, timeout=30.0)).json().get("access_token")
-                        headers = {"Authorization": f"Bearer {tok}"}
-                        async with httpx.AsyncClient() as client:
-                            r = await client.get(f"{api_base}/api/v2/outbound/dnclists/{g_list}/export", headers=headers, timeout=30.0)
-                            text_blob = r.text or ""
-                            systems_status["genesys"] = {"listed": phone_e164 in text_blob}
-                    else:
-                        systems_status["genesys"] = {"listed": False, "error": "no_creds"}
-                except Exception:
-                    systems_status["genesys"] = {"listed": False, "error": "check_failed"}
+                async def check_genesys():
+                    try:
+                        g_cid = getattr(cfg, "genesys_client_id", None)
+                        g_csec = getattr(cfg, "genesys_client_secret", None)
+                        g_list = getattr(cfg, "genesys_dnclist_id", None) if hasattr(cfg, "genesys_dnclist_id") else None
+                        if g_cid and g_csec and g_list:
+                            login_base = (getattr(cfg, "genesys_region_login_base", None) or "https://login.usw2.pure.cloud").rstrip("/")
+                            api_base = (getattr(cfg, "genesys_api_base", None) or "https://api.usw2.pure.cloud").rstrip("/")
+                            tok = (await httpx.post(f"{login_base}/oauth/token", data={"grant_type":"client_credentials","client_id": g_cid, "client_secret": g_csec}, headers={"Content-Type":"application/x-www-form-urlencoded"}, timeout=30.0)).json().get("access_token")
+                            headers = {"Authorization": f"Bearer {tok}"}
+                            async with httpx.AsyncClient() as client:
+                                r = await client.get(f"{api_base}/api/v2/outbound/dnclists/{g_list}/export", headers=headers, timeout=30.0)
+                                text_blob = r.text or ""
+                                return ("genesys", {"listed": phone_e164 in text_blob})
+                        else:
+                            return ("genesys", {"listed": False, "error": "no_creds"})
+                    except Exception:
+                        return ("genesys", {"listed": False, "error": "check_failed"})
 
-                # Check Logics (TPS)
-                try:
-                    from ...core.tps_api import tps_api
-                    cases = await tps_api.find_cases_by_phone(phone_e164)
-                    # If cases exist and any has StatusID 57 (DNC), consider it listed
-                    listed = any(case.get("StatusID") == 57 for case in cases) if cases else False
-                    systems_status["logics"] = {"listed": listed, "cases": cases}
-                except Exception:
-                    systems_status["logics"] = {"listed": False, "error": "check_failed"}
+                async def check_logics():
+                    try:
+                        from ...core.tps_api import tps_api
+                        cases = await tps_api.find_cases_by_phone(phone_e164)
+                        listed = any(case.get("StatusID") == 57 for case in cases) if cases else False
+                        return ("logics", {"listed": listed, "cases": cases})
+                    except Exception:
+                        return ("logics", {"listed": False, "error": "check_failed"})
+
+                checks = await asyncio.gather(
+                    check_ringcentral(),
+                    check_convoso(),
+                    check_ytel(),
+                    check_genesys(),
+                    check_logics(),
+                    return_exceptions=False,
+                )
+                for provider, status in checks:
+                    systems_status[provider] = status
 
                 # Now push to systems where the number is NOT already on DNC
                 logger.info(f"📊 SYSTEMS CHECK SUMMARY: {systems_status}")
@@ -1715,42 +1735,41 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                 except Exception:
                     pass
 
-                # Update existing pending propagation attempts for systems that need the number added and are selected
-                logger.info(f"🚀 PUSHING TO SYSTEMS: Processing {len(providers_to_push)} services that need push")
-                for key in providers_to_push:
+                # Update existing pending propagation attempts for systems that need the number added and are selected (parallelized)
+                import asyncio
+                logger.info(f"🚀 PUSHING TO SYSTEMS (parallel): Processing {len(providers_to_push)} services that need push")
+
+                async def process_provider(key: str):
                     if key not in selected:
                         logger.info(f"⏭️ SKIPPING {key}: Not selected for propagation")
-                        continue
+                        return
                     logger.info(f"🔧 PROCESSING SERVICE: {key} for {phone_e164}")
                     # Check provider enabled
                     row = db2.query(SystemSetting).filter(SystemSetting.key == key).first()
                     if row is not None and not bool(row.enabled):
-                        # Mark as failed due to provider being disabled
                         attempt = db2.query(PropagationAttempt).filter(
                             PropagationAttempt.organization_id == organization_id,
                             PropagationAttempt.request_id == request_id,
                             PropagationAttempt.phone_e164 == phone_e164,
                             PropagationAttempt.service_key == key,
-                            PropagationAttempt.status.in_(["pending","in_progress"])
+                            PropagationAttempt.status.in_( ["pending","in_progress"])
                         ).first()
                         if attempt:
                             attempt.status = "failed"
                             attempt.error_message = "Provider is disabled"
                             attempt.finished_at = datetime.utcnow()
                             db2.commit()
-                        continue
+                        return
                     
-                    # Find existing pending attempt for this service
+                    # Find or create attempt for this service
                     attempt = db2.query(PropagationAttempt).filter(
                         PropagationAttempt.organization_id == organization_id,
                         PropagationAttempt.request_id == request_id,
                         PropagationAttempt.phone_e164 == phone_e164,
                         PropagationAttempt.service_key == key,
-                        PropagationAttempt.status.in_(["pending","in_progress"])
+                        PropagationAttempt.status.in_( ["pending","in_progress"])
                     ).first()
-                    
                     if not attempt:
-                        # Create new attempt if none exists (fallback)
                         attempt = PropagationAttempt(
                             organization_id=int(organization_id),
                             request_id=int(request_id),
@@ -1768,50 +1787,34 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                     # Execute provider-specific add-to-DNC
                     try:
                         if key == "ringcentral":
-                            try:
-                                client = RingCentralService()
-                                res = await client.remove_phone_number(phone_e164)
-                            except Exception as e:
-                                raise
+                            client = RingCentralService()
+                            res = await client.remove_phone_number(phone_e164)
                         elif key == "convoso":
-                            try:
-                                client = ConvosoClient()
-                                res = await client.remove_phone_number(phone_e164)
-                            except Exception:
-                                raise
+                            client = ConvosoClient()
+                            res = await client.remove_phone_number(phone_e164)
                         elif key == "ytel":
-                            try:
-                                client = YtelClient()
-                                res = await client.remove_phone_number(phone_e164)
-                            except Exception:
-                                raise
+                            client = YtelClient()
+                            res = await client.remove_phone_number(phone_e164)
                         elif key == "genesys":
-                            try:
-                                g_list = getattr(cfg, "genesys_dnclist_id", None)
-                                if not g_list:
-                                    raise Exception("Provider not configured: genesys_dnclist_id missing")
-                                from ...api.v1.providers.genesys import patch_dnclist_phone_numbers  # defer import
-                                request = GenesysPatchPhoneNumbersRequest(action="Add", phone_numbers=[phone_e164], expiration_date_time="")
-                                res = await patch_dnclist_phone_numbers(g_list, request)
-                            except Exception as e:
-                                raise
+                            g_list = getattr(cfg, "genesys_dnclist_id", None)
+                            if not g_list:
+                                raise Exception("Provider not configured: genesys_dnclist_id missing")
+                            from ...api.v1.providers.genesys import patch_dnclist_phone_numbers  # defer import
+                            request = GenesysPatchPhoneNumbersRequest(action="Add", phone_numbers=[phone_e164], expiration_date_time="")
+                            res = await patch_dnclist_phone_numbers(g_list, request)
                         elif key == "logics":
                             try:
-                                # Skip if update function not available
-                                try:
-                                    from ...api.v1.providers.logics import update_case_status  # defer import
-                                except Exception:
-                                    raise Exception("Logics integration not available, skipping")
-                                cases = systems_status.get("logics", {}).get("cases", [])
-                                if not cases:
-                                    raise Exception("No cases found to update")
-                                case_id = cases[0].get("CaseID")
-                                if not case_id:
-                                    raise Exception("No valid case ID found")
-                                request = LogicsUpdateCaseRequest(case_id=case_id, status_id=57, notes="Added to DNC via approved request")
-                                res = await update_case_status(request)
-                            except Exception as e:
-                                raise
+                                from ...api.v1.providers.logics import update_case_status  # defer import
+                            except Exception:
+                                raise Exception("Logics integration not available, skipping")
+                            cases = systems_status.get("logics", {}).get("cases", [])
+                            if not cases:
+                                raise Exception("No cases found to update")
+                            case_id = cases[0].get("CaseID")
+                            if not case_id:
+                                raise Exception("No valid case ID found")
+                            request = LogicsUpdateCaseRequest(case_id=case_id, status_id=57, notes="Added to DNC via approved request")
+                            res = await update_case_status(request)
                         else:
                             raise Exception("provider push not implemented")
 
@@ -1827,6 +1830,8 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                     finally:
                         db2.commit()
                     logger.info(f"💾 ATTEMPT UPDATED: {key} status saved to database")
+
+                await asyncio.gather(*(process_provider(key) for key in providers_to_push), return_exceptions=True)
                 
             finally:
                 logger.info(f"🔚 BACKGROUND TASK CLEANUP: Closing database session for {phone_e164}")
@@ -1908,7 +1913,11 @@ def list_requests_by_org(organization_id: int, status: str | None = None, cursor
         },
         "reviewed_by_user_id": r.reviewed_by_user_id,
         "created_at": r.created_at.isoformat(),
+        "submitted_at": getattr(r, "submitted_at", None).isoformat() if getattr(r, "submitted_at", None) else None,
+        "approved_at": getattr(r, "approved_at", None).isoformat() if getattr(r, "approved_at", None) else None,
+        "completed_at": getattr(r, "completed_at", None).isoformat() if getattr(r, "completed_at", None) else None,
         "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+        "updated_at": getattr(r, "updated_at", None).isoformat() if getattr(r, "updated_at", None) else None,
     } for r in rows]
 
 # Global admin listing that ignores org (uses Entra role only)
