@@ -198,6 +198,9 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
           body: JSON.stringify({ request_id: 0, service_key: provider, phone_e164: phone })
         })
         console.log(`Retry response (${provider}): ${resp.status}`)
+        if (!resp.ok) {
+          throw new Error(`Retry failed (${provider}): ${resp.status}`)
+        }
       }
       console.log(`Successfully pushed ${phone} to ${provider}`)
       await runCheck(phone)

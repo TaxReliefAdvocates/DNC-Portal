@@ -1330,7 +1330,7 @@ def get_request_events(request_id: int, limit: int = 200, db: Session = Depends(
     return {"events": rows}
 
 
-@router.post("/tenants/propagation/retry")
+@router.post("/propagation/retry")
 def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     """Retry a specific provider propagation for a given request.
     Body: { request_id, service_key, phone_e164 }
