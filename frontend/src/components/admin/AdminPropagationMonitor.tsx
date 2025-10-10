@@ -45,7 +45,6 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
   const [provider, setProvider] = useState('')
   const [status, setStatus] = useState('')
   const [showCleanupModal, setShowCleanupModal] = useState(false)
-  const [healthCheckResult, setHealthCheckResult] = useState<any>(null)
   const role = useAppSelector((s) => (s as any).demoAuth?.role || 'member')
 
   const acquireAuthHeaders = async (): Promise<Record<string,string>> => {
@@ -312,7 +311,6 @@ export const AdminPropagationMonitor: React.FC<Props> = ({ organizationId, admin
       const result = await apiCall(`${API_BASE_URL}/api/v1/tenants/database/health-check`)
       
       console.log(`✅ DATABASE HEALTH CHECK:`, result)
-      setHealthCheckResult(result)
       
       if (result.status === 'healthy') {
         toast.success(`Database is healthy!`)

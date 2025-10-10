@@ -26,7 +26,7 @@ interface Props {
 }
 
 export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId }) => {
-  const role = useAppSelector((s)=>s.demoAuth.role)
+  // const role = useAppSelector((s)=>s.demoAuth.role) // Not currently used
   const [rows, setRows] = useState<RequestRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
