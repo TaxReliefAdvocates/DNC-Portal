@@ -1073,29 +1073,40 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
 @router.post("/dnc-requests/{request_id}/approve")
 def approve_dnc_request(request_id: int, payload: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     """Approve DNC request and propagate to CRM systems."""
+    logger.info(f"🚀 APPROVAL START: Request {request_id} - Principal: {getattr(principal, 'user_id', 'unknown')} Role: {getattr(principal, 'role', 'unknown')}")
+    
     try:
         # Basic validation
         if not principal:
+            logger.error(f"❌ APPROVAL FAILED: No principal for request {request_id}")
             raise HTTPException(status_code=401, detail="Authentication required")
         
         # Check role
         if principal.role not in ["owner", "admin", "superadmin"]:
+            logger.error(f"❌ APPROVAL FAILED: Insufficient role {principal.role} for request {request_id}")
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         
         # Get request
         req = db.query(DNCRequest).get(request_id)
         if not req:
+            logger.error(f"❌ APPROVAL FAILED: Request {request_id} not found")
             raise HTTPException(status_code=404, detail="Request not found")
         
+        logger.info(f"📋 REQUEST DETAILS: ID={req.id}, Phone={req.phone_e164}, Org={req.organization_id}, Status={req.status}")
+        
         if req.status != "pending":
+            logger.error(f"❌ APPROVAL FAILED: Request {request_id} already decided (status: {req.status})")
             raise HTTPException(status_code=400, detail="Request already decided")
         
         # Update request
+        logger.info(f"✅ UPDATING REQUEST: Setting status to 'approved' for request {request_id}")
         req.status = "approved"
         req.reviewed_by_user_id = int(getattr(principal, "user_id", 0) or 0)
         req.decision_notes = payload.get("notes", "")
         from datetime import datetime
         req.decided_at = datetime.utcnow()
+        
+        logger.info(f"📝 REQUEST UPDATED: Status='approved', ReviewedBy={req.reviewed_by_user_id}, DecidedAt={req.decided_at}")
         
         # Check if DNC entry already exists
         existing_entry = db.query(DNCEntry).filter(
@@ -1105,13 +1116,17 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         
         if existing_entry:
             # Update existing entry if needed
+            logger.info(f"🔄 DNC ENTRY EXISTS: Found existing entry for {req.phone_e164}, checking if update needed")
             if not existing_entry.active:
                 existing_entry.active = True
                 existing_entry.removed_at = None
                 existing_entry.updated_at = datetime.utcnow()
-            logger.info(f"DNC entry already exists for {req.phone_e164}, updating if needed")
+                logger.info(f"✅ DNC ENTRY UPDATED: Reactivated existing entry for {req.phone_e164}")
+            else:
+                logger.info(f"ℹ️ DNC ENTRY ACTIVE: Entry for {req.phone_e164} already active")
         else:
             # Create new DNC entry
+            logger.info(f"🆕 CREATING DNC ENTRY: New entry for {req.phone_e164}")
             entry = DNCEntry(
                 organization_id=req.organization_id,
                 phone_e164=req.phone_e164,
@@ -1122,14 +1137,24 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
                 notes=req.decision_notes,
             )
             db.add(entry)
+            logger.info(f"✅ DNC ENTRY CREATED: Added to session for {req.phone_e164}")
         
+        # Create immediate propagation attempts BEFORE committing
+        logger.info(f"🎯 CREATING PROPAGATION ATTEMPTS: Starting for {req.phone_e164}")
+        _create_immediate_propagation_attempt(req.organization_id, req.phone_e164, db)
+        logger.info(f"✅ PROPAGATION ATTEMPTS CREATED: 5 pending attempts for {req.phone_e164}")
+        
+        # Commit all changes together
+        logger.info(f"💾 COMMITTING TRANSACTION: Request {request_id}, DNC entry, and propagation attempts")
         db.commit()
+        logger.info(f"✅ TRANSACTION COMMITTED: All changes saved for request {request_id}")
         
         # Start background task to propagate to CRM systems
+        logger.info(f"🚀 STARTING BACKGROUND TASK: _propagate_approved_entry_with_systems_check for {req.phone_e164}")
         background_tasks.add_task(_propagate_approved_entry_with_systems_check, req.organization_id, req.phone_e164)
+        logger.info(f"✅ BACKGROUND TASK QUEUED: Propagation task scheduled for {req.phone_e164}")
         
-        # Also create a simple propagation attempt record immediately for visibility
-        _create_immediate_propagation_attempt(req.organization_id, req.phone_e164, db)
+        logger.info(f"🎉 APPROVAL COMPLETE: Request {request_id} approved successfully - all systems updated")
         
         return {
             "request_id": req.id, 
@@ -1137,23 +1162,34 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
             "message": "Request approved successfully - propagating to CRM systems",
             "phone_e164": req.phone_e164
         }
-    except HTTPException:
+    except HTTPException as he:
+        logger.error(f"❌ APPROVAL HTTP EXCEPTION: Request {request_id} - {he.detail}")
         raise
     except Exception as e:
-        logger.error(f"Error approving DNC request {request_id}: {e}")
+        logger.error(f"❌ APPROVAL EXCEPTION: Request {request_id} - {str(e)}")
+        logger.error(f"❌ APPROVAL STACK TRACE: {repr(e)}")
+        import traceback
+        logger.error(f"❌ APPROVAL FULL TRACE: {traceback.format_exc()}")
         db.rollback()
+        logger.error(f"🔄 TRANSACTION ROLLED BACK: Due to exception for request {request_id}")
         raise HTTPException(status_code=500, detail=f"Failed to approve request: {str(e)}")
 
 
 def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session) -> None:
     """Create immediate propagation attempt records for visibility in DNC History Monitor."""
+    logger.info(f"🎯 PROPAGATION ATTEMPTS START: Creating for org={organization_id}, phone={phone_e164}")
+    
     try:
         from datetime import datetime
         
         # Create propagation attempts for all major services
         services = ["ringcentral", "convoso", "ytel", "logics", "genesys"]
+        logger.info(f"📋 SERVICES LIST: {services}")
         
+        created_attempts = []
         for service in services:
+            logger.info(f"🔧 CREATING ATTEMPT: Service={service}, Phone={phone_e164}")
+            
             attempt = PropagationAttempt(
                 organization_id=organization_id,
                 phone_e164=phone_e164,
@@ -1164,13 +1200,22 @@ def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str,
                 request_payload={"phone_e164": phone_e164, "action": "add_to_dnc"},
             )
             db.add(attempt)
+            created_attempts.append(service)
+            logger.info(f"✅ ATTEMPT ADDED: {service} added to session")
         
+        logger.info(f"💾 COMMITTING ATTEMPTS: Committing {len(created_attempts)} attempts to database")
         db.commit()
-        logger.info(f"Created immediate propagation attempts for {phone_e164} across {len(services)} services")
+        logger.info(f"✅ PROPAGATION ATTEMPTS SUCCESS: Created {len(created_attempts)} pending attempts for {phone_e164}")
+        logger.info(f"📊 ATTEMPTS DETAILS: Services={created_attempts}")
         
     except Exception as e:
-        logger.error(f"Failed to create immediate propagation attempts for {phone_e164}: {e}")
+        logger.error(f"❌ PROPAGATION ATTEMPTS FAILED: Error creating attempts for {phone_e164}: {str(e)}")
+        logger.error(f"❌ PROPAGATION STACK TRACE: {repr(e)}")
+        import traceback
+        logger.error(f"❌ PROPAGATION FULL TRACE: {traceback.format_exc()}")
+        logger.error(f"🔄 ROLLING BACK ATTEMPTS: Due to exception for {phone_e164}")
         db.rollback()
+        raise  # Re-raise to let caller handle
 
 
 def _propagate_approved_entry(organization_id: int, phone_e164: str, reviewer_user_id: int | None = None) -> None:
@@ -1240,12 +1285,15 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
     
     Uses a fresh DB session and runs async provider calls via anyio.
     """
+    logger.info(f"🚀 BACKGROUND TASK START: _propagate_approved_entry_with_systems_check for org={organization_id}, phone={phone_e164}")
+    
     from ...core.database import SessionLocal
     from ...core.models import SystemSetting, PropagationAttempt
     from datetime import datetime
     import anyio
 
     async def _run():
+        logger.info(f"🔄 BACKGROUND TASK RUNNING: Starting async execution for {phone_e164}")
         try:
             from ...core.crm_clients.ringcentral import RingCentralService
             from ...core.crm_clients.convoso import ConvosoClient
@@ -1257,11 +1305,14 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
             import httpx
             
             db2 = SessionLocal()
+            logger.info(f"🔗 DATABASE SESSION: Created fresh session for background task")
             try:
                 # First, check systems to see where the number is already on DNC
                 systems_status = {}
+                logger.info(f"🔍 SYSTEMS CHECK START: Checking DNC status for {phone_e164} across all systems")
                 
                 # Check RingCentral
+                logger.info(f"📞 CHECKING RINGCENTRAL: Starting check for {phone_e164}")
                 try:
                     token = await ringcentral_get_token()
                     headers = {"Authorization": f"Bearer {token}", "accept": "application/json"}
@@ -1280,10 +1331,13 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                         except Exception:
                             listed = False
                         systems_status["ringcentral"] = {"listed": listed}
-                except Exception:
+                        logger.info(f"✅ RINGCENTRAL CHECK: Phone {phone_e164} listed={listed}")
+                except Exception as e:
                     systems_status["ringcentral"] = {"listed": False, "error": "check_failed"}
+                    logger.error(f"❌ RINGCENTRAL CHECK FAILED: {str(e)}")
 
                 # Check Convoso
+                logger.info(f"📞 CHECKING CONVOSO: Starting check for {phone_e164}")
                 try:
                     conv_token = getattr(cfg, "convoso_auth_token", None) or getattr(cfg, "convoso_leads_auth_token", None)
                     if conv_token:
@@ -1294,10 +1348,13 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                             js = r.json() if r.headers.get("content-type","").startswith("application/json") else {}
                             total = ((js or {}).get("data") or {}).get("total", 0)
                             systems_status["convoso"] = {"listed": bool(total and int(total) > 0)}
+                            logger.info(f"✅ CONVOSO CHECK: Phone {phone_e164} listed={bool(total and int(total) > 0)}")
                     else:
                         systems_status["convoso"] = {"listed": False, "error": "no_token"}
-                except Exception:
+                        logger.warning(f"⚠️ CONVOSO CHECK: No token available")
+                except Exception as e:
                     systems_status["convoso"] = {"listed": False, "error": "check_failed"}
+                    logger.error(f"❌ CONVOSO CHECK FAILED: {str(e)}")
 
                 # Check Ytel
                 try:
@@ -1355,16 +1412,25 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                     systems_status["logics"] = {"listed": False, "error": "check_failed"}
 
                 # Now push to systems where the number is NOT already on DNC
+                logger.info(f"📊 SYSTEMS CHECK SUMMARY: {systems_status}")
                 providers_to_push = []
                 providers_already_listed = []
+                providers_with_errors = []
+                
                 for provider, status in systems_status.items():
                     if not status.get("listed", False) and "error" not in status:
                         providers_to_push.append(provider)
                     elif status.get("listed", False):
                         providers_already_listed.append(provider)
+                    elif "error" in status:
+                        providers_with_errors.append(provider)
+                
+                logger.info(f"🎯 PROPAGATION PLAN: Push={providers_to_push}, AlreadyListed={providers_already_listed}, Errors={providers_with_errors}")
                 
                 # Mark services where number is already on DNC as success
+                logger.info(f"✅ MARKING ALREADY LISTED: Processing {len(providers_already_listed)} services")
                 for key in providers_already_listed:
+                    logger.info(f"🔍 FINDING ATTEMPT: Looking for pending attempt for {key}")
                     attempt = db2.query(PropagationAttempt).filter(
                         PropagationAttempt.organization_id == organization_id,
                         PropagationAttempt.phone_e164 == phone_e164,
@@ -1376,7 +1442,9 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                         attempt.response_payload = {"message": "Number already on DNC list", "already_listed": True}
                         attempt.finished_at = datetime.utcnow()
                         db2.commit()
-                        logger.info(f"Marked {key} as success - number already on DNC")
+                        logger.info(f"✅ MARKED SUCCESS: {key} - number already on DNC")
+                    else:
+                        logger.warning(f"⚠️ NO ATTEMPT FOUND: No pending attempt for {key}")
                 
                 # Mark services with errors as failed
                 for provider, status in systems_status.items():
@@ -1395,7 +1463,9 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                             logger.info(f"Marked {provider} as failed - {status['error']}")
 
                 # Update existing pending propagation attempts for systems that need the number added
+                logger.info(f"🚀 PUSHING TO SYSTEMS: Processing {len(providers_to_push)} services that need push")
                 for key in providers_to_push:
+                    logger.info(f"🔧 PROCESSING SERVICE: {key} for {phone_e164}")
                     # Check provider enabled
                     row = db2.query(SystemSetting).filter(SystemSetting.key == key).first()
                     if row is not None and not bool(row.enabled):
@@ -1481,18 +1551,27 @@ def _propagate_approved_entry_with_systems_check(organization_id: int, phone_e16
                         attempt.status = "success"
                         attempt.response_payload = res
                         attempt.finished_at = datetime.utcnow()
+                        logger.info(f"✅ PUSH SUCCESS: {key} - {phone_e164} added successfully")
                     except Exception as e:
                         attempt.status = "failed"
                         attempt.error_message = str(e)
                         attempt.finished_at = datetime.utcnow()
+                        logger.error(f"❌ PUSH FAILED: {key} - {phone_e164} failed: {str(e)}")
                     db2.commit()
+                    logger.info(f"💾 ATTEMPT UPDATED: {key} status saved to database")
                 
             finally:
+                logger.info(f"🔚 BACKGROUND TASK CLEANUP: Closing database session for {phone_e164}")
                 db2.close()
         except Exception as e:
-            logger.error(f"Error in background propagation task for {phone_e164}: {e}")
+            logger.error(f"❌ BACKGROUND TASK FAILED: Error in propagation task for {phone_e164}: {str(e)}")
+            logger.error(f"❌ BACKGROUND TASK STACK TRACE: {repr(e)}")
+            import traceback
+            logger.error(f"❌ BACKGROUND TASK FULL TRACE: {traceback.format_exc()}")
 
+    logger.info(f"🏃 BACKGROUND TASK LAUNCHING: Starting anyio.run for {phone_e164}")
     anyio.run(_run)
+    logger.info(f"🏁 BACKGROUND TASK COMPLETE: Finished processing {phone_e164}")
 
 
 # Admin: backfill propagation attempts for already-approved requests
