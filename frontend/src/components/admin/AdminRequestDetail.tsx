@@ -139,9 +139,9 @@ export const AdminRequestDetail: React.FC<Props> = ({ request, onBack }) => {
       try {
         // Step 1: Approve the request
         setApprovalProgress(prev => ({ ...prev, 'DNC History': 'loading' }))
-        await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/approve`, { 
-          method:'POST', 
-          body: JSON.stringify({ notes }) 
+        await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${request.id}/decide`, { 
+          method:'PATCH', 
+          body: JSON.stringify({ decision: 'approved', notes }) 
         })
         
         setApprovalProgress(prev => ({ ...prev, 'DNC History': 'success' }))

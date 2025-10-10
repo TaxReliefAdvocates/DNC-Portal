@@ -1339,23 +1339,33 @@ def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: P
     request_id = int((payload or {}).get("request_id") or 0)
     service_key = str((payload or {}).get("service_key") or "")
     phone_e164 = str((payload or {}).get("phone_e164") or "")
-    if not request_id or not service_key or not phone_e164:
-        raise HTTPException(status_code=400, detail="request_id, service_key, phone_e164 required")
+    if not service_key or not phone_e164:
+        raise HTTPException(status_code=400, detail="service_key and phone_e164 required")
 
     try:
         # Determine next attempt number
-        last_no = db.execute(text(
-            """
-            SELECT COALESCE(MAX(attempt_no), 0)
-            FROM propagation_attempts
-            WHERE request_id = :rid AND service_key = :svc AND phone_e164 = :ph
-            """
-        ), {"rid": request_id, "svc": service_key, "ph": phone_e164}).scalar() or 0
+        # Determine next attempt number; if no request_id, scope by org+phone+service
+        if request_id:
+            last_no = db.execute(text(
+                """
+                SELECT COALESCE(MAX(attempt_no), 0)
+                FROM propagation_attempts
+                WHERE request_id = :rid AND service_key = :svc AND phone_e164 = :ph
+                """
+            ), {"rid": request_id, "svc": service_key, "ph": phone_e164}).scalar() or 0
+        else:
+            last_no = db.execute(text(
+                """
+                SELECT COALESCE(MAX(attempt_no), 0)
+                FROM propagation_attempts
+                WHERE organization_id = :org AND service_key = :svc AND phone_e164 = :ph
+                """
+            ), {"org": int(getattr(principal, "organization_id", 0) or 0), "svc": service_key, "ph": phone_e164}).scalar() or 0
 
         from datetime import datetime
         attempt = PropagationAttempt(
             organization_id=int(getattr(principal, "organization_id", 0) or 0),
-            request_id=request_id,
+            request_id=request_id or None,
             phone_e164=phone_e164,
             service_key=service_key,
             attempt_no=int(last_no) + 1,
