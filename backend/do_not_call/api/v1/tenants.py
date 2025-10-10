@@ -1233,15 +1233,15 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
     try:
         if str(decision) != "approved":
             # Simple path for denial using existing deny endpoint logic
-    req = db.query(DNCRequest).get(request_id)
-    if not req:
-        raise HTTPException(status_code=404, detail="Request not found")
-    if req.status != "pending":
-        raise HTTPException(status_code=400, detail="Request already decided")
+            req = db.query(DNCRequest).get(request_id)
+            if not req:
+                raise HTTPException(status_code=404, detail="Request not found")
+            if req.status != "pending":
+                raise HTTPException(status_code=400, detail="Request already decided")
             req.status = "denied"
             req.reviewed_by_user_id = reviewer
-    from datetime import datetime
-    req.decided_at = datetime.utcnow()
+            from datetime import datetime
+            req.decided_at = datetime.utcnow()
             req.decision_notes = notes
             db.commit()
             return {"request_id": request_id, "status": "denied"}
