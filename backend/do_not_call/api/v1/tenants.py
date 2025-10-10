@@ -1350,7 +1350,7 @@ def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: P
             started_at=datetime.utcnow(),
         )
         db.add(attempt)
-    db.commit()
+        db.commit()
         db.refresh(attempt)
 
         import anyio
