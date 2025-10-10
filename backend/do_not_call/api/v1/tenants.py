@@ -1379,15 +1379,16 @@ def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: P
         import anyio
 
         async def _run_once():
-            from ...core.crm_clients.ringcentral import RingCentralService
-            from ...core.crm_clients.convoso import ConvosoClient
-            from ...core.crm_clients.ytel import YtelClient
-            from ...api.v1.providers.genesys import patch_dnclist_phone_numbers
-            from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest
-            from ...api.v1.providers.logics import update_case_status
-            from ...core.tps_api import tps_api
             from datetime import datetime
             try:
+                # Defer imports so missing providers won't 500 the request
+                from ...core.crm_clients.ringcentral import RingCentralService  # type: ignore
+                from ...core.crm_clients.convoso import ConvosoClient  # type: ignore
+                from ...core.crm_clients.ytel import YtelClient  # type: ignore
+                from ...api.v1.providers.genesys import patch_dnclist_phone_numbers  # type: ignore
+                from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest  # type: ignore
+                from ...api.v1.providers.logics import update_case_status  # type: ignore
+                from ...core.tps_api import tps_api  # type: ignore
                 res = None
                 if service_key == "ringcentral":
                     client = RingCentralService()
@@ -1423,8 +1424,15 @@ def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: P
                 attempt.error_message = str(e)
                 attempt.finished_at = datetime.utcnow()
                 db.commit()
-
-        anyio.run(_run_once)
+        try:
+            anyio.run(_run_once)
+        except Exception as e:
+            # Safety: ensure non-fatal behavior and return failed status not 500
+            from datetime import datetime
+            attempt.status = "failed"
+            attempt.error_message = str(e)
+            attempt.finished_at = datetime.utcnow()
+            db.commit()
         return {"attempt_id": attempt.id, "status": attempt.status}
     except Exception as e:
         db.rollback()
