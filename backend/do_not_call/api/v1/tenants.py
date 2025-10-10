@@ -1240,6 +1240,51 @@ def approve_dnc_request(request_id: int, payload: dict, background_tasks: Backgr
         raise HTTPException(status_code=500, detail=f"Failed to approve request: {e}")
 
 
+@router.get("/dnc-requests/{request_id}/status")
+def get_request_status(request_id: int, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Return aggregated status plus per-system attempts for a request.
+
+    Uses the Postgres view vw_dnc_request_status and the propagation_attempts table.
+    """
+    require_role("owner", "admin", "superadmin", "member")(principal)
+    # Aggregate row (may be NULL if view not present)
+    agg = db.execute(text("SELECT * FROM vw_dnc_request_status WHERE request_id = :rid"), {"rid": request_id}).mappings().first()
+    # Per-system attempts
+    attempts = db.execute(
+        text(
+            """
+            SELECT service_key, status, http_status, provider_request_id, started_at, finished_at,
+                   EXTRACT(EPOCH FROM (COALESCE(finished_at, now()) - started_at))::float AS duration_seconds,
+                   error_message
+            FROM propagation_attempts
+            WHERE request_id = :rid
+            ORDER BY service_key
+            """
+        ),
+        {"rid": request_id},
+    ).mappings().all()
+    return {"aggregate": agg or {}, "attempts": attempts}
+
+
+@router.get("/dnc-requests/{request_id}/events")
+def get_request_events(request_id: int, limit: int = 200, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
+    """Return chronological audit events for a request (from dnc_events)."""
+    require_role("owner", "admin", "superadmin", "member")(principal)
+    rows = db.execute(
+        text(
+            """
+            SELECT occurred_at, level, component, action, details
+            FROM dnc_events
+            WHERE request_id = :rid
+            ORDER BY occurred_at ASC
+            LIMIT :lim
+            """
+        ),
+        {"rid": request_id, "lim": max(1, min(1000, int(limit)))},
+    ).mappings().all()
+    return {"events": rows}
+
+
 def _create_immediate_propagation_attempt(organization_id: int, phone_e164: str, db: Session) -> None:
     """Create immediate propagation attempt records for visibility in DNC History Monitor."""
     logger.info(f"🎯 PROPAGATION ATTEMPTS START: Creating for org={organization_id}, phone={phone_e164}")

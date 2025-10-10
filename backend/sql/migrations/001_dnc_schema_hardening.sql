@@ -66,7 +66,7 @@ END$$;
 CREATE INDEX IF NOT EXISTS idx_dnc_requests_status             ON dnc_requests(status);
 CREATE INDEX IF NOT EXISTS idx_dnc_requests_org_phone          ON dnc_requests(organization_id, phone_e164);
 CREATE INDEX IF NOT EXISTS idx_dnc_requests_org_status_created ON dnc_requests(organization_id, status, created_at);
-CREATE INDEX IF NOT EXISTS idx_dnc_requests_decided_at_desc    ON dnc_requests((decided_at DESC));
+CREATE INDEX IF NOT EXISTS idx_dnc_requests_decided_at_desc    ON dnc_requests(decided_at DESC);
 
 
 -- =============================
@@ -163,7 +163,7 @@ BEGIN
 END$$;
 
 -- Indexes for admin monitor and background workers
-CREATE INDEX IF NOT EXISTS idx_attempts_started_at_desc        ON propagation_attempts((started_at DESC));
+CREATE INDEX IF NOT EXISTS idx_attempts_started_at_desc        ON propagation_attempts(started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attempts_req                    ON propagation_attempts(request_id);
 CREATE INDEX IF NOT EXISTS idx_attempts_org_service_status     ON propagation_attempts(organization_id, service_key, status);
 CREATE INDEX IF NOT EXISTS idx_attempts_org_phone_provider     ON propagation_attempts(organization_id, phone_e164, service_key);
