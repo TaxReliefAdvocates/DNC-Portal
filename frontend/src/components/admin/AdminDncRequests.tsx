@@ -109,15 +109,22 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
     })()
   }, [])
 
-  const act = async (reqId: number, action: 'approve' | 'deny', notes?: string) => {
+  const act = async (reqId: number, action: 'approve' | 'deny', notes?: string, propagateTo?: string[]) => {
     setProcessingRequests(prev => new Set(prev).add(reqId))
     try {
       console.log(`🚀 ${action.toUpperCase()} REQUEST:`, reqId)
       
-      const response = await apiCall(`${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`, {
-        method: 'POST',
-        body: JSON.stringify({ notes: notes ?? decisionNotes })
-      })
+      let url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/${action}`
+      let method = 'POST'
+      // If backend expects PATCH /decide for approval, route accordingly
+      if (action === 'approve') {
+        url = `${API_BASE_URL}/api/v1/tenants/dnc-requests/${reqId}/decide`
+        method = 'PATCH'
+      }
+      const body = action === 'approve'
+        ? JSON.stringify({ decision: 'approved', notes: notes ?? decisionNotes, propagate_to: propagateTo || undefined })
+        : JSON.stringify({ notes: notes ?? decisionNotes })
+      const response = await apiCall(url, { method, body })
       
       console.log(`✅ ${action.toUpperCase()} SUCCESS:`, response)
       await fetchPending(false)
@@ -522,8 +529,9 @@ export const AdminDncRequests: React.FC<Props> = ({ organizationId, adminUserId 
         requestedBy={userMap[approveModalFor.requested_by_user_id]?.name || userMap[approveModalFor.requested_by_user_id]?.email}
         reason={approveModalFor.reason}
         submitted={approveModalFor.created_at}
-        onApprove={async (notes) => {
-          await act(approveModalFor.id, 'approve', notes)
+        systemsCheckResults={systemsChecks[approveModalFor.phone_e164]}
+        onApprove={async (notes, propagateTo) => {
+          await act(approveModalFor.id, 'approve', notes, propagateTo)
           setApproveModalFor(null)
         }}
         onCancel={() => setApproveModalFor(null)}

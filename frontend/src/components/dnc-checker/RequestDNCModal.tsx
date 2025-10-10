@@ -10,9 +10,9 @@ function formatDigits(value: string): string {
   return (value || '').replace(/\D+/g, '')
 }
 
-export const RequestDNCModal: React.FC<{ organizationId: number; onClose: ()=>void }>
-  = ({ organizationId, onClose }) => {
-  const [phone, setPhone] = useState('')
+export const RequestDNCModal: React.FC<{ organizationId: number; onClose: ()=>void; phoneNumber?: string }>
+  = ({ organizationId, onClose, phoneNumber }) => {
+  const [phone, setPhone] = useState(() => (phoneNumber ? formatDigits(phoneNumber) : ''))
   const [reason, setReason] = useState('Customer opt-out')
   const [channel, setChannel] = useState<'voice'|'sms'>('voice')
   const [notes, setNotes] = useState('')

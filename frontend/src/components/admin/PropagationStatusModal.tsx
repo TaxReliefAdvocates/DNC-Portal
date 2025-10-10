@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge'
 
 type Attempt = {
   service_key: string
-  status: 'pending'|'in_progress'|'success'|'failed'
+  status: 'pending'|'in_progress'|'success'|'failed'|'skipped'
   http_status?: number
   provider_request_id?: string
   started_at?: string
@@ -41,8 +41,9 @@ export const PropagationStatusModal: React.FC<{ requestId: number; phone: string
   }, [requestId])
 
   const progress = useMemo(() => {
-    const total = attempts.length || 5
-    const done = attempts.filter(a => a.status === 'success' || a.status === 'failed').length
+    const filtered = attempts.filter(a => a.status !== 'skipped')
+    const total = filtered.length || 5
+    const done = filtered.filter(a => a.status === 'success' || a.status === 'failed').length
     return Math.round((done / total) * 100)
   }, [attempts])
 

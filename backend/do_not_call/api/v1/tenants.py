@@ -1220,20 +1220,39 @@ def create_dnc_request(organization_id: int, payload: dict, db: Session = Depend
     return {"id": row[0], "status": row[1]}
 
 
+@router.patch("/dnc-requests/{request_id}/decide")
 def approve_dnc_request(request_id: int, payload: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db), principal: Principal = Depends(get_principal)):
     """Approve request using pure SQL transaction function, then queue propagation."""
     logger.info(f"🚀 APPROVAL START (SQL): Request {request_id} - Principal: {getattr(principal, 'user_id', 'unknown')} Role: {getattr(principal, 'role', 'unknown')}")
     if principal.role not in ["owner", "admin", "superadmin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     notes = (payload or {}).get("notes", "")
+    decision = (payload or {}).get("decision", "approved")
+    propagate_to: list[str] = (payload or {}).get("propagate_to", []) or ["ringcentral","convoso","ytel","logics","genesys"]
     reviewer = int(getattr(principal, "user_id", 0) or 0)
     try:
+        if str(decision) != "approved":
+            # Simple path for denial using existing deny endpoint logic
+    req = db.query(DNCRequest).get(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.status != "pending":
+        raise HTTPException(status_code=400, detail="Request already decided")
+            req.status = "denied"
+            req.reviewed_by_user_id = reviewer
+    from datetime import datetime
+    req.decided_at = datetime.utcnow()
+            req.decision_notes = notes
+            db.commit()
+            return {"request_id": request_id, "status": "denied"}
+
         db.execute(text("SELECT approve_dnc_request_tx(:rid, :rev, :notes)"), {"rid": request_id, "rev": reviewer, "notes": notes})
         db.commit()
         row = db.execute(text("SELECT organization_id, phone_e164 FROM dnc_requests WHERE id = :rid"), {"rid": request_id}).fetchone()
         if row:
-            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(request_id), int(row[0]), str(row[1]))
-        return {"request_id": request_id, "status": "approved", "message": "Request approved - propagation queued"}
+            # Launch background propagation with selected providers encoded in payload
+            background_tasks.add_task(_propagate_approved_entry_with_systems_check, int(request_id), int(row[0]), str(row[1]), propagate_to)
+        return {"request_id": request_id, "status": "approved", "message": "Request approved - propagation queued", "propagate_to": propagate_to}
     except Exception as e:
         db.rollback()
         logger.error(f"❌ APPROVAL FAILED (SQL): {e}")
@@ -1256,7 +1275,7 @@ def get_request_status(request_id: int, db: Session = Depends(get_db), principal
             SELECT DISTINCT ON (service_key)
                    service_key, status, http_status, provider_request_id, started_at, finished_at,
                    EXTRACT(EPOCH FROM (COALESCE(finished_at, now()) - started_at))::float AS duration_seconds,
-                   error_message
+                   error_message, attempt_no, response_payload
             FROM propagation_attempts
             WHERE request_id = :rid
             ORDER BY service_key, attempt_no DESC, started_at DESC, id DESC
@@ -1264,7 +1283,19 @@ def get_request_status(request_id: int, db: Session = Depends(get_db), principal
         ),
         {"rid": request_id},
     ).mappings().all()
-    return {"aggregate": agg or {}, "attempts": attempts}
+    totals = db.execute(
+        text(
+            """
+            SELECT service_key, COUNT(*) AS total_attempts
+            FROM propagation_attempts
+            WHERE request_id = :rid
+            GROUP BY service_key
+            """
+        ),
+        {"rid": request_id},
+    ).mappings().all()
+    attempt_totals = {row["service_key"]: int(row["total_attempts"]) for row in totals}
+    return {"aggregate": agg or {}, "attempts": attempts, "attempt_totals": attempt_totals}
 
 
 @router.get("/dnc-requests/{request_id}/events")
@@ -1319,7 +1350,7 @@ def retry_propagation(payload: dict, db: Session = Depends(get_db), principal: P
             started_at=datetime.utcnow(),
         )
         db.add(attempt)
-        db.commit()
+    db.commit()
         db.refresh(attempt)
 
         import anyio
@@ -1498,8 +1529,7 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
             from ...core.crm_clients.ringcentral import RingCentralService
             from ...core.crm_clients.convoso import ConvosoClient
             from ...core.crm_clients.ytel import YtelClient
-            from ...api.v1.providers.genesys import patch_dnclist_phone_numbers
-            from ...api.v1.providers.logics import update_case_status
+            # Provider APIs imported inside try blocks later to prevent module import from failing entire task
             from ...api.v1.providers.common import GenesysPatchPhoneNumbersRequest, LogicsUpdateCaseRequest
             from ...config import settings as cfg
             import httpx
@@ -1664,9 +1694,33 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                             db2.commit()
                             logger.info(f"Marked {provider} as failed - {status['error']}")
 
-                # Update existing pending propagation attempts for systems that need the number added
+                # Normalize propagate_to and mark unselected attempts as skipped
+                selected = set((propagate_to or ["dnc","ringcentral","convoso","ytel","logics","genesys"]))
+                logger.info(f"🎯 PROPAGATION: Will update systems: {sorted(list(selected))}")
+
+                try:
+                    for svc in ("dnc","ringcentral","convoso","ytel","logics","genesys"):
+                        if svc not in selected:
+                            attempt = db2.query(PropagationAttempt).filter(
+                                PropagationAttempt.request_id == request_id,
+                                PropagationAttempt.service_key == svc,
+                                PropagationAttempt.status.in_(["pending","in_progress"])
+                            ).first()
+                            if attempt:
+                                attempt.status = "skipped"
+                                attempt.error_message = "Admin chose not to propagate to this system"
+                                attempt.finished_at = datetime.utcnow()
+                                db2.commit()
+                                logger.info(f"⏭️ MARKED SKIPPED: {svc}")
+                except Exception:
+                    pass
+
+                # Update existing pending propagation attempts for systems that need the number added and are selected
                 logger.info(f"🚀 PUSHING TO SYSTEMS: Processing {len(providers_to_push)} services that need push")
                 for key in providers_to_push:
+                    if key not in selected:
+                        logger.info(f"⏭️ SKIPPING {key}: Not selected for propagation")
+                        continue
                     logger.info(f"🔧 PROCESSING SERVICE: {key} for {phone_e164}")
                     # Check provider enabled
                     row = db2.query(SystemSetting).filter(SystemSetting.key == key).first()
@@ -1714,45 +1768,53 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                     # Execute provider-specific add-to-DNC
                     try:
                         if key == "ringcentral":
-                            client = RingCentralService()
-                            res = await client.remove_phone_number(phone_e164)
+                            try:
+                                client = RingCentralService()
+                                res = await client.remove_phone_number(phone_e164)
+                            except Exception as e:
+                                raise
                         elif key == "convoso":
-                            client = ConvosoClient()
-                            res = await client.remove_phone_number(phone_e164)
+                            try:
+                                client = ConvosoClient()
+                                res = await client.remove_phone_number(phone_e164)
+                            except Exception:
+                                raise
                         elif key == "ytel":
-                            client = YtelClient()
-                            res = await client.remove_phone_number(phone_e164)
+                            try:
+                                client = YtelClient()
+                                res = await client.remove_phone_number(phone_e164)
+                            except Exception:
+                                raise
                         elif key == "genesys":
-                            g_list = getattr(cfg, "genesys_dnclist_id", None)
-                            if g_list:
-                                request = GenesysPatchPhoneNumbersRequest(
-                                    action="Add",
-                                    phone_numbers=[phone_e164],
-                                    expiration_date_time=""
-                                )
+                            try:
+                                g_list = getattr(cfg, "genesys_dnclist_id", None)
+                                if not g_list:
+                                    raise Exception("Provider not configured: genesys_dnclist_id missing")
+                                from ...api.v1.providers.genesys import patch_dnclist_phone_numbers  # defer import
+                                request = GenesysPatchPhoneNumbersRequest(action="Add", phone_numbers=[phone_e164], expiration_date_time="")
                                 res = await patch_dnclist_phone_numbers(g_list, request)
-                            else:
-                                raise Exception("Genesys DNC list ID not configured")
+                            except Exception as e:
+                                raise
                         elif key == "logics":
-                            # For Logics, we need to update existing cases to DNC status
-                            cases = systems_status.get("logics", {}).get("cases", [])
-                            if cases:
-                                # Update the first case to DNC status (StatusID 57)
+                            try:
+                                # Skip if update function not available
+                                try:
+                                    from ...api.v1.providers.logics import update_case_status  # defer import
+                                except Exception:
+                                    raise Exception("Logics integration not available, skipping")
+                                cases = systems_status.get("logics", {}).get("cases", [])
+                                if not cases:
+                                    raise Exception("No cases found to update")
                                 case_id = cases[0].get("CaseID")
-                                if case_id:
-                                    request = LogicsUpdateCaseRequest(
-                                        case_id=case_id,
-                                        status_id=57,  # DNC status
-                                        notes="Added to DNC via approved request"
-                                    )
-                                    res = await update_case_status(request)
-                                else:
+                                if not case_id:
                                     raise Exception("No valid case ID found")
-                            else:
-                                raise Exception("No cases found to update")
+                                request = LogicsUpdateCaseRequest(case_id=case_id, status_id=57, notes="Added to DNC via approved request")
+                                res = await update_case_status(request)
+                            except Exception as e:
+                                raise
                         else:
                             raise Exception("provider push not implemented")
-                            
+
                         attempt.status = "success"
                         attempt.response_payload = res
                         attempt.finished_at = datetime.utcnow()
@@ -1761,8 +1823,9 @@ def _propagate_approved_entry_with_systems_check(request_id: int, organization_i
                         attempt.status = "failed"
                         attempt.error_message = str(e)
                         attempt.finished_at = datetime.utcnow()
-                        logger.error(f"❌ PUSH FAILED: {key} - {phone_e164} failed: {str(e)}")
-                    db2.commit()
+                        logger.warning(f"⚠️ PUSH FAILED: {key} - {phone_e164}: {str(e)}")
+                    finally:
+                        db2.commit()
                     logger.info(f"💾 ATTEMPT UPDATED: {key} status saved to database")
                 
             finally:

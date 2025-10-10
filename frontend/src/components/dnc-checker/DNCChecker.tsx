@@ -55,6 +55,7 @@ export const DNCChecker: React.FC = () => {
   
   // DNC Request modal state
   const [showDncRequestModal, setShowDncRequestModal] = useState<boolean>(false)
+  const [requestModalPhone, setRequestModalPhone] = useState<string>('')
   
   // Get user role to determine if Request DNC button should be shown
   const userRole = localStorage.getItem('role') || 'user'
@@ -459,6 +460,7 @@ export const DNCChecker: React.FC = () => {
   }
 
   const openDncRequestModal = (_phoneNumber: string) => {
+    setRequestModalPhone(_phoneNumber || systemsPhone || '')
     setShowDncRequestModal(true)
   }
 
@@ -1093,7 +1095,11 @@ export const DNCChecker: React.FC = () => {
 
       {/* DNC Request Modal */}
       {showDncRequestModal && (
-        <RequestDNCModal organizationId={Number(localStorage.getItem('org_id') || '1')} onClose={closeDncRequestModal} />
+        <RequestDNCModal 
+          organizationId={Number(localStorage.getItem('org_id') || '1')} 
+          onClose={closeDncRequestModal}
+          phoneNumber={requestModalPhone}
+        />
       )}
     </div>
   )

@@ -5,6 +5,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { StatusBadge } from './StatusBadge'
+import { RequestDetailsModal } from './RequestDetailsModal'
 
 type Row = {
   id: number
@@ -22,6 +23,7 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
+  const [detailsFor, setDetailsFor] = useState<number|null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -94,7 +96,7 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
         {loading ? (
           <div className="text-sm text-gray-600">Loading…</div>
         ) : filtered.length === 0 ? (
-          <div className="text-sm text-gray-600">No history found.</div>
+          <div className="text-sm text-gray-600">No requests found. Try adjusting your filters.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border">
@@ -107,6 +109,7 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
                   <th className="p-2 text-left">Approved By</th>
                   <th className="p-2 text-left">Submitted</th>
                   <th className="p-2 text-left">Completed</th>
+                  <th className="p-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,11 +122,15 @@ export const AdminHistory: React.FC<{ organizationId: number }>= ({ organization
                     <td className="p-2">{r.reviewed_by_user_id || '—'}</td>
                     <td className="p-2">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
                     <td className="p-2">{r.decided_at ? new Date(r.decided_at).toLocaleString() : '—'}</td>
+                    <td className="p-2"><Button variant="outline" onClick={() => setDetailsFor(r.id)}>View Details</Button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
+        {detailsFor != null && (
+          <RequestDetailsModal requestId={detailsFor} onClose={() => setDetailsFor(null)} />
         )}
       </CardContent>
     </Card>
