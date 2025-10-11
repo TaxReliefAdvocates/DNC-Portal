@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
+from fastapi.responses import JSONResponse
 from typing import Optional
 from loguru import logger
 
@@ -47,18 +48,47 @@ async def convoso_auth_placeholder():
 	return ComingSoonResponse()
 
 
+def _cors_headers():
+	# Narrow allow-origin to the deployed frontend; adjust as needed for dev
+	return {
+		"Access-Control-Allow-Origin": "https://dnc-frontend.onrender.com",
+		"Access-Control-Allow-Methods": "POST, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type, X-Org-Id, X-User-Id, X-Role",
+	}
+
+
+@router.options("/add-dnc")
+async def add_dnc_options():
+	# Handle preflight with explicit CORS headers
+	return JSONResponse(status_code=200, content={"ok": True}, headers=_cors_headers())
+
+
 @router.post("/add-dnc", response_model=DNCOperationResponse)
-async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None):
+async def add_to_dnc(request: AddToDNCRequest, auth_token: Optional[str] = None, response: Response = None):
 	token = get_token(auth_token)
 	url = "https://api.convoso.com/v1/dnc/insert"
 	params = {"auth_token": token, "phone_number": request.phone_number}
 	if request.phone_code:
 		params["phone_code"] = request.phone_code
-	async with HttpClient() as http:
-		resp = await http.get(url, params=params)
-		text = resp.text
-		logger.info(f"Convoso add_to_dnc response: {text}")
-		return DNCOperationResponse(success=True, message="Added to DNC (Convoso)", data={"raw": text})
+	# Always attach CORS headers on the response
+	if response is not None:
+		for k, v in _cors_headers().items():
+			response.headers[k] = v
+	try:
+		# Convoso expects POST for insert
+		async with HttpClient() as http:
+			resp = await http.post(url, data=params)
+			text = resp.text
+			logger.info(f"Convoso add_to_dnc response: {text}")
+			return DNCOperationResponse(success=True, message="Added to DNC (Convoso)", data={"raw": text})
+	except Exception as e:
+		logger.error(f"Convoso add_to_dnc failed: {e}")
+		# Ensure CORS headers present even on failure
+		return JSONResponse(status_code=502, content={
+			"success": False,
+			"message": "Convoso add_to_dnc failed",
+			"error": str(e),
+		}, headers=_cors_headers())
 
 
 @router.post("/search-dnc", response_model=DNCOperationResponse)
