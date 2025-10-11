@@ -171,68 +171,31 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
     try {
       console.log(`Pushing ${phone} to ${provider}...`)
       
-      // record attempt start
-      try {
-        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'pending', attempt_no: 1 })
-        })
-      } catch {}
-      if (provider === 'ringcentral') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ringcentral/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`RingCentral response: ${resp.status}`)
-      } else if (provider === 'convoso') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/convoso/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Convoso response: ${resp.status}`)
-      } else if (provider === 'ytel') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/ytel/add-dnc`, { 
-          method:'POST', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ phone_number: phone })
-        })
-        console.log(`Ytel response: ${resp.status}`)
-        if (resp.ok) {
-          const ytelResponse = await resp.json()
-          console.log(`Ytel message: ${ytelResponse.message}`)
-          if (ytelResponse.data?.already_on_dnc) {
-            alert(`ℹ️ ${ytelResponse.message}`)
-          } else if (ytelResponse.data?.added_to_dnc || ytelResponse.data?.added_to_global_dnc) {
-            alert(`✅ ${ytelResponse.message}`)
-          }
-        }
-      } else if (provider === 'genesys') {
-        const resp = await fetch(`${API_BASE_URL}/api/v1/genesys/dnclists/d4a6a02e-4ab9-495b-a141-4c65aee551db/phonenumbers`, { 
-          method:'PATCH', 
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ 
-            action: "Add", 
-            phone_numbers: [phone], 
-            expiration_date_time: "" 
-          })
-        })
-        console.log(`Genesys response: ${resp.status}`)
-      } else if (provider === 'logics') {
-        const res = results[phone]
-        const firstCaseId = res?.providers?.logics?.cases?.[0]?.CaseID
-        if (firstCaseId) {
-          const resp = await fetch(`${API_BASE_URL}/api/v1/logics/update-case`, { 
-            method:'POST', 
-            headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-            body: JSON.stringify({ caseId: firstCaseId, statusId: 2 })
-          })
-          console.log(`Logics response: ${resp.status}`)
-        }
+      // Unified retry endpoint per provider to avoid CORS and centralize logic
+      const resp = await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/retry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
+        body: JSON.stringify({ service_key: provider, phone_e164: phone })
+      })
+      const dataText = await resp.text()
+      let data: any = dataText
+      try { data = JSON.parse(dataText) } catch {}
+      if (!resp.ok || data?.status === 'failed') {
+        throw new Error(data?.error_message || `Provider retry failed (${resp.status})`)
       }
       console.log(`Successfully pushed ${phone} to ${provider}`)
+      // Re-check only the pushed provider
+      if (provider === 'ringcentral') {
+        await fetch(`${API_BASE_URL}/api/v1/ringcentral/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+      } else if (provider === 'convoso') {
+        await fetch(`${API_BASE_URL}/api/v1/convoso/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+      } else if (provider === 'ytel') {
+        await fetch(`${API_BASE_URL}/api/v1/ytel/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+      } else if (provider === 'genesys') {
+        await fetch(`${API_BASE_URL}/api/v1/genesys/search-dnc`, { method:'POST', headers: { 'Content-Type': 'application/json', ...getDemoHeaders() }, body: JSON.stringify({ phone_number: phone }) })
+      } else if (provider === 'logics') {
+        await recheckLogics(phone)
+      }
       await runCheck(phone)
       setProgress((p)=>({
         ...p,
@@ -240,13 +203,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         per: { ...p.per, [provider]: { ...p.per[provider], completed: p.per[provider].completed + 1 } },
         logs: [...p.logs, `${provider} ✓ ${phone}`].slice(-200)
       }))
-      try {
-        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'success', attempt_no: 1 })
-        })
-      } catch {}
     } catch (e) {
       console.error(`Failed to push ${phone} to ${provider}:`, e)
       alert(`Failed to push ${phone} to ${provider}: ${(e as Error)?.message || 'Unknown error'}`)
@@ -256,13 +212,6 @@ export const SystemsCheckPane: React.FC<Props> = ({ numbers, onAutomationComplet
         per: { ...p.per, [provider]: { ...p.per[provider], failed: p.per[provider].failed + 1 } },
         logs: [...p.logs, `${provider} ✗ ${phone} ${(e as Error)?.message || ''}`].slice(-200)
       }))
-      try {
-        await fetch(`${API_BASE_URL}/api/v1/tenants/propagation/attempt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getDemoHeaders() },
-          body: JSON.stringify({ organization_id: 1, service_key: provider, phone_e164: phone, status: 'failed', error_message: (e as Error)?.message || 'failed', attempt_no: 1 })
-        })
-      } catch {}
     } finally { setPushing(null) }
   }
 
